@@ -17,8 +17,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「古巴比倫王頒布了漢摩拉比法典，刻在黑色的玄武岩，距今已經三千七百多年……」狂暴的時空亂流撕扯著一切物質！',
     options: [
       {
-        text: '肉身穿越回西元前（清空行囊物品，回到第 1 回合）',
-        require: { notCharacter: 'has_time_machine' },
+        text: '肉身穿越回西元前',
         resultText: '身邊所有現代武器與物品在泥板歲月中化為塵埃！你只憑藉靈魂記憶重返最初的起點。',
         effect: {
           rewindRound: 1,
@@ -26,7 +25,7 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '啟動【時光機】防護罩（抵抗時空亂流）',
+        text: '啟動【時光機】防護罩',
         require: { item: '時光機' },
         resultText: '時光機發出璀璨的護盾，將你牢牢固定在當前的時空節點，未被時空狂瀾捲走。',
         effect: {},
@@ -46,7 +45,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「想回到過去，試著讓故事繼續，至少不再讓妳離我而去……」孤單的音符化為逆流的光陰。',
     options: [
       {
-        text: '順著旋律逆轉光陰（清空背包，保留記憶重回第 1 回合）',
+        text: '順著旋律逆轉光陰',
         resultText: '身上的器物飄落時空長河，但你的心中保留了所有冒險的記憶與悔恨，重新回到第 1 回合！',
         effect: {
           rewindRound: 1,
@@ -54,7 +53,7 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '憑藉【時光機】自主選擇（保留當前時空）',
+        text: '憑藉【時光機】自主選擇',
         require: { item: '時光機' },
         resultText: '時光機懸浮運轉，你從容地撫平了時間裂痕，選擇繼續當前的冒險。',
         effect: {},
@@ -74,7 +73,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「那童年的希望是一台時光機，我可以一路開心到底都不換氣……」真正的時空控制器！',
     options: [
       {
-        text: '收納至行囊中（獲得時空掌控權）',
+        text: '收納至行囊中',
         resultText: '你獲得了至高神器【時光機】！自此任何時空倒流皆由你自主定奪，甚至可主動回溯歲月。',
         effect: {
           addItem: '時光機',
@@ -82,7 +81,7 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '立即發動時光機（保留全部物品，帶行囊回到第 1 回合！）',
+        text: '立即發動時光機',
         resultText: '你握緊時光機操縱桿，帶著滿載的行囊與線索，毫髮無傷地重新回到第 1 回合！人生得以重啟！',
         effect: {
           addItem: '時光機',
@@ -105,7 +104,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「這是一種可以把你的秘密都裝進去的盒子，永遠不會隨時光的流逝而丟失……」',
     options: [
       {
-        text: '拾起半島鐵盒放入行囊（解鎖跨局保存功能）',
+        text: '拾起半島鐵盒放入行囊',
         resultText: '獲得【半島鐵盒】！你可以藉由鐵盒跨越局數宿命，將關鍵線索或特定物品完整傳承至下一局。',
         effect: {
           addItem: '半島鐵盒',
@@ -219,7 +218,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「以敦煌為圓心的東北東，這民族的海岸線像一隻弓，渴望著飛騰的宿命之龍！」',
     options: [
       {
-        text: '「等待英雄我就是那條龍」（英雄專屬覺醒）',
+        text: '「等待英雄我就是那條龍」',
         require: { character: '英雄' },
         resultText: '金色的龍影自你雙拳升騰而起！天地共鳴，宿命之戰已被引動！',
         effect: {
@@ -228,7 +227,7 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '「我右拳打開了天化身為龍」（常規角色覺醒）',
+        text: '「我右拳打開了天化身為龍」',
         require: { notCharacter: '英雄' },
         resultText: '狂暴的龍魂湧入全身！你體內的潛能被徹底點燃，宿命之戰即將降臨！',
         effect: {
@@ -237,7 +236,7 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '「將東方的日出調整了時空」（偏離龍道，引發時空變異）',
+        text: '「將東方的日出調整了時空」',
         require: { notCharacter: '英雄' },
         resultText: '時空指針發生逆流偏轉，周遭景致急速褪色，你被吸入光陰漩渦！',
         effect: {
@@ -245,7 +244,7 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '「我把天地拆封將長江水掏空」（內力枯竭，陷入擱淺困局）',
+        text: '「我把天地拆封將長江水掏空」',
         require: { notCharacter: '英雄' },
         resultText: '天地反噬，浩蕩水氣潰散！你體力大幅透支，陷入沉重的心境深淵。',
         effect: {
@@ -268,7 +267,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「末日遠方戰火燃燒，龍戰騎士跨坐在機械巨龍之上，熾熱的龍息封鎖了一切退路。」',
     options: [
       {
-        text: '「我已化身為龍，迎戰宿命！」（需藉由龍拳覺醒，以雙刀斬擊）',
+        text: '「我已化身為龍，迎戰宿命！」揮動雙刀斬擊',
         require: { flag: 'dragon_awakened', flagValue: true, item: '雙刀' },
         resultText: '雙刀流星般交錯劈砍！龍戰騎士佩劍震顫，讚嘆道：「我認可你了，但你終會被將一軍！」你成功贏得龍戰騎士卡片！',
         effect: {
@@ -278,7 +277,7 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '「我已化身為龍，迎戰宿命！」（需藉由龍拳覺醒，以雙截棍狂擊）',
+        text: '「我已化身為龍，迎戰宿命！」揮動雙截棍狂擊',
         require: { flag: 'dragon_awakened', flagValue: true, item: '雙截棍' },
         resultText: '雙截棍呼嘯破空，快如疾電！龍戰騎士單膝跪地，收起巨劍：「我認可你了，但你終會被將一軍！」你成功奪得龍戰騎士卡片！',
         effect: {
@@ -288,7 +287,7 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '英雄天威・降龍拔劍（英雄專屬赤手壓制）',
+        text: '英雄天威・降龍拔劍',
         require: { character: '英雄', flag: 'dragon_awakened', flagValue: true },
         resultText: '身為天命真龍，英雄雙掌平推硬生生接下巨龍衝擊！龍戰騎士動容折服，奉上專屬戰卡！',
         effect: {
@@ -305,7 +304,7 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '尚未覺醒龍魂者挑戰（盲抽時未達成條件）',
+        text: '正面迎戰機械巨龍',
         resultText: '龍戰騎士居高臨下冷冷凝視你：「你還不是宿命之人，退下吧！」勁風將你震退，無法獲得此卡。',
         effect: {},
       },
@@ -407,7 +406,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「鐘逆時針而繞，惡菊對月而笑。黑色的披風獵獵作響，時代的巨輪呼嘯跨越……」',
     options: [
       {
-        text: '「我謙卑安靜的於城堡下的晚禱」（啟動前往威廉古堡之門）',
+        text: '「我謙卑安靜的於城堡下的晚禱」',
         resultText: '迷霧漸散，巍峨肅穆的哥德式黑色城堡巍然矗立在眼前！威廉古堡大門為你敞開！',
         effect: {
           setFlag: { castle_unlocked: true },
@@ -415,14 +414,14 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '「我跨越過世代如獸般的姿態」（引來荒野凶獸）',
+        text: '「我跨越過世代如獸般的姿態」',
         resultText: '咆哮聲震碎夜空，野獸般的氣息呼嘯而來，驚動了嗜血的半獸人！',
         effect: {
           forceNextCardId: 'C2002-01',
         },
       },
       {
-        text: '「我的樂器在環繞時代無法淘汰我霸氣的皇朝」（獲取巨型大提琴）',
+        text: '「我的樂器在環繞時代無法淘汰我霸氣的皇朝」',
         resultText: '悠揚深沉的琴聲響徹雲霄，你獲得了樂器【比較大的大提琴】！',
         effect: {
           addItem: '比較大的大提琴',
@@ -443,7 +442,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「藤蔓爬滿了伯爵的墳墓，古堡深處傳來古怪的私語。四名各懷秘密的古堡人物正注視著你……」',
     options: [
       {
-        text: '晉見威廉二世（需持有【床邊故事】讓他入眠）',
+        text: '晉見威廉二世',
         require: { item: '床邊故事' },
         resultText: '你輕輕吟唱床邊故事，威廉二世沉沉睡去，你悄悄自他腰間取下了【反方向的鐘】！',
         effect: {
@@ -453,7 +452,7 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '向凱薩琳公主問安（批評其任性「公主病」）',
+        text: '向凱薩琳公主問安',
         resultText: '凱薩琳公主勃然大怒：「大膽！竟敢說本宮有公主病！」憤怒的魔法降臨，你被詛咒化身為【陽光宅男】！',
         effect: {
           changeCharacter: 'char_sunshine',
@@ -461,14 +460,14 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '拜訪胖女巫（檢驗是否身懷【詠物調】傳奇成就）',
+        text: '拜訪胖女巫',
         resultText: '胖女巫冷眼打量著你。若你已解鎖【詠物調】神曲，她將為你呈上失落的【時光機】；若無，則觸發時空亂流《愛在西元前》！',
         effect: {
           setFlag: { visited_witch: true },
         },
       },
       {
-        text: '慰勞豬管家（需遞上【療傷燒肉粽】）',
+        text: '慰勞豬管家',
         require: { item: '療傷燒肉粽' },
         resultText: '熱騰騰的燒肉粽讓豬管家感動得熱淚盈眶，傷感地回憶起往事，贈予你泛黃的日記《琴傷》！',
         effect: {
@@ -477,7 +476,7 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '兩手空空，摸摸鼻子從古堡離開',
+        text: '摸摸鼻子從古堡離開',
         resultText: '城堡裡的僕役與幽靈冷漠地看著你。沒有對應信物，你只能暫且退回迷霧之中。',
         effect: {},
       },
@@ -558,10 +557,10 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '融合【完美主義】+【我不配】+【超人不會飛】煉成 SS卡《杰倫》',
-        require: { item: '完美主義', flag: 'ready_jay' },
+        require: { items: ['完美主義', '我不配', '超人不會飛'] },
         resultText: '三道光芒沖天而起，匯聚成第一張傳世神卡——SS卡【《杰倫》】！',
         effect: {
-          removeItem: '完美主義',
+          removeItems: ['完美主義', '我不配', '超人不會飛'],
           addItem: '《杰倫》',
           setFlag: { has_album_jay: true },
         },
@@ -628,8 +627,10 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '解構【爸我回來了】+【對不起】+【安靜】化作 SS卡《范特西》',
+        require: { items: ['爸我回來了', '對不起', '安靜'] },
         resultText: '奇蹟魔術上演！三張憂傷的拼圖在幻影中重組，綻放出無與倫比的赤紅光芒——SS卡【《范特西》】現世！',
         effect: {
+          removeItems: ['爸我回來了', '對不起', '安靜'],
           addItem: '《范特西》',
           setFlag: { has_album_fantasy: true },
         },

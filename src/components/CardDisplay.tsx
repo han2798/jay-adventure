@@ -60,6 +60,12 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
         return { available: false, reason: `缺少道具【${r.item}】` };
       }
     }
+    if (r.items && r.items.length > 0) {
+      const missing = r.items.filter((item) => !(gameState.inventory[item] > 0));
+      if (missing.length > 0) {
+        return { available: false, reason: `缺少素材【${missing.join('、')}】` };
+      }
+    }
     if (r.flag) {
       const flagVal = gameState.flags[r.flag];
       const requiredVal = r.flagValue !== undefined ? r.flagValue : true;
@@ -142,17 +148,17 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
                   className={`w-full text-left px-4 py-3 rounded-xl border font-medium text-sm transition-all duration-200 flex flex-col gap-1 ${
                     check.available
                       ? 'bg-[#1d1c1a] hover:bg-[#2c281d] text-amber-100 border-[#6b5820] hover:border-[#d4af37] shadow-sm hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] active:scale-[0.99] cursor-pointer'
-                      : 'bg-stone-900/40 text-stone-500 border-stone-800 cursor-not-allowed'
+                      : 'bg-stone-900/40 text-stone-500 border-stone-800/80 cursor-not-allowed opacity-60'
                   }`}
                 >
                   <div className="flex items-center justify-between w-full">
-                    {/* Plain clean option text WITHOUT A. B. prefix */}
-                    <span className="font-semibold text-stone-200 text-sm font-sans">
+                    {/* Plain clean option text without spoilers */}
+                    <span className={`font-semibold text-sm font-sans ${check.available ? 'text-stone-200' : 'text-stone-500'}`}>
                       {option.text}
                     </span>
                     {!check.available && (
-                      <span className="text-[11px] text-red-400 font-mono bg-red-950/60 px-2 py-0.5 rounded border border-red-900/60">
-                        {check.reason}
+                      <span className="text-xs text-stone-600 font-mono">
+                        🔒
                       </span>
                     )}
                   </div>

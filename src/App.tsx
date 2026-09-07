@@ -76,6 +76,10 @@ export default function App() {
   // Modals state
   const [showCompendium, setShowCompendium] = useState<boolean>(false);
   const [showDevModal, setShowDevModal] = useState<boolean>(false);
+  const [showDevPasswordModal, setShowDevPasswordModal] = useState<boolean>(false);
+  const [devPasswordInput, setDevPasswordInput] = useState<string>('');
+  const [devPasswordError, setDevPasswordError] = useState<string>('');
+  const [showWipeMemoryModal, setShowWipeMemoryModal] = useState<boolean>(false);
 
   // Add Log Helper
   const addLog = useCallback(
@@ -331,6 +335,16 @@ export default function App() {
 
       if (eff.removeItem && nextInventory[eff.removeItem]) {
         nextInventory[eff.removeItem] = Math.max(0, nextInventory[eff.removeItem] - 1);
+        if (nextInventory[eff.removeItem] === 0) delete nextInventory[eff.removeItem];
+      }
+
+      if (eff.removeItems) {
+        eff.removeItems.forEach((item) => {
+          if (nextInventory[item]) {
+            nextInventory[item] = Math.max(0, nextInventory[item] - 1);
+            if (nextInventory[item] === 0) delete nextInventory[item];
+          }
+        });
       }
 
       if (eff.setFlag) {
@@ -667,8 +681,8 @@ export default function App() {
     startNewRound(29);
   };
 
-  const handleResetMeta = () => {
-    localStorage.removeItem(STORAGE_KEY_META);
+  const handleFullMemoryWipe = () => {
+    localStorage.clear();
     setMeta({
       unlockedCardIds: [],
       unlockedAchievements: [],
@@ -678,7 +692,30 @@ export default function App() {
       victories: [],
       nextGameFlags: {},
     });
-    addLog('已重置全域圖鑑與存檔記錄（歸零為 0 張）。', 'warning');
+    setGameState({
+      gameNumber: 1,
+      round: 0,
+      maxRounds: 30,
+      character: null,
+      inventory: {},
+      drawnCount: {},
+      flags: {},
+      jokerSlots: { place: null, shoes: null, performance: null },
+      reversedClockUsesRemaining: 3,
+      stats: { hp: 20, atk: 5 },
+      logs: [
+        {
+          round: 0,
+          text: '【時空歸零】所有歷史輪迴與前世記憶皆已抹除，新的宿命即將開展……',
+          type: 'milestone',
+        },
+      ],
+      phase: 'CHOOSE_CHARACTER',
+      revealedCard: null,
+      currentDrawChoices: [],
+    });
+    setShowWipeMemoryModal(false);
+    setShowCompendium(false);
   };
 
   return (
@@ -714,8 +751,22 @@ export default function App() {
           </button>
 
           <button
+            id="wipe-memory-btn"
+            onClick={() => setShowWipeMemoryModal(true)}
+            className="px-3 py-1.5 rounded-lg bg-stone-900/90 hover:bg-red-950/50 text-stone-300 hover:text-red-300 border border-stone-800 hover:border-red-900/70 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+            title="清除所有記憶，徹底歸零重新開始"
+          >
+            <span>🔄</span>
+            <span>記憶清除</span>
+          </button>
+
+          <button
             id="dev-mode-btn"
-            onClick={() => setShowDevModal(true)}
+            onClick={() => {
+              setDevPasswordInput('');
+              setDevPasswordError('');
+              setShowDevPasswordModal(true);
+            }}
             className="px-2.5 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/80 text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1"
           >
             <span>🔧</span>
@@ -920,8 +971,82 @@ export default function App() {
           onClose={() => setShowCompendium(false)}
           onStoreInIronBox={handleStoreIronBox}
           onTakeFromIronBox={handleTakeIronBox}
-          onResetMeta={handleResetMeta}
         />
+      )}
+
+      {/* Developer Test Modal - Password Guard */}
+      {showDevPasswordModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-[#141418] border-2 border-stone-800 rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-stone-900 border border-stone-700 flex items-center justify-center mx-auto text-xl text-amber-300">
+              🔒
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-amber-200 font-serif">
+                開發者測試模式・通行驗證
+              </h3>
+              <p className="text-xs text-stone-400 mt-1">
+                請輸入 4 位授權通行密碼以開啟測試面板
+              </p>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (devPasswordInput.trim() === '0000') {
+                  setShowDevPasswordModal(false);
+                  setShowDevModal(true);
+                  setDevPasswordError('');
+                  setDevPasswordInput('');
+                } else {
+                  setDevPasswordError('密碼錯誤，拒絕存取');
+                }
+              }}
+              className="flex flex-col gap-3"
+            >
+              <input
+                id="dev-password-input"
+                type="password"
+                maxLength={8}
+                value={devPasswordInput}
+                onChange={(e) => {
+                  setDevPasswordInput(e.target.value);
+                  setDevPasswordError('');
+                }}
+                autoFocus
+                placeholder="請輸入通行密碼"
+                className="w-full text-center tracking-widest text-lg font-mono py-2.5 px-4 rounded-xl bg-black/60 border border-stone-700 focus:border-amber-400 focus:outline-none text-amber-100 placeholder:text-stone-600 placeholder:text-sm placeholder:tracking-normal"
+              />
+
+              {devPasswordError && (
+                <p className="text-xs text-red-400 font-mono font-medium animate-pulse">
+                  {devPasswordError}
+                </p>
+              )}
+
+              <div className="flex gap-2.5 mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDevPasswordModal(false);
+                    setDevPasswordInput('');
+                    setDevPasswordError('');
+                  }}
+                  className="flex-1 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-bold transition-all cursor-pointer"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold transition-all cursor-pointer shadow-md"
+                >
+                  確認進入
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Developer Test Modal */}
@@ -975,6 +1100,60 @@ export default function App() {
             addLog(`【開發者指令】強制觸發【${type}】傳奇勝利！`, 'milestone');
           }}
         />
+      )}
+
+      {/* Universal Memory Wipe Modal */}
+      {showWipeMemoryModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-[#141418] border-2 border-red-900/60 rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-950/60 border border-red-800 flex items-center justify-center mx-auto text-xl text-red-400">
+              ⚠️
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-amber-200 font-serif">
+                全域記憶清除・重啟輪迴
+              </h3>
+              <p className="text-xs text-stone-300 mt-2 leading-relaxed">
+                確定要清除所有記憶嗎？此操作將<span className="text-red-400 font-bold">永久抹除</span>以下所有進度：
+              </p>
+            </div>
+
+            <div className="bg-[#0e0e11] border border-stone-800 rounded-xl p-3.5 text-left text-xs text-stone-400 space-y-2 font-sans">
+              <div className="flex items-center gap-2">
+                <span className="text-red-400 font-bold">✕</span>
+                <span>已解鎖歌曲圖鑑歸零 (0/63)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-red-400 font-bold">✕</span>
+                <span>全域成就與永久解鎖特質清空</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-red-400 font-bold">✕</span>
+                <span>當前行囊道具與跨局保存遺物全面清除</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-red-400 font-bold">✕</span>
+                <span>重返第 1 局最初的命運化身盲抽起點</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-2">
+              <button
+                onClick={() => setShowWipeMemoryModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                取消保留
+              </button>
+              <button
+                onClick={handleFullMemoryWipe}
+                className="flex-1 py-2.5 rounded-xl bg-red-900/80 hover:bg-red-700 text-white text-xs font-bold border border-red-700 transition-all cursor-pointer shadow-md"
+              >
+                確認徹底清除
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

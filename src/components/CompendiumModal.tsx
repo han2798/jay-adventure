@@ -11,7 +11,6 @@ interface CompendiumModalProps {
   onStoreInIronBox?: (itemName: string) => void;
   onTakeFromIronBox?: (itemName: string) => void;
   onToggleSkill?: (skillId: string) => void;
-  onResetMeta?: () => void;
 }
 
 export const CompendiumModal: React.FC<CompendiumModalProps> = ({
@@ -21,7 +20,6 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
   onStoreInIronBox,
   onTakeFromIronBox,
   onToggleSkill,
-  onResetMeta,
 }) => {
   // Sort songs strictly by Album chronological release year and Track number
   const albumOrderMap = useMemo(() => {
@@ -73,19 +71,6 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {onResetMeta && (
-              <button
-                onClick={() => {
-                  if (window.confirm('確定要清空全域圖鑑與成就進度（重置回 0 張）嗎？此動作無法復原。')) {
-                    onResetMeta();
-                  }
-                }}
-                className="text-stone-400 hover:text-red-300 text-xs px-2.5 py-1.5 rounded-lg bg-stone-900/90 hover:bg-red-950/30 border border-stone-800 hover:border-red-900/60 cursor-pointer transition-colors"
-                title="重置全域存檔為0"
-              >
-                重置圖鑑(歸零)
-              </button>
-            )}
             <button
               onClick={onClose}
               className="text-stone-300 hover:text-white text-sm px-3.5 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 border border-stone-700 cursor-pointer font-bold transition-colors"
@@ -155,24 +140,32 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
                 return (
                   <div
                     key={card.id}
-                    className={`p-3 rounded-xl border flex flex-col justify-between h-24 transition-all ${
+                    className={`p-3 rounded-xl border flex flex-col justify-between min-h-[100px] transition-all ${
                       unlocked
                         ? 'bg-[#18171d] border-amber-900/60 text-stone-200 shadow-sm'
                         : 'bg-[#0d0d10] border-stone-900/90 text-stone-600'
                     }`}
                   >
-                    <div className="flex justify-between items-start gap-1">
-                      <span className="text-xs font-bold truncate font-serif">
+                    {/* Top: Card Name (full width, prominent) */}
+                    <div className="w-full">
+                      <span
+                        className={`text-xs font-bold font-serif leading-snug block truncate ${
+                          unlocked ? 'text-amber-100' : 'text-stone-600'
+                        }`}
+                        title={unlocked ? card.name : undefined}
+                      >
                         {unlocked ? card.name : '？？？？'}
                       </span>
-                      <span className="text-[9px] font-mono px-1 rounded bg-black/40 text-stone-400 shrink-0">
+                      {/* Album Name moved below card name so it never squeezes or truncates the title */}
+                      <span className="text-[10px] text-stone-400 font-sans block truncate mt-1">
                         {card.album}
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-end text-[10px] text-stone-500 font-mono">
+                    {/* Bottom: Card ID & Track Number */}
+                    <div className="flex justify-between items-end text-[10px] text-stone-500 font-mono pt-1.5 border-t border-stone-800/50 mt-1">
                       <span>{card.id}</span>
-                      <span className={unlocked ? 'text-amber-400/90' : 'text-stone-600'}>
+                      <span className={unlocked ? 'text-amber-400/90 font-bold' : 'text-stone-600'}>
                         {unlocked ? `第${card.track}首` : '未解鎖'}
                       </span>
                     </div>

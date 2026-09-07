@@ -69,6 +69,7 @@ export const ALL_CHARACTERS: CharacterDefinition[] = [
   },
 ];
 
+// 玩家測試階段：初始盲抽化身僅開放【愛情廢柴】，怎麼抽都是
 export const INITIAL_SELECTABLE_CHARACTERS = ALL_CHARACTERS.filter(
-  (c) => !c.isSecret && c.id !== 'char_daughter'
+  (c) => c.id === 'char_loser'
 );

@@ -6,6 +6,7 @@ export interface CardOption {
     character?: string;
     notCharacter?: string;
     item?: string;
+    items?: string[]; // 多件物品同時需求（如合成材料）
     itemCount?: number;
     flag?: string;
     flagValue?: boolean | string | number;
@@ -14,6 +15,7 @@ export interface CardOption {
   effect?: {
     addItem?: string;
     removeItem?: string;
+    removeItems?: string[]; // 多件物品同時消耗
     setFlag?: Record<string, boolean | string | number>;
     setMetaFlag?: Record<string, boolean | string | number>;
     forceNextCardId?: string;

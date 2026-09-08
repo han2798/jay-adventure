@@ -20,8 +20,7 @@ export interface CardOption {
     setMetaFlag?: Record<string, boolean | string | number>;
     forceNextCardId?: string;
     changeCharacter?: string;
-    hpChange?: number;
-    atkChange?: number;
+    apChange?: number; // 行動力變更 (+ 恢復, - 消耗)
     triggerVictory?: '太陽之子' | '最偉大的作品' | '周杰倫家庭';
     triggerDefeat?: string;
     rewindRound?: number; // for 回到過去 or 時光機 or 反方向的鐘
@@ -60,6 +59,7 @@ export interface CharacterDefinition {
   title: string;
   description: string;
   avatarColor: string;
+  avatarIcon: string; // 模擬頭像或特色圖案 (愛情廢柴固定為木柴 🪵)
   isSecret?: boolean;
   specialTrait: string;
 }
@@ -72,6 +72,22 @@ export interface AchievementDefinition {
   rewardDescription: string;
 }
 
+export interface GameHistoryRecord {
+  gameNumber: number;
+  characterName: string;
+  characterTitle: string;
+  characterIcon: string;
+  endRound: number;
+  outcomeType: 'VICTORY' | 'DEFEAT' | 'AP_DEPLETED';
+  outcomeTitle: string;
+  timestamp: string;
+  logs: Array<{
+    round: number;
+    text: string;
+    type?: 'draw' | 'action' | 'combat' | 'milestone' | 'warning';
+  }>;
+}
+
 export interface MetaProgress {
   unlockedCardIds: string[]; // 圖鑑解鎖
   unlockedAchievements: string[]; // 成就解鎖
@@ -82,6 +98,7 @@ export interface MetaProgress {
   pastGamesCount: number; // 累計遊玩局數
   victories: string[]; // 達成過的結局
   nextGameFlags: Record<string, boolean | string | number>; // 跨局 Flag (如 亂舞春秋時代)
+  gameHistories?: GameHistoryRecord[]; // 歷代冒險日誌記錄
 }
 
 export interface JokerEquipment {
@@ -101,8 +118,7 @@ export interface GameState {
   jokerSlots?: JokerEquipment;
   reversedClockUsesRemaining: number; // 反方向的鐘剩餘次數 (上限3次)
   stats: {
-    hp: number;
-    atk: number;
+    ap: number; // 行動力 (Action Points)
   };
   logs: Array<{
     round: number;

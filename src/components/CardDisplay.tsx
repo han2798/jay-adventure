@@ -134,46 +134,44 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
           </div>
         </div>
 
-        {/* 4. Interactive Options Area (Without "A.", "B." prefix as marked in red) */}
+        {/* 4. Interactive Options Area - strictly filter out unavailable requirement options to prevent spoilers */}
         <div className="px-5 pb-5 flex flex-col gap-2.5">
-          {card.options && card.options.length > 0 ? (
-            card.options.map((option, idx) => {
-              const check = checkOptionAvailable(option);
-              return (
+          {(() => {
+            const availableOptions = (card.options || [])
+              .map((opt, originalIdx) => ({
+                opt,
+                originalIdx,
+                check: checkOptionAvailable(opt),
+              }))
+              .filter((item) => item.check.available);
+
+            if (availableOptions.length > 0) {
+              return availableOptions.map(({ opt, originalIdx }) => (
                 <button
-                  key={idx}
-                  id={`card-option-${idx}`}
-                  disabled={!check.available}
-                  onClick={() => onSelectOption(idx)}
-                  className={`w-full text-left px-4 py-3 rounded-xl border font-medium text-sm transition-all duration-200 flex flex-col gap-1 ${
-                    check.available
-                      ? 'bg-[#1d1c1a] hover:bg-[#2c281d] text-amber-100 border-[#6b5820] hover:border-[#d4af37] shadow-sm hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] active:scale-[0.99] cursor-pointer'
-                      : 'bg-stone-900/40 text-stone-500 border-stone-800/80 cursor-not-allowed opacity-60'
-                  }`}
+                  key={originalIdx}
+                  id={`card-option-${originalIdx}`}
+                  onClick={() => onSelectOption(originalIdx)}
+                  className="w-full text-left px-4 py-3 rounded-xl border font-medium text-sm transition-all duration-200 flex flex-col gap-1 bg-[#1d1c1a] hover:bg-[#2c281d] text-amber-100 border-[#6b5820] hover:border-[#d4af37] shadow-sm hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] active:scale-[0.99] cursor-pointer"
                 >
                   <div className="flex items-center justify-between w-full">
-                    {/* Plain clean option text without spoilers */}
-                    <span className={`font-semibold text-sm font-sans ${check.available ? 'text-stone-200' : 'text-stone-500'}`}>
-                      {option.text}
+                    <span className="font-semibold text-sm font-sans text-stone-200">
+                      {opt.text}
                     </span>
-                    {!check.available && (
-                      <span className="text-xs text-stone-600 font-mono">
-                        🔒
-                      </span>
-                    )}
                   </div>
                 </button>
-              );
-            })
-          ) : (
-            <button
-              id="card-option-default"
-              onClick={() => onSelectOption(0)}
-              className="w-full py-3 rounded-xl bg-[#d4af37] text-stone-950 font-bold text-sm hover:bg-amber-300 transition-colors shadow-[0_4px_12px_rgba(212,175,55,0.3)] cursor-pointer text-center font-serif"
-            >
-              收入行囊，繼續前進
-            </button>
-          )}
+              ));
+            }
+
+            return (
+              <button
+                id="card-option-default"
+                onClick={() => onSelectOption(-1)}
+                className="w-full py-3 rounded-xl bg-[#d4af37] text-stone-950 font-bold text-sm hover:bg-amber-300 transition-colors shadow-[0_4px_12px_rgba(212,175,55,0.3)] cursor-pointer text-center font-serif"
+              >
+                收入行囊，繼續前進
+              </button>
+            );
+          })()}
         </div>
       </div>
     </div>

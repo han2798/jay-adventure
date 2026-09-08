@@ -33,31 +33,33 @@ export const MysteryCard: React.FC<MysteryCardProps> = ({
           <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/30 via-transparent to-transparent" />
           
           {/* Top Corner Ornament */}
-          <div className="w-full flex justify-between items-center text-[#d4af37]/60 text-xs font-mono">
+          <div className="w-full flex justify-between items-center text-[#d4af37]/60 text-xs font-mono shrink-0">
             <span>◆</span>
             <span>JAY CHOU</span>
             <span>◆</span>
           </div>
 
-          {/* Magic Vision Hint if character is 魔術先生: Placed under JAY CHOU as requested */}
-          {isMagicVision && cardHintType === '事件' && (
-            <div className="absolute top-9 left-1/2 -translate-x-1/2 z-20 bg-blue-600/90 text-white border border-blue-400 text-[11px] font-bold px-3 py-0.5 rounded-full shadow-[0_0_12px_rgba(37,99,235,0.7)] animate-pulse tracking-wider whitespace-nowrap">
-              事件
-            </div>
-          )}
+          {/* Magic Vision Hint: neatly positioned with safe margin, never overlapping central art */}
+          <div className="h-6 flex items-center justify-center shrink-0 my-0.5">
+            {isMagicVision && cardHintType === '事件' && (
+              <span className="bg-blue-600/90 text-white border border-blue-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-[0_0_12px_rgba(37,99,235,0.7)] animate-pulse tracking-wider whitespace-nowrap">
+                事件
+              </span>
+            )}
+          </div>
 
           {/* Central Embellishment */}
-          <div className="relative my-auto flex flex-col items-center justify-center">
+          <div className="flex-1 flex flex-col items-center justify-center my-auto">
             {/* Compass / Vinyl / Magical Halo */}
-            <div className="w-20 h-20 rounded-full border border-[#d4af37]/40 flex items-center justify-center relative group-hover:border-[#d4af37] transition-colors">
-              <div className="w-14 h-14 rounded-full border border-dashed border-[#d4af37]/50 animate-[spin_20s_linear_infinite]" />
-              <div className="absolute w-8 h-8 rounded-full bg-[#d4af37]/10 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full border border-[#d4af37]/40 flex items-center justify-center relative group-hover:border-[#d4af37] transition-colors">
+              <div className="w-11 h-11 rounded-full border border-dashed border-[#d4af37]/50 animate-[spin_20s_linear_infinite]" />
+              <div className="absolute w-7 h-7 rounded-full bg-[#d4af37]/10 flex items-center justify-center">
                 <span className="text-sm font-serif text-[#d4af37]">♫</span>
               </div>
             </div>
 
-            {/* Prominent Card Draw Text strictly as demanded in Turn 20-21 */}
-            <span className="mt-4 text-xl font-bold tracking-[0.3em] text-[#d4af37] drop-shadow-[0_2px_8px_rgba(212,175,55,0.6)] font-serif pl-[0.3em]">
+            {/* Prominent Card Draw Text strictly as demanded */}
+            <span className="mt-3 text-lg sm:text-xl font-bold tracking-[0.3em] text-[#d4af37] drop-shadow-[0_2px_8px_rgba(212,175,55,0.6)] font-serif pl-[0.3em]">
               抽卡
             </span>
           </div>

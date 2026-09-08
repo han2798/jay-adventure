@@ -246,8 +246,9 @@ export const CARD_DATABASE: CardDefinition[] = [
       {
         text: '「我把天地拆封將長江水掏空」',
         require: { notCharacter: '英雄' },
-        resultText: '天地反噬，浩蕩水氣潰散！你體力大幅透支，陷入沉重的心境深淵。',
+        resultText: '天地反噬，浩蕩水氣潰散！你行動力大幅透支，陷入沉重的心境深淵。',
         effect: {
+          apChange: -5,
           forceNextCardId: 'C2004-06', // 強制遭遇 擱淺
         },
       },
@@ -556,7 +557,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「微笑吧，就算逆著風；狂奔吧，就算大雨滂沱！」夢想的引擎正在轟鳴！',
     options: [
       {
-        text: '融合【完美主義】+【我不配】+【超人不會飛】煉成 SS卡《杰倫》',
+        text: '「微笑吧，狂奔吧！」點燃三道精神基石，煉成神專《杰倫》',
         require: { items: ['完美主義', '我不配', '超人不會飛'] },
         resultText: '三道光芒沖天而起，匯聚成第一張傳世神卡——SS卡【《杰倫》】！',
         effect: {
@@ -626,7 +627,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「出神入化，神乎其技！撲克牌在指尖翻飛，魔幻的幻象能無中生有！」',
     options: [
       {
-        text: '解構【爸我回來了】+【對不起】+【安靜】化作 SS卡《范特西》',
+        text: '「將指尖的憂傷拼圖重組！」解構記憶，化作神專《范特西》',
         require: { items: ['爸我回來了', '對不起', '安靜'] },
         resultText: '奇蹟魔術上演！三張憂傷的拼圖在幻影中重組，綻放出無與倫比的赤紅光芒——SS卡【《范特西》】現世！',
         effect: {
@@ -712,8 +713,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '拾起雙截棍掛在腰間',
-        resultText: '獲得武器【雙截棍】！可於對手戰中充當猛烈攻擊手段。',
-        effect: { addItem: '雙截棍', atkChange: 2 },
+        resultText: '獲得武器【雙截棍】！行動力+2。',
+        effect: { addItem: '雙截棍', apChange: 2 },
       },
     ],
   },
@@ -731,8 +732,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '拔起雙刀收入刀鞘',
-        resultText: '獲得利刃【雙刀】！鋒芒畢露，對手防禦在其面前形同虛設。',
-        effect: { addItem: '雙刀', atkChange: 3 },
+        resultText: '獲得利刃【雙刀】！鋒芒畢露，行動力+3。',
+        effect: { addItem: '雙刀', apChange: 3 },
       },
     ],
   },
@@ -750,8 +751,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '穿上黑色毛衣',
-        resultText: '穿上【黑色毛衣】！能溫和地替你抵禦一次強大敵人的致命暴擊。',
-        effect: { addItem: '黑色毛衣', hpChange: 5 },
+        resultText: '穿上【黑色毛衣】！抵禦寒意，行動力+5。',
+        effect: { addItem: '黑色毛衣', apChange: 5 },
       },
     ],
   },
@@ -769,8 +770,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '握住無雙戰意',
-        resultText: '獲得神級兵魄【無雙】！若化身為英雄，將在最終將軍棋局爆發毀天滅地的終結技！',
-        effect: { addItem: '無雙', atkChange: 5 },
+        resultText: '獲得神級兵魄【無雙】！行動力+5，若化身為英雄，將在最終將軍棋局爆發毀天滅地的終結技！',
+        effect: { addItem: '無雙', apChange: 5 },
       },
     ],
   },
@@ -886,8 +887,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「頭等艙內的優雅問候，嘻哈空姐遞來一杯香檳，微笑道出高空中的秘密。」',
     options: [
       {
-        text: '向空姐請教《最偉大的作品》路線秘辛',
-        resultText: '空姐低語道：「尋找城堡吧……威廉二世枕下的指針，能扭轉光陰；唯有四張SS傳世專輯合一，方能通往藝術巔峰。」',
+        text: '向空姐打聽傳奇時空與古典樂章的秘辛',
+        resultText: '空姐低語道：「尋找城堡吧……威廉二世枕下的指針，能扭轉光陰；唯有四張SS傳世專輯合一，方能跨越時空巔峰。」',
         effect: { addItem: '空姐的提示' },
       },
     ],
@@ -905,7 +906,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「引擎咆哮，敞篷跑車疾馳而至，超跑女神摘下墨鏡，給予你銳利的審視。」',
     options: [
       {
-        text: '向超跑女神請教《太陽之子》路線秘辛',
+        text: '向超跑女神請教終局決戰的秘辛',
         resultText: '女神踩下油門笑言：「打倒四個對手只是開胃菜。若想攻克將軍，必須在第六回合沉住氣『不動作』，大招時更萬萬不可點擊『逃』！」',
         effect: { addItem: '超跑女神的提示' },
       },
@@ -945,9 +946,9 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「故事的小黃花，從出生那年就飄著……童年的紙飛機，現在終於飛回我手裡。」',
     options: [
       {
-        text: '在操場邊迎風仰望晴空，回滿體力',
-        resultText: '春風拂面，心情豁然開朗，體力獲得極大恢復！',
-        effect: { hpChange: 10 },
+        text: '在操場邊迎風仰望晴空，充沛行動力',
+        resultText: '春風拂面，心情豁然開朗，行動力獲得極大恢復！',
+        effect: { apChange: 10 },
       },
     ],
   },
@@ -965,8 +966,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '靜心聆聽古典鋼琴夜曲',
-        resultText: '你對蕭邦音樂精髓的領會更上一層樓，靈感暴漲！',
-        effect: { atkChange: 2 },
+        resultText: '你對蕭邦音樂精髓的領會更上一層樓，心境沉穩！',
+        effect: { apChange: 2 },
       },
     ],
   },
@@ -985,7 +986,7 @@ export const CARD_DATABASE: CardDefinition[] = [
       {
         text: '「風箏在陰天擱淺，想念還在等待救援」',
         resultText: '在逆境中堅守初心，雖行動受阻但意志磨練得更加堅韌。',
-        effect: { hpChange: 3 },
+        effect: { apChange: 3 },
       },
       {
         text: '「讀完了依賴，我很快就離開」',
@@ -1088,8 +1089,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '扛起巨型大提琴彈撥厚重的低音線',
-        resultText: '低沉渾厚的共鳴震懾四方，生命力+10，攻擊力+3！',
-        effect: { addItem: '比較大的大提琴', hpChange: 10, atkChange: 3 },
+        resultText: '低沉渾厚的共鳴震懾四方，行動力大幅充盈！',
+        effect: { addItem: '比較大的大提琴', apChange: 10 },
       },
     ],
   },
@@ -1107,8 +1108,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '在微風中收集隨風旋轉的風車碎片',
-        resultText: '溫暖的微風拂去傷痛，生命力恢復 5 點！',
-        effect: { addItem: '白色風車', hpChange: 5 },
+        resultText: '溫暖的微風拂去疲憊，行動力恢復 5 點！',
+        effect: { addItem: '白色風車', apChange: 5 },
       },
     ],
   },
@@ -1145,8 +1146,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '握住飄揚的粉紅氣球，漫步塞納河畔',
-        resultText: '浪漫氛圍湧上心頭，心境澄澈，生命力+8！',
-        effect: { addItem: '告白氣球', hpChange: 8 },
+        resultText: '浪漫氛圍湧上心頭，心境澄澈，行動力+8！',
+        effect: { addItem: '告白氣球', apChange: 8 },
       },
     ],
   },
@@ -1164,8 +1165,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '協助小鐵匠拉風箱打鐵，淬鍊兵器',
-        resultText: '鐵匠感激你的幫忙，為你的武器打磨開鋒，攻擊力+3！',
-        effect: { atkChange: 3 },
+        resultText: '鐵匠感激你的幫忙，贈予特製活力補給，行動力+4！',
+        effect: { apChange: 4 },
       },
     ],
   },
@@ -1240,8 +1241,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '品嚐土耳其冰淇淋，聆聽古老琴音',
-        resultText: '悠揚的異國情調讓靈魂雀躍，生命力+6！',
-        effect: { hpChange: 6 },
+        resultText: '悠揚的異國情調讓靈魂雀躍，行動力+6！',
+        effect: { apChange: 6 },
       },
     ],
   },
@@ -1259,8 +1260,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '在龍捲風眼中逆風前行',
-        resultText: '狂風淬鍊了意志，精神更為堅韌，攻擊力+2！',
-        effect: { atkChange: 2 },
+        resultText: '狂風淬鍊了意志，精神更為堅韌，行動力+3！',
+        effect: { apChange: 3 },
       },
     ],
   },
@@ -1278,8 +1279,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '騎著單車在午後微風中漫遊',
-        resultText: '最單純的快樂湧上心頭，生命力恢復滿值！',
-        effect: { hpChange: 15 },
+        resultText: '最單純的快樂湧上心頭，行動力大幅恢復！',
+        effect: { apChange: 15 },
       },
     ],
   },
@@ -1297,8 +1298,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '將未說出口的話深埋心底',
-        resultText: '沉默孕育了堅忍，心神專注度提升，攻擊力+2！',
-        effect: { atkChange: 2 },
+        resultText: '沉默孕育了堅忍，心神專注度提升，行動力+3！',
+        effect: { apChange: 3 },
       },
     ],
   },
@@ -1317,7 +1318,7 @@ export const CARD_DATABASE: CardDefinition[] = [
       {
         text: '凝視深淵，在狂風中挺直脊樑',
         resultText: '跨越恐懼後豁然開朗，獲得深層探索感知！',
-        effect: { hpChange: 4, atkChange: 2 },
+        effect: { apChange: 5 },
       },
     ],
   },
@@ -1336,7 +1337,7 @@ export const CARD_DATABASE: CardDefinition[] = [
       {
         text: '領悟首張同名專輯的開天闢地之力',
         resultText: '神專之光融入靈魂！全能力大幅提升！',
-        effect: { addItem: '《杰倫》', hpChange: 15, atkChange: 5 },
+        effect: { addItem: '《杰倫》', apChange: 15 },
       },
     ],
   },
@@ -1355,7 +1356,7 @@ export const CARD_DATABASE: CardDefinition[] = [
       {
         text: '釋放范特西神專的無盡幻想',
         resultText: '天馬行空的旋律加護全身！獲得【范特西】傳奇神專！',
-        effect: { addItem: '《范特西》', hpChange: 15, atkChange: 5 },
+        effect: { addItem: '《范特西》', apChange: 15 },
       },
     ],
   },
@@ -1374,7 +1375,7 @@ export const CARD_DATABASE: CardDefinition[] = [
       {
         text: '銘記母親的慈愛與教誨',
         resultText: '家庭羈絆昇華！獲得神專【《葉惠美》】！',
-        effect: { addItem: '《葉惠美》', hpChange: 20 },
+        effect: { addItem: '《葉惠美》', apChange: 20 },
       },
     ],
   },
@@ -1393,7 +1394,7 @@ export const CARD_DATABASE: CardDefinition[] = [
       {
         text: '登臨超時代舞台之巔',
         resultText: '萬人歡呼聲中，你領悟了跨時代的真諦！',
-        effect: { addItem: '《超時代》', hpChange: 10, atkChange: 5 },
+        effect: { addItem: '《超時代》', apChange: 15 },
       },
     ],
   },

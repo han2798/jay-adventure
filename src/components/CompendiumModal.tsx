@@ -51,9 +51,11 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
     meta.ironBoxItems.length > 0
   );
 
-  const [activeTab, setActiveTab] = useState<'cards' | 'achievements' | 'diaries' | 'ironbox'>('cards');
+  const [activeTab, setActiveTab] = useState<'cards' | 'achievements' | 'diaries' | 'history' | 'ironbox'>('cards');
+  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number>(0);
 
   const activeSkills = meta.activeSkills || [];
+  const histories = meta.gameHistories || [];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 lg:p-6 animate-in fade-in duration-200">
@@ -113,6 +115,17 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
             }`}
           >
             劇情日記 ({meta.unlockedDiaries.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'history'
+                ? 'bg-[#d4af37] text-black font-black shadow-md'
+                : 'text-stone-400 hover:text-stone-200 bg-stone-900/80 border border-stone-800'
+            }`}
+          >
+            歷代冒險日誌 ({histories.length})
           </button>
 
           {/* 半島鐵盒：取得前絕對隱藏，取得後才顯現 */}
@@ -281,6 +294,115 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
                 <div className="p-4 rounded-xl bg-stone-950 border border-stone-900 text-stone-600 text-xs italic">
                   未解鎖日記：威廉古堡豬管家的前世心結（給予療傷燒肉粽解鎖《琴傷》）
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB: 歷代冒險日誌 */}
+          {activeTab === 'history' && (
+            <div className="flex flex-col lg:flex-row gap-4 h-full">
+              {histories.length === 0 ? (
+                <div className="w-full flex flex-col items-center justify-center p-12 text-center text-stone-500 gap-3 border border-dashed border-stone-800 rounded-2xl">
+                  <span className="text-3xl">📜</span>
+                  <span className="text-sm font-serif">尚無已完成的歷代冒險記錄</span>
+                  <span className="text-xs text-stone-600">當前局結束（通關、行動力耗盡或決戰落敗）後，冒險日誌將自動歸檔於此。</span>
+                </div>
+              ) : (
+                <>
+                  {/* Left list of games */}
+                  <div className="w-full lg:w-72 shrink-0 flex flex-col gap-2 max-h-[68vh] overflow-y-auto pr-2 border-b lg:border-b-0 lg:border-r border-stone-800 pb-3 lg:pb-0">
+                    <span className="text-xs font-bold text-stone-400 font-mono">
+                      遊玩紀錄（共 {histories.length} 局）
+                    </span>
+                    {histories.map((hist, idx) => {
+                      const isSelected = idx === selectedHistoryIndex;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => setSelectedHistoryIndex(idx)}
+                          className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex flex-col gap-1.5 ${
+                            isSelected
+                              ? 'bg-[#252219] border-amber-500/80 shadow-md text-amber-100'
+                              : 'bg-stone-900/60 border-stone-800 text-stone-300 hover:bg-stone-800/80'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm font-serif">
+                              第 {hist.gameNumber} 局
+                            </span>
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${
+                                hist.outcomeType === 'VICTORY'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                  : hist.outcomeType === 'AP_DEPLETED'
+                                  ? 'bg-rose-950/60 text-rose-300 border border-rose-800/40'
+                                  : 'bg-stone-800 text-stone-400'
+                              }`}
+                            >
+                              {hist.outcomeTitle}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-stone-400">
+                            <span>{hist.characterIcon}</span>
+                            <span>{hist.characterName}</span>
+                            <span className="text-stone-600">・</span>
+                            <span>至第 {hist.endRound} 回合</span>
+                          </div>
+                          <div className="text-[10px] text-stone-500 font-mono">
+                            {hist.timestamp}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Right: Detailed Logs Viewer */}
+                  {histories[selectedHistoryIndex] && (
+                    <div className="flex-1 flex flex-col gap-3 min-w-0 h-full max-h-[68vh]">
+                      <div className="bg-[#18181d] p-3.5 rounded-xl border border-stone-800 flex items-center justify-between shrink-0">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{histories[selectedHistoryIndex].characterIcon}</span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-base font-black text-stone-100 font-serif">
+                                第 {histories[selectedHistoryIndex].gameNumber} 局回顧：化身【{histories[selectedHistoryIndex].characterName}】
+                              </span>
+                            </div>
+                            <span className="text-xs text-amber-400/80 font-sans">
+                              {histories[selectedHistoryIndex].characterTitle}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-xs font-mono text-stone-400 bg-stone-900 px-3 py-1 rounded border border-stone-800">
+                          結局：{histories[selectedHistoryIndex].outcomeTitle}
+                        </span>
+                      </div>
+
+                      {/* Log stream */}
+                      <div className="flex-1 overflow-y-auto bg-black/50 border border-stone-800/80 rounded-xl p-4 flex flex-col gap-2 font-sans text-xs">
+                        {histories[selectedHistoryIndex].logs.map((log, lIdx) => (
+                          <div
+                            key={lIdx}
+                            className={`p-2.5 rounded-lg border leading-relaxed flex items-start gap-2.5 ${
+                              log.type === 'milestone'
+                                ? 'bg-amber-950/25 border-amber-900/50 text-amber-200 font-medium'
+                                : log.type === 'warning'
+                                ? 'bg-red-950/25 border-red-900/50 text-red-300'
+                                : log.type === 'draw'
+                                ? 'bg-stone-900/70 border-stone-800 text-stone-300'
+                                : 'bg-[#151518]/60 border-stone-800/50 text-stone-300'
+                            }`}
+                          >
+                            <span className="text-stone-500 font-mono text-[10px] shrink-0 pt-0.5">
+                              [R{log.round}]
+                            </span>
+                            <span className="flex-1">{log.text}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

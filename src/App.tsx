@@ -4,6 +4,8 @@ import {
   MetaProgress,
   CardDefinition,
   JokerEquipment,
+  CharacterDefinition,
+  GameHistoryRecord,
 } from './types';
 import { CARD_DATABASE } from './data/cards';
 import { INITIAL_SELECTABLE_CHARACTERS, ALL_CHARACTERS } from './data/characters';
@@ -59,7 +61,7 @@ export default function App() {
       flags: {},
       jokerSlots: { place: null, shoes: null, performance: null },
       reversedClockUsesRemaining: 3,
-      stats: { hp: 20, atk: 5 },
+      stats: { ap: 15 },
       logs: [
         {
           round: 0,
@@ -77,9 +79,38 @@ export default function App() {
   const [showCompendium, setShowCompendium] = useState<boolean>(false);
   const [showDevModal, setShowDevModal] = useState<boolean>(false);
   const [showDevPasswordModal, setShowDevPasswordModal] = useState<boolean>(false);
+  const [isDevAuthenticated, setIsDevAuthenticated] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined' && sessionStorage.getItem('jay_dev_auth_1028') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [devPasswordInput, setDevPasswordInput] = useState<string>('');
   const [devPasswordError, setDevPasswordError] = useState<string>('');
   const [showWipeMemoryModal, setShowWipeMemoryModal] = useState<boolean>(false);
+  const [pendingCharacter, setPendingCharacter] = useState<CharacterDefinition | null>(null);
+  const [showCharConfirmModal, setShowCharConfirmModal] = useState<boolean>(false);
+  const [showApExhaustedModal, setShowApExhaustedModal] = useState<boolean>(false);
+  const [pendingEventTransition, setPendingEventTransition] = useState<{
+    sourceCardName: string;
+    targetCard: CardDefinition;
+    nextRound: number;
+    effectNarrative: string;
+    nextInventory: Record<string, number>;
+    nextFlags: Record<string, any>;
+    nextStats: { ap: number };
+    nextCharacter: CharacterDefinition;
+  } | null>(null);
+  const [outcomeModal, setOutcomeModal] = useState<{
+    title: string;
+    icon?: string;
+    subtitle?: string;
+    narrative: string;
+    badges?: { label: string; value: string; color?: string }[];
+    confirmText?: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   // Add Log Helper
   const addLog = useCallback(
@@ -199,10 +230,11 @@ export default function App() {
           };
         }
 
-        // If round exceeded 30 without victory, trigger game over
+        // If round exceeded 30 without victory, trigger game over (strictly capped at 30)
         if (targetRound > 30) {
           return {
             ...nextState,
+            round: 30,
             phase: 'GAME_OVER',
             defeatReason: '30 回合光陰已盡，未能達成通關任務條件。',
           };
@@ -310,6 +342,7 @@ export default function App() {
 
     addLog(`做出選擇：${option.text}。${option.resultText}`, 'action');
 
+    const eff = option.effect;
     const nextInventory = { ...gameState.inventory };
     const nextFlags = { ...gameState.flags };
     let nextStats = { ...gameState.stats };
@@ -319,9 +352,7 @@ export default function App() {
     let nextRound = gameState.round + 1;
 
     // Apply effects
-    if (option.effect) {
-      const eff = option.effect;
-
+    if (eff) {
       if (eff.addItem) {
         nextInventory[eff.addItem] = (nextInventory[eff.addItem] || 0) + 1;
         // Diary unlock check
@@ -358,12 +389,8 @@ export default function App() {
         }));
       }
 
-      if (eff.hpChange) {
-        nextStats.hp = Math.max(1, nextStats.hp + eff.hpChange);
-      }
-
-      if (eff.atkChange) {
-        nextStats.atk += eff.atkChange;
+      if (eff.apChange) {
+        nextStats.ap = Math.max(0, nextStats.ap + eff.apChange);
       }
 
       if (eff.changeCharacter) {
@@ -396,22 +423,38 @@ export default function App() {
         }
       }
 
-      // Force Next Card Encounter
+      // Force Next Card Encounter (事件連動過場視窗)
       if (eff.forceNextCardId) {
         const nextCard = CARD_DATABASE.find((c) => c.id === eff.forceNextCardId);
         if (nextCard) {
-          addLog(`劇情觸發連動！下一回合將直接遭遇【${nextCard.name}】！`, 'milestone');
-          setGameState((prev) => ({
-            ...prev,
-            round: nextRound,
-            inventory: nextInventory,
-            flags: nextFlags,
-            stats: nextStats,
-            character: nextCharacter,
-            revealedCard: nextCard,
-            phase: 'REVEAL_CARD',
-          }));
-          checkAchievements(nextInventory);
+          // Action consumes 1 AP
+          nextStats.ap = Math.max(0, nextStats.ap - 1);
+
+          if (nextStats.ap <= 0) {
+            nextStats.ap = 0;
+            addLog('【行動力竭】行動力歸 0，身體已達極限，CG 強制結束！', 'warning');
+            setGameState((prev) => ({
+              ...prev,
+              inventory: nextInventory,
+              flags: nextFlags,
+              character: nextCharacter,
+              stats: nextStats,
+              defeatReason: '行動力已歸 0，CG 強制結束。所有的遺憾都將化為下一局的經驗！',
+            }));
+            setShowApExhaustedModal(true);
+            return;
+          }
+
+          setPendingEventTransition({
+            sourceCardName: card.name,
+            targetCard: nextCard,
+            nextRound: nextRound,
+            effectNarrative: option.resultText || `命運交織，你由【${card.name}】開啟了前往【${nextCard.name}】的宿命通道！`,
+            nextInventory,
+            nextFlags,
+            nextStats,
+            nextCharacter,
+          });
           return;
         }
       }
@@ -480,21 +523,119 @@ export default function App() {
       return;
     }
 
-    // Advance to next round draw
-    startNewRound(nextRound, {
+    // Action consumes 1 AP
+    nextStats.ap = Math.max(0, nextStats.ap - 1);
+
+    if (nextStats.ap <= 0) {
+      nextStats.ap = 0;
+      addLog('【行動力竭】行動力歸 0，身體已達極限，CG 強制結束！', 'warning');
+      setGameState((prev) => ({
+        ...prev,
+        inventory: nextInventory,
+        flags: nextFlags,
+        character: nextCharacter,
+        stats: nextStats,
+        defeatReason: '行動力已歸 0，CG 強制結束。所有的遺憾都將化為下一局的經驗！',
+      }));
+      setShowApExhaustedModal(true);
+      return;
+    }
+
+    // Apply immediate state for background HUD reflection
+    setGameState((prev) => ({
+      ...prev,
       inventory: nextInventory,
       flags: nextFlags,
       character: nextCharacter,
       stats: nextStats,
+    }));
+
+    // Construct outcome modal badges
+    const badges: { label: string; value: string; color?: string }[] = [];
+    if (eff?.addItem) {
+      badges.push({ label: '獲得物品', value: `【${eff.addItem}】`, color: 'text-amber-300' });
+    }
+    if (eff?.removeItem) {
+      badges.push({ label: '消耗物品', value: `【${eff.removeItem}】`, color: 'text-stone-400' });
+    }
+    if (eff?.removeItems && eff.removeItems.length > 0) {
+      badges.push({
+        label: '消耗物品',
+        value: eff.removeItems.map((i) => `【${i}】`).join('、'),
+        color: 'text-stone-400',
+      });
+    }
+    if (eff?.apChange) {
+      badges.push({
+        label: '行動力變動',
+        value: `${eff.apChange > 0 ? '+' : ''}${eff.apChange} AP`,
+        color: eff.apChange > 0 ? 'text-emerald-400' : 'text-red-400',
+      });
+    }
+    if (eff?.rewindRound !== undefined) {
+      badges.push({ label: '時空逆轉', value: '重返第 1 回合', color: 'text-cyan-300' });
+    }
+    if (nextCharacter.name !== gameState.character?.name) {
+      badges.push({ label: '化身覺醒', value: `【${nextCharacter.name}】`, color: 'text-yellow-300' });
+    }
+
+    // Display outcome confirmation modal before advancing to next round
+    setOutcomeModal({
+      title: eff?.addItem ? '✦ 獲得物品・決策結算 ✦' : '✦ 冒險決策・事件結算 ✦',
+      icon: eff?.addItem ? '🎁' : '📜',
+      subtitle: `【${card.name}】・${option.text}`,
+      narrative: option.resultText || `做出選擇：${option.text}。`,
+      badges: badges.length > 0 ? badges : undefined,
+      confirmText: `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
+      onConfirm: () => {
+        setOutcomeModal(null);
+        startNewRound(nextRound, {
+          inventory: nextInventory,
+          flags: nextFlags,
+          character: nextCharacter,
+          stats: nextStats,
+        });
+      },
     });
   };
 
   // Joker puzzle equipment slot handler
   const handleEquipJoker = (slot: keyof JokerEquipment, itemName: string) => {
+    const expectedMap: Record<keyof JokerEquipment, string> = {
+      place: '我的地盤',
+      shoes: '鞋子特大號',
+      performance: '紅模仿',
+    };
+
+    const slotLabelMap: Record<keyof JokerEquipment, string> = {
+      place: '在',
+      shoes: '穿',
+      performance: '表演',
+    };
+
+    if (itemName !== expectedMap[slot]) {
+      addLog(`【心願未應】「${itemName}」似乎無法呼應喬克叔叔此處「${slotLabelMap[slot]}」的心願之謎……`, 'warning');
+      setOutcomeModal({
+        title: '✦ 心願未應 ✦',
+        icon: '🎭',
+        subtitle: '喬克叔叔的心願詰問',
+        narrative: `「${itemName}」似乎無法呼應喬克叔叔此處【${slotLabelMap[slot]}＿＿＿】的心願之謎……行囊中的物品並未被消耗。`,
+        confirmText: '收回行囊',
+        onConfirm: () => setOutcomeModal(null),
+      });
+      return;
+    }
+
+    if (!gameState.inventory[itemName] || gameState.inventory[itemName] <= 0) {
+      addLog(`【行囊不足】你並未持有【${itemName}】。`, 'warning');
+      return;
+    }
+
     setGameState((prev) => {
       const nextSlots = { ...prev.jokerSlots, [slot]: itemName };
       const nextInv = { ...prev.inventory };
       nextInv[itemName] = Math.max(0, (nextInv[itemName] || 1) - 1);
+      if (nextInv[itemName] === 0) delete nextInv[itemName];
 
       // Check if all 3 are slotted! (在我的地盤, 穿鞋子特大號, 表演紅模仿)
       let awardCuteWoman = false;
@@ -509,8 +650,31 @@ export default function App() {
 
       if (awardCuteWoman) {
         addLog('【小丑的心願達成】喬克叔叔在我的地盤，穿著鞋子特大號，表演紅模仿，博得可愛女人歡心！獲得【可愛女人】！', 'milestone');
+        setOutcomeModal({
+          title: '✦ 喬克叔叔的心願達成 ✦',
+          icon: '💖',
+          subtitle: '博得伊人一笑',
+          narrative: '喬克叔叔在我的地盤，穿著鞋子特大號，表演紅模仿……小丑臉上的淚痕化為燦爛笑容，終於博得心儀之人的嫣然一笑！獲得了【可愛女人】！',
+          badges: [
+            { label: '裝備完成', value: `【${slotLabelMap[slot]}】${itemName}`, color: 'text-purple-300' },
+            { label: '獲得傳奇卡牌', value: '【可愛女人】 x1', color: 'text-pink-300' },
+          ],
+          confirmText: '收入行囊',
+          onConfirm: () => setOutcomeModal(null),
+        });
       } else {
-        addLog(`喬克叔叔填入了裝備【${itemName}】。`, 'action');
+        addLog(`【心願契合】喬克叔叔成功裝備了【${itemName}】！`, 'milestone');
+        setOutcomeModal({
+          title: '✦ 心願共鳴・裝備成功 ✦',
+          icon: '🤡',
+          subtitle: '喬克叔叔的心願詰問',
+          narrative: `喬克叔叔成功在【${slotLabelMap[slot]}】裝備了【${itemName}】！心中的旋律悄然拼湊，距離博得心上人的歡笑更近了一步。`,
+          badges: [
+            { label: `填入【${slotLabelMap[slot]}】裝備槽`, value: `【${itemName}】`, color: 'text-purple-300' },
+          ],
+          confirmText: '確認',
+          onConfirm: () => setOutcomeModal(null),
+        });
       }
 
       return {
@@ -528,6 +692,17 @@ export default function App() {
       const nextSlots = { ...prev.jokerSlots, [slot]: null };
       const nextInv = { ...prev.inventory, [item]: (prev.inventory[item] || 0) + 1 };
       addLog(`喬克叔叔卸下了裝備【${item}】。`, 'action');
+      setOutcomeModal({
+        title: '✦ 卸下裝備 ✦',
+        icon: '🤡',
+        subtitle: '喬克叔叔的心願詰問',
+        narrative: `喬克叔叔卸下了【${item}】，卡牌已安然歸還至你的行囊之中。`,
+        badges: [
+          { label: '歸還行囊', value: `【${item}】`, color: 'text-stone-300' },
+        ],
+        confirmText: '確認',
+        onConfirm: () => setOutcomeModal(null),
+      });
       return {
         ...prev,
         inventory: nextInv,
@@ -542,6 +717,7 @@ export default function App() {
     setGameState((prev) => {
       const nextInv = { ...prev.inventory };
       nextInv[itemName] = Math.max(0, (nextInv[itemName] || 1) - 1);
+      if (nextInv[itemName] === 0) delete nextInv[itemName];
       return { ...prev, inventory: nextInv };
     });
     setMeta((prev) => ({
@@ -549,6 +725,15 @@ export default function App() {
       ironBoxItems: [...prev.ironBoxItems, itemName],
     }));
     addLog(`將【${itemName}】放入半島鐵盒，將可跨局傳承至下一局！`, 'action');
+    setOutcomeModal({
+      title: '✦ 半島鐵盒・時空封存 ✦',
+      icon: '📻',
+      subtitle: '跨局記憶傳承',
+      narrative: `你將【${itemName}】小心翼翼地放入了半島鐵盒之中。這份珍貴的物品將跨越時空輪迴，在未來的冒險中由你再度繼承。`,
+      badges: [{ label: '封存物品', value: `【${itemName}】`, color: 'text-amber-300' }],
+      confirmText: '確認',
+      onConfirm: () => setOutcomeModal(null),
+    });
   };
 
   const handleTakeIronBox = (itemName: string) => {
@@ -563,6 +748,15 @@ export default function App() {
       return { ...prev, inventory: nextInv };
     });
     addLog(`從半島鐵盒取回了【${itemName}】至行囊。`, 'action');
+    setOutcomeModal({
+      title: '✦ 半島鐵盒・取出回憶 ✦',
+      icon: '📻',
+      subtitle: '取回封存物品',
+      narrative: `你從半島鐵盒中取出了【${itemName}】，卡牌已重新放入當前冒險的行囊。`,
+      badges: [{ label: '取出行囊', value: `【${itemName}】`, color: 'text-amber-300' }],
+      confirmText: '確認',
+      onConfirm: () => setOutcomeModal(null),
+    });
   };
 
   // Restart Current Game (CG) for testing - maintains gameNumber without advancing to NG
@@ -577,7 +771,7 @@ export default function App() {
       flags: {},
       jokerSlots: { place: null, shoes: null, performance: null },
       reversedClockUsesRemaining: 3,
-      stats: { hp: 20, atk: 5 },
+      stats: { ap: 15 },
       logs: [
         {
           round: 0,
@@ -593,10 +787,29 @@ export default function App() {
 
   // Start Next Game (NG) - called when GameOverModal transitions to next run
   const handleStartNextGame = () => {
+    const finalOutcomeType = gameState.victoryType ? 'VICTORY' : 'DEFEAT';
+    const finalOutcomeTitle = gameState.victoryType
+      ? `傳奇通關 (${gameState.victoryType})`
+      : gameState.defeatReason || '未達通關條件';
+
+    const historyRecord: GameHistoryRecord = {
+      gameNumber: gameState.gameNumber,
+      characterName: gameState.character?.name || '未知',
+      characterTitle: gameState.character?.title || '',
+      characterIcon: gameState.character?.avatarIcon || '🪵',
+      endRound: gameState.round,
+      outcomeType: finalOutcomeType,
+      outcomeTitle: finalOutcomeTitle,
+      timestamp: new Date().toLocaleDateString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+      logs: [...gameState.logs],
+    };
+
     setMeta((prev) => ({
       ...prev,
       pastGamesCount: prev.pastGamesCount + 1,
+      gameHistories: [historyRecord, ...(prev.gameHistories || [])],
     }));
+
     setGameState((prev) => ({
       ...prev,
       gameNumber: prev.gameNumber + 1,
@@ -608,7 +821,7 @@ export default function App() {
       flags: {},
       jokerSlots: { place: null, shoes: null, performance: null },
       reversedClockUsesRemaining: 3,
-      stats: { hp: 20, atk: 5 },
+      stats: { ap: 15 },
       logs: [
         {
           round: 0,
@@ -622,6 +835,55 @@ export default function App() {
       defeatReason: undefined,
       victoryType: undefined,
     }));
+  };
+
+  // Confirm AP Exhausted - forced CG end, transitions to NG (gameNumber + 1)
+  const handleConfirmApExhausted = () => {
+    const historyRecord: GameHistoryRecord = {
+      gameNumber: gameState.gameNumber,
+      characterName: gameState.character?.name || '未知',
+      characterTitle: gameState.character?.title || '',
+      characterIcon: gameState.character?.avatarIcon || '🪵',
+      endRound: gameState.round,
+      outcomeType: 'AP_DEPLETED',
+      outcomeTitle: '行動力耗盡 (CG強制結束)',
+      timestamp: new Date().toLocaleDateString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+      logs: [...gameState.logs],
+    };
+
+    setMeta((prev) => ({
+      ...prev,
+      pastGamesCount: prev.pastGamesCount + 1,
+      gameHistories: [historyRecord, ...(prev.gameHistories || [])],
+    }));
+
+    setGameState((prev) => ({
+      ...prev,
+      gameNumber: prev.gameNumber + 1,
+      round: 1,
+      maxRounds: 30,
+      character: null,
+      inventory: {},
+      drawnCount: {},
+      flags: {},
+      jokerSlots: { place: null, shoes: null, performance: null },
+      reversedClockUsesRemaining: 3,
+      stats: { ap: 15 },
+      logs: [
+        {
+          round: 0,
+          text: `行動力耗盡重整完畢，進入第 ${prev.gameNumber + 1} 局（NG）！請抽取命運化身……`,
+          type: 'milestone',
+        },
+      ],
+      phase: 'CHOOSE_CHARACTER',
+      revealedCard: null,
+      currentDrawChoices: [],
+      defeatReason: undefined,
+      victoryType: undefined,
+    }));
+
+    setShowApExhaustedModal(false);
   };
 
   // Dynamic Progress Goal for Section B (回合資訊欄)
@@ -691,6 +953,7 @@ export default function App() {
       pastGamesCount: 1,
       victories: [],
       nextGameFlags: {},
+      gameHistories: [],
     });
     setGameState({
       gameNumber: 1,
@@ -702,7 +965,7 @@ export default function App() {
       flags: {},
       jokerSlots: { place: null, shoes: null, performance: null },
       reversedClockUsesRemaining: 3,
-      stats: { hp: 20, atk: 5 },
+      stats: { ap: 15 },
       logs: [
         {
           round: 0,
@@ -763,9 +1026,13 @@ export default function App() {
           <button
             id="dev-mode-btn"
             onClick={() => {
-              setDevPasswordInput('');
-              setDevPasswordError('');
-              setShowDevPasswordModal(true);
+              if (isDevAuthenticated) {
+                setShowDevModal(true);
+              } else {
+                setDevPasswordInput('');
+                setDevPasswordError('');
+                setShowDevPasswordModal(true);
+              }
             }}
             className="px-2.5 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/80 text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1"
           >
@@ -785,7 +1052,7 @@ export default function App() {
       </header>
 
       {/* Main Three-Column Viewport: Left(A+D), Center(B+C), Right(E) */}
-      <main className="w-full max-w-[1500px] flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 p-4 lg:p-6 items-start">
+      <main className="w-full max-w-[1680px] flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 p-4 lg:p-6 items-start">
         {/* ======================================================== */}
         {/* LEFT COLUMN: A.當前化身 + D.行囊狀態 */}
         {/* ======================================================== */}
@@ -807,7 +1074,7 @@ export default function App() {
         {/* ======================================================== */}
         {/* CENTER COLUMN: B.回合資訊欄 + C.中央舞台 */}
         {/* ======================================================== */}
-        <div className="lg:col-span-6 xl:col-span-6 flex flex-col gap-4 w-full">
+        <div className="lg:col-span-5 xl:col-span-5 flex flex-col gap-4 w-full">
           {/* B. 回合資訊欄: Strictly Chinese "第 X 局 - 第 Y 回合 / 30" */}
           <div className="w-full bg-[#141417] border border-stone-800 rounded-xl px-5 py-3.5 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
@@ -853,7 +1120,8 @@ export default function App() {
                         // Randomly draw an initial selectable character
                         const randomIndex = Math.floor(Math.random() * INITIAL_SELECTABLE_CHARACTERS.length);
                         const drawnChar = INITIAL_SELECTABLE_CHARACTERS[randomIndex];
-                        handleSelectCharacter(drawnChar);
+                        setPendingCharacter(drawnChar);
+                        setShowCharConfirmModal(true);
                       }}
                       className="group w-28 sm:w-36 h-44 sm:h-52 rounded-xl bg-gradient-to-b from-[#1c1b22] via-[#141318] to-[#0c0c10] border-2 border-stone-800 hover:border-[#d4af37] p-3 flex flex-col items-center justify-between shadow-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.25)] transition-all transform hover:-translate-y-1.5 cursor-pointer relative overflow-hidden active:scale-95"
                     >
@@ -956,9 +1224,9 @@ export default function App() {
         </div>
 
         {/* ======================================================== */}
-        {/* RIGHT COLUMN: E.冒險日誌 (獨立置於右側) */}
+        {/* RIGHT COLUMN: E.冒險日誌 (獨立置於右側，加寬以減少折行) */}
         {/* ======================================================== */}
-        <div className="lg:col-span-3 xl:col-span-3 flex flex-col gap-4 w-full">
+        <div className="lg:col-span-4 xl:col-span-4 flex flex-col gap-4 w-full">
           <AdventureLog logs={gameState.logs} />
         </div>
       </main>
@@ -994,7 +1262,11 @@ export default function App() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (devPasswordInput.trim() === '0000') {
+                if (devPasswordInput.trim() === '1028') {
+                  setIsDevAuthenticated(true);
+                  try {
+                    sessionStorage.setItem('jay_dev_auth_1028', 'true');
+                  } catch (err) {}
                   setShowDevPasswordModal(false);
                   setShowDevModal(true);
                   setDevPasswordError('');
@@ -1099,6 +1371,13 @@ export default function App() {
             }));
             addLog(`【開發者指令】強制觸發【${type}】傳奇勝利！`, 'milestone');
           }}
+          onTestDrawChopin={() => {
+            const chopin = ALL_CHARACTERS.find((c) => c.id === 'char_chopin');
+            if (chopin) {
+              setPendingCharacter(chopin);
+              setShowCharConfirmModal(true);
+            }
+          }}
         />
       )}
 
@@ -1152,6 +1431,290 @@ export default function App() {
                 確認徹底清除
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Character Confirmation Modal (抽角色 -> 跳出角色確認視窗告知玩家 -> 冒險開始按鈕) */}
+      {showCharConfirmModal && pendingCharacter && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          {/* If SS-rank 11月的蕭邦, wrap in special radiant aura */}
+          <div className="relative w-full max-w-md">
+            {pendingCharacter.id === 'char_chopin' && (
+              <div className="absolute -inset-1.5 rounded-3xl bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-500 opacity-75 blur-xl animate-pulse pointer-events-none" />
+            )}
+
+            <div
+              className={`relative w-full bg-gradient-to-b ${
+                pendingCharacter.id === 'char_chopin'
+                  ? 'from-[#2e240e] via-[#1a150b] to-[#0d0a06] border-2 border-amber-400 shadow-[0_0_50px_rgba(245,158,11,0.6)]'
+                  : 'from-[#1b1a20] via-[#141318] to-[#0c0c10] border-2 border-[#d4af37]/80 shadow-2xl'
+              } rounded-2xl p-6 flex flex-col items-center text-center gap-4`}
+            >
+              <div className="w-full flex items-center justify-between border-b border-stone-800 pb-2">
+                <span className="text-xs text-[#d4af37] font-mono tracking-widest uppercase font-bold flex items-center gap-1.5">
+                  {pendingCharacter.id === 'char_chopin' ? (
+                    <>
+                      <span className="animate-spin text-amber-300">✨</span>
+                      <span>✦ 極稀有 SS 角色降臨 ✦</span>
+                      <span className="animate-spin text-amber-300">✨</span>
+                    </>
+                  ) : (
+                    '✦ 命運之簽覺醒 ✦'
+                  )}
+                </span>
+                <span className="text-[10px] text-stone-500 font-mono">
+                  {pendingCharacter.id === 'char_chopin' ? 'SS RANK UNLOCKED' : 'CHARACTER CONFIRMATION'}
+                </span>
+              </div>
+
+              {pendingCharacter.id === 'char_chopin' && (
+                <div className="flex items-center gap-1.5 text-amber-300 text-xs font-bold font-serif animate-bounce">
+                  <span>🎹</span>
+                  <span>夜曲奏鳴・十一月的浪漫琴音穿透時空！</span>
+                  <span>🎵</span>
+                </div>
+              )}
+
+              <div
+                className={`${
+                  pendingCharacter.id === 'char_chopin'
+                    ? 'w-24 h-24 rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-700 ring-4 ring-amber-400/50 shadow-[0_0_35px_rgba(251,191,36,0.9)] animate-pulse'
+                    : 'w-20 h-20 rounded-2xl bg-gradient-to-br ' + pendingCharacter.avatarColor + ' shadow-xl'
+                } flex items-center justify-center border border-white/30 my-1`}
+              >
+                <span
+                  className={`${
+                    pendingCharacter.id === 'char_chopin' ? 'text-5xl' : 'text-4xl'
+                  } filter drop-shadow select-none`}
+                >
+                  {pendingCharacter.avatarIcon || '🪵'}
+                </span>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-center gap-2">
+                  <h3
+                    className={`text-2xl font-black font-serif ${
+                      pendingCharacter.id === 'char_chopin'
+                        ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-100 via-amber-300 to-yellow-200'
+                        : 'text-amber-100'
+                    }`}
+                  >
+                    {pendingCharacter.name}
+                  </h3>
+                  {pendingCharacter.id === 'char_chopin' && (
+                    <span className="bg-gradient-to-r from-amber-400 to-yellow-500 text-stone-950 text-[10px] font-black px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)]">
+                      SS RANK
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-[#d4af37] mt-1 font-sans font-medium">
+                  {pendingCharacter.title}
+                </p>
+              </div>
+
+              <div className="w-full bg-black/40 border border-stone-800 rounded-xl p-3.5 text-xs text-stone-300 leading-relaxed text-left font-sans">
+                {pendingCharacter.description}
+              </div>
+
+              {pendingCharacter.specialTrait && (
+                <div
+                  className={`w-full ${
+                    pendingCharacter.id === 'char_chopin'
+                      ? 'bg-amber-950/50 border-2 border-amber-600/80 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
+                      : 'bg-amber-950/30 border border-amber-900/60'
+                  } rounded-xl p-3 text-xs text-amber-200 text-left font-sans flex items-start gap-2`}
+                >
+                  <span className="shrink-0 text-amber-400 font-bold">天賦：</span>
+                  <span className="leading-relaxed">{pendingCharacter.specialTrait}</span>
+                </div>
+              )}
+
+              <button
+                id="confirm-start-adventure-btn"
+                onClick={() => {
+                  setShowCharConfirmModal(false);
+                  handleSelectCharacter(pendingCharacter);
+                  setPendingCharacter(null);
+                }}
+                className={`w-full py-3 rounded-xl ${
+                  pendingCharacter.id === 'char_chopin'
+                    ? 'bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 text-stone-950 font-black shadow-[0_0_25px_rgba(251,191,36,0.7)] animate-pulse'
+                    : 'bg-gradient-to-r from-amber-600 via-[#d4af37] to-amber-500 text-stone-950 font-black shadow-[0_4px_18px_rgba(212,175,55,0.35)]'
+                } text-sm tracking-wider hover:brightness-110 transition-all cursor-pointer mt-2 active:scale-98`}
+              >
+                {pendingCharacter.id === 'char_chopin'
+                  ? '奏響琴弦・傳奇啟程！'
+                  : '確認化身・冒險開始！'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Linkage Transition Modal (事件連動包含抽到A卡連動到B卡，跳出確認視窗說明發生效果與按鈕) */}
+      {pendingEventTransition && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-gradient-to-b from-[#1c1822] via-[#14121a] to-[#0c0a10] border-2 border-purple-500/80 rounded-2xl p-6 shadow-[0_0_40px_rgba(168,85,247,0.3)] flex flex-col items-center text-center gap-4">
+            <div className="w-full flex items-center justify-between border-b border-purple-900/60 pb-2">
+              <span className="text-xs text-purple-300 font-mono tracking-widest uppercase font-bold flex items-center gap-1">
+                <span>✦</span>
+                <span>劇情連動觸發</span>
+                <span>✦</span>
+              </span>
+              <span className="text-[10px] text-stone-500 font-mono">
+                EVENT LINKAGE
+              </span>
+            </div>
+
+            {/* Sequence flow indication */}
+            <div className="flex items-center gap-2 text-xs font-serif bg-black/50 px-4 py-2 rounded-xl border border-purple-900/50">
+              <span className="text-stone-300 font-bold">
+                【{pendingEventTransition.sourceCardName}】
+              </span>
+              <span className="text-purple-400 font-bold">➔</span>
+              <span className="text-amber-300 font-bold">
+                【{pendingEventTransition.targetCard.name}】
+              </span>
+            </div>
+
+            {/* Narrative explanation */}
+            <div className="w-full bg-purple-950/20 border border-purple-900/40 rounded-xl p-4 text-xs text-purple-100 leading-relaxed text-left font-sans">
+              <p className="font-medium text-stone-200 mb-2">
+                {pendingEventTransition.effectNarrative}
+              </p>
+              <p className="text-[11px] text-stone-400 border-t border-purple-900/30 pt-2 font-mono">
+                ※ 時序流轉至第 {Math.min(30, pendingEventTransition.nextRound)} 回合，宿命引領你直接邁入下一張連動卡牌！
+              </p>
+            </div>
+
+            <button
+              id="confirm-event-transition-btn"
+              onClick={() => {
+                const trans = pendingEventTransition;
+                setPendingEventTransition(null);
+
+                const finalRound = Math.min(30, trans.nextRound);
+                addLog(
+                  `【事件連動】時空流轉至第 ${finalRound} 回合，直接遭遇【${trans.targetCard.name}】！`,
+                  'milestone'
+                );
+
+                setGameState((prev) => ({
+                  ...prev,
+                  round: finalRound,
+                  inventory: trans.nextInventory,
+                  flags: trans.nextFlags,
+                  stats: trans.nextStats,
+                  character: trans.nextCharacter,
+                  revealedCard: trans.targetCard,
+                  phase: 'REVEAL_CARD',
+                }));
+
+                checkAchievements(trans.nextInventory);
+              }}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-700 via-purple-600 to-indigo-700 hover:brightness-110 text-white font-black text-sm tracking-wider shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-all cursor-pointer active:scale-98"
+            >
+              下回合進入【{pendingEventTransition.targetCard.name}】
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AP Exhausted Modal (行動力歸0，跳出視窗告知CG強制結束，確認後強制進入NG，迫使總局數+1) */}
+      {showApExhaustedModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-gradient-to-b from-[#240e0e] via-[#170a0a] to-[#0d0505] border-2 border-red-700/80 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-red-950/60 border-2 border-red-600 flex items-center justify-center text-3xl shadow-[0_0_25px_rgba(239,68,68,0.35)]">
+              ⚡
+            </div>
+
+            <div>
+              <h3 className="text-xl font-black text-white font-serif tracking-wider">
+                行動力耗盡・CG 強制結束
+              </h3>
+              <p className="text-xs text-red-300/80 font-mono mt-1">
+                ACTION POINTS DEPLETED
+              </p>
+            </div>
+
+            <p className="text-xs sm:text-sm text-stone-300 leading-relaxed font-sans bg-black/50 border border-stone-800 rounded-xl p-4">
+              你的行動力已降為 0，冒險旅程在力竭中戛然而止。當前 CG 強制終結，所有的閱歷與足跡已銘刻於歷史日誌中。請重整行囊，開啟下一局（NG）的新宿命！
+            </p>
+
+            <div className="w-full grid grid-cols-2 gap-2 text-xs font-mono bg-black/40 border border-stone-800 rounded-xl p-3">
+              <div className="text-stone-400">當前結束局：<span className="text-stone-200 font-bold">第 {gameState.gameNumber} 局</span></div>
+              <div className="text-stone-400">生存回合：<span className="text-stone-200 font-bold">{gameState.round} / 30</span></div>
+            </div>
+
+            <button
+              id="confirm-ap-depleted-btn"
+              onClick={handleConfirmApExhausted}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-red-700 via-red-600 to-amber-700 text-white font-bold text-sm tracking-wider hover:brightness-110 transition-all shadow-[0_4px_18px_rgba(239,68,68,0.35)] cursor-pointer mt-1 active:scale-98"
+            >
+              確認結束・進入下一局 (NG)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Outcome Confirmation Modal (獲得物品、事件效果、裝備結果彈出確認視窗) */}
+      {outcomeModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-gradient-to-b from-[#1c1a22] via-[#14131a] to-[#0c0c12] border-2 border-amber-600/70 rounded-2xl p-6 shadow-[0_0_40px_rgba(217,119,6,0.35)] flex flex-col items-center text-center gap-4">
+            <div className="w-full flex items-center justify-between border-b border-stone-800 pb-2">
+              <span className="text-xs text-amber-400 font-mono tracking-widest uppercase font-bold flex items-center gap-1.5">
+                <span>✦</span>
+                <span>{outcomeModal.title}</span>
+                <span>✦</span>
+              </span>
+              <span className="text-[10px] text-stone-500 font-mono">
+                OUTCOME
+              </span>
+            </div>
+
+            {outcomeModal.icon && (
+              <div className="w-14 h-14 rounded-2xl bg-amber-950/40 border border-amber-700/60 flex items-center justify-center text-3xl shadow-[0_0_20px_rgba(245,158,11,0.2)] my-1">
+                <span>{outcomeModal.icon}</span>
+              </div>
+            )}
+
+            {outcomeModal.subtitle && (
+              <p className="text-xs text-amber-200/90 font-serif font-bold">
+                {outcomeModal.subtitle}
+              </p>
+            )}
+
+            {/* Narrative text */}
+            <div className="w-full bg-black/50 border border-stone-800/80 rounded-xl p-4 text-xs text-stone-200 leading-relaxed text-left font-sans">
+              {outcomeModal.narrative}
+            </div>
+
+            {/* Badges for rewards / items gained / consumed */}
+            {outcomeModal.badges && outcomeModal.badges.length > 0 && (
+              <div className="w-full flex flex-wrap gap-2 justify-center">
+                {outcomeModal.badges.map((b, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-700/80 text-xs"
+                  >
+                    <span className="text-stone-400 text-[11px] font-sans">{b.label}：</span>
+                    <span className={`font-bold font-serif ${b.color || 'text-amber-300'}`}>
+                      {b.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              id="confirm-outcome-modal-btn"
+              onClick={outcomeModal.onConfirm}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 via-[#d4af37] to-amber-500 text-stone-950 font-black text-sm tracking-wider hover:brightness-110 transition-all shadow-[0_4px_18px_rgba(212,175,55,0.35)] cursor-pointer mt-2 active:scale-98"
+            >
+              {outcomeModal.confirmText || '確定'}
+            </button>
           </div>
         </div>
       )}

@@ -23,7 +23,7 @@ export const InventoryGrid: React.FC<InventoryGridProps> = ({
             ({items.length} 件物品)
           </span>
         </div>
-        <span className="text-[10px] text-stone-500">點擊查看或互動</span>
+        <span className="text-[10px] text-stone-500">可拖曳物品使用</span>
       </div>
 
       {/* Fixed 3-Column Uniform Grid Layout without '持有中' text */}
@@ -34,20 +34,31 @@ export const InventoryGrid: React.FC<InventoryGridProps> = ({
       ) : (
         <div className="grid grid-cols-3 gap-2.5 content-start">
           {items.map(([name, count]) => (
-            <button
+            <div
               key={name}
+              draggable={true}
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', name);
+                e.dataTransfer.effectAllowed = 'copyMove';
+              }}
               onClick={() => onItemClick?.(name)}
-              className="h-11 bg-[#1b1a1f] hover:bg-[#25232b] border border-stone-800 hover:border-[#d4af37]/70 rounded-lg px-2.5 flex items-center justify-between transition-all cursor-pointer text-left group overflow-hidden active:scale-95 shadow-sm"
+              title="可拖曳此物品至裝備槽進行互動"
+              className="h-11 bg-[#1b1a1f] hover:bg-[#25232b] border border-stone-800 hover:border-[#d4af37]/70 rounded-lg px-2 flex items-center justify-between transition-all cursor-grab active:cursor-grabbing text-left group overflow-hidden active:scale-95 shadow-sm select-none"
             >
-              <span className="text-xs font-bold text-stone-200 truncate font-sans group-hover:text-amber-200">
-                {name}
-              </span>
+              <div className="flex items-center gap-1 min-w-0 flex-1">
+                <span className="text-[10px] text-stone-600 group-hover:text-amber-400 shrink-0 select-none font-mono">
+                  ⋮⋮
+                </span>
+                <span className="text-xs font-bold text-stone-200 truncate font-sans group-hover:text-amber-200">
+                  {name}
+                </span>
+              </div>
               {Number(count) > 1 && (
                 <span className="text-[10px] bg-amber-950/90 text-amber-300 border border-amber-800/80 px-1.5 py-0.5 rounded-full font-mono font-bold shrink-0 ml-1">
                   x{count}
                 </span>
               )}
-            </button>
+            </div>
           ))}
         </div>
       )}

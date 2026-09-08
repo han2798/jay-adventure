@@ -3,12 +3,82 @@ import { CharacterDefinition, JokerEquipment } from '../types';
 
 interface CharacterPanelProps {
   character?: CharacterDefinition | null;
-  stats?: { hp: number; atk: number };
+  stats?: { ap: number };
   jokerSlots?: JokerEquipment;
   inventory?: Record<string, number>;
   onEquipJokerSlot?: (slot: keyof JokerEquipment, itemName: string) => void;
   onUnequipJokerSlot?: (slot: keyof JokerEquipment) => void;
 }
+
+interface JokerEquipmentSlotProps {
+  slotKey: keyof JokerEquipment;
+  labelPrefix: string;
+  equippedItem: string | null;
+  onDropItem: (slot: keyof JokerEquipment, itemName: string) => void;
+  onUnequip: (slot: keyof JokerEquipment) => void;
+}
+
+const JokerEquipmentSlot: React.FC<JokerEquipmentSlotProps> = ({
+  slotKey,
+  labelPrefix,
+  equippedItem,
+  onDropItem,
+  onUnequip,
+}) => {
+  const [isDragOver, setIsDragOver] = React.useState(false);
+
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        setIsDragOver(true);
+      }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        const itemName = e.dataTransfer.getData('text/plain');
+        if (itemName) {
+          onDropItem(slotKey, itemName);
+        }
+      }}
+      className={`flex items-center justify-between text-xs p-2 rounded border transition-all ${
+        isDragOver
+          ? 'bg-purple-900/50 border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.4)] scale-[1.01]'
+          : 'bg-black/40 border-purple-900/30'
+      }`}
+    >
+      <div className="flex items-center gap-1.5 truncate">
+        <span className="text-purple-200 font-serif">
+          {labelPrefix}【
+          <span className={equippedItem ? 'text-amber-200 font-bold' : 'text-stone-500'}>
+            {equippedItem || '＿＿＿＿＿'}
+          </span>
+          】
+        </span>
+        {!equippedItem && (
+          <span className="text-[10px] text-stone-500 font-sans hidden sm:inline">
+            (拖移行囊物品至此)
+          </span>
+        )}
+      </div>
+
+      {equippedItem ? (
+        <button
+          onClick={() => onUnequip(slotKey)}
+          className="text-[10px] text-stone-400 hover:text-red-400 cursor-pointer px-2 py-0.5 rounded hover:bg-red-950/40 transition-colors shrink-0 ml-2"
+        >
+          卸下
+        </button>
+      ) : (
+        <span className="text-[10px] text-purple-400/50 font-mono shrink-0 ml-2">
+          待拖入
+        </span>
+      )}
+    </div>
+  );
+};
 
 export const CharacterPanel: React.FC<CharacterPanelProps> = ({
   character,
@@ -21,6 +91,10 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
   const isJoker = character?.id === 'char_joker';
   const hasTutorialTape = Boolean(inventory['免費教學錄影帶']);
 
+  const handleSlotDrop = (slot: keyof JokerEquipment, itemName: string) => {
+    onEquipJokerSlot?.(slot, itemName);
+  };
+
   return (
     <div className="w-full bg-[#141417] border border-stone-800 rounded-xl p-4 flex flex-col gap-3 shadow-lg">
       {/* Title - strictly Chinese */}
@@ -28,9 +102,10 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
         <span className="text-xs font-bold text-stone-400 tracking-wider">
           當前化身
         </span>
-        <div className="flex items-center gap-3 text-xs font-mono">
-          <span className="text-red-400">體力 {stats?.hp ?? '--'}</span>
-          <span className="text-amber-400">戰力 {stats?.atk ?? '--'}</span>
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <span className="text-amber-300 font-bold bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/60">
+            ⚡ 行動力 {stats?.ap ?? '--'}
+          </span>
         </div>
       </div>
 
@@ -39,9 +114,11 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
           {/* Character Identity */}
           <div className="flex items-center gap-3.5">
             <div
-              className={`w-12 h-12 rounded-xl bg-gradient-to-br ${character.avatarColor} flex items-center justify-center text-white font-serif font-black text-xl shadow-md border border-white/10 shrink-0`}
+              className={`w-12 h-12 rounded-xl bg-gradient-to-br ${character.avatarColor} flex items-center justify-center shadow-md border border-white/10 shrink-0`}
             >
-              {character.name.slice(0, 1)}
+              <span className="text-2xl filter drop-shadow select-none">
+                {character.avatarIcon || '🪵'}
+              </span>
             </div>
             <div className="flex flex-col overflow-hidden">
               <div className="flex items-center gap-2">
@@ -86,76 +163,31 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
               </div>
 
               {/* Slot 1: 在＿＿＿ */}
-              <div className="flex items-center justify-between text-xs bg-black/40 p-2 rounded border border-purple-900/30">
-                <span className="text-purple-200 font-serif">
-                  在【{jokerSlots.place || '＿＿＿'}】
-                </span>
-                {jokerSlots.place ? (
-                  <button
-                    onClick={() => onUnequipJokerSlot?.('place')}
-                    className="text-[10px] text-stone-400 hover:text-red-400 cursor-pointer"
-                  >
-                    卸下
-                  </button>
-                ) : (
-                  inventory['我的地盤'] && (
-                    <button
-                      onClick={() => onEquipJokerSlot?.('place', '我的地盤')}
-                      className="text-[10px] bg-purple-900/80 text-purple-200 px-2 py-0.5 rounded hover:bg-purple-800 cursor-pointer"
-                    >
-                      填入
-                    </button>
-                  )
-                )}
-              </div>
+              <JokerEquipmentSlot
+                slotKey="place"
+                labelPrefix="在"
+                equippedItem={jokerSlots.place}
+                onDropItem={handleSlotDrop}
+                onUnequip={() => onUnequipJokerSlot?.('place')}
+              />
 
               {/* Slot 2: 穿＿＿＿ */}
-              <div className="flex items-center justify-between text-xs bg-black/40 p-2 rounded border border-purple-900/30">
-                <span className="text-purple-200 font-serif">
-                  穿【{jokerSlots.shoes || '＿＿＿'}】
-                </span>
-                {jokerSlots.shoes ? (
-                  <button
-                    onClick={() => onUnequipJokerSlot?.('shoes')}
-                    className="text-[10px] text-stone-400 hover:text-red-400 cursor-pointer"
-                  >
-                    卸下
-                  </button>
-                ) : (
-                  inventory['鞋子特大號'] && (
-                    <button
-                      onClick={() => onEquipJokerSlot?.('shoes', '鞋子特大號')}
-                      className="text-[10px] bg-purple-900/80 text-purple-200 px-2 py-0.5 rounded hover:bg-purple-800 cursor-pointer"
-                    >
-                      填入
-                    </button>
-                  )
-                )}
-              </div>
+              <JokerEquipmentSlot
+                slotKey="shoes"
+                labelPrefix="穿"
+                equippedItem={jokerSlots.shoes}
+                onDropItem={handleSlotDrop}
+                onUnequip={() => onUnequipJokerSlot?.('shoes')}
+              />
 
               {/* Slot 3: 表演＿＿＿ */}
-              <div className="flex items-center justify-between text-xs bg-black/40 p-2 rounded border border-purple-900/30">
-                <span className="text-purple-200 font-serif">
-                  表演【{jokerSlots.performance || '＿＿＿'}】
-                </span>
-                {jokerSlots.performance ? (
-                  <button
-                    onClick={() => onUnequipJokerSlot?.('performance')}
-                    className="text-[10px] text-stone-400 hover:text-red-400 cursor-pointer"
-                  >
-                    卸下
-                  </button>
-                ) : (
-                  inventory['紅模仿'] && (
-                    <button
-                      onClick={() => onEquipJokerSlot?.('performance', '紅模仿')}
-                      className="text-[10px] bg-purple-900/80 text-purple-200 px-2 py-0.5 rounded hover:bg-purple-800 cursor-pointer"
-                    >
-                      填入
-                    </button>
-                  )
-                )}
-              </div>
+              <JokerEquipmentSlot
+                slotKey="performance"
+                labelPrefix="表演"
+                equippedItem={jokerSlots.performance}
+                onDropItem={handleSlotDrop}
+                onUnequip={() => onUnequipJokerSlot?.('performance')}
+              />
             </div>
           )}
         </>

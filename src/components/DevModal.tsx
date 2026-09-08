@@ -11,6 +11,7 @@ interface DevModalProps {
   onSetRound: (round: number) => void;
   onTriggerBoss: () => void;
   onTriggerVictory: (type: '太陽之子' | '最偉大的作品' | '周杰倫家庭') => void;
+  onTestDrawChopin?: () => void;
 }
 
 export const DevModal: React.FC<DevModalProps> = ({
@@ -21,6 +22,7 @@ export const DevModal: React.FC<DevModalProps> = ({
   onSetRound,
   onTriggerBoss,
   onTriggerVictory,
+  onTestDrawChopin,
 }) => {
   const [filterType, setFilterType] = useState<string>('全部');
   const [search, setSearch] = useState<string>('');
@@ -84,6 +86,18 @@ export const DevModal: React.FC<DevModalProps> = ({
           >
             設為第 29 回合
           </button>
+          {onTestDrawChopin && (
+            <button
+              onClick={() => {
+                onClose();
+                onTestDrawChopin();
+              }}
+              className="text-xs bg-yellow-950/80 hover:bg-yellow-800 text-yellow-200 border border-yellow-600 px-3 py-1.5 rounded-lg cursor-pointer font-bold flex items-center gap-1 shadow-sm"
+            >
+              <span>✨</span>
+              <span>測試抽中【11月的蕭邦】(SS特效)</span>
+            </button>
+          )}
         </div>
 
         {/* Character Switcher */}

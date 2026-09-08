@@ -1,5 +1,6 @@
 import React from 'react';
 import { CharacterDefinition, JokerEquipment } from '../types';
+import { CharacterAvatarIcon } from './CharacterAvatarIcon';
 
 interface CharacterPanelProps {
   character?: CharacterDefinition | null;
@@ -103,11 +104,29 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
           當前化身
         </span>
         <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-amber-300 font-bold bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/60">
-            ⚡ 行動力 {stats?.ap ?? '--'}
-          </span>
+          {stats?.ap === 1 ? (
+            <span className="text-red-300 font-bold bg-red-950/90 px-2 py-0.5 rounded border border-red-600 animate-pulse flex items-center gap-1">
+              <span>⚠️</span>
+              <span>⚡ 行動力 1（瀕危）</span>
+            </span>
+          ) : (
+            <span className="text-amber-300 font-bold bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/60">
+              ⚡ 行動力 {stats?.ap ?? '--'}
+            </span>
+          )}
         </div>
       </div>
+
+      {/* Stamina 1 Warning Notice */}
+      {stats?.ap === 1 && (
+        <div className="bg-red-950/60 border border-red-600/80 rounded-lg p-2.5 text-xs text-red-200 flex items-start gap-2 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.25)]">
+          <span className="text-base shrink-0 mt-0.5">⚠️</span>
+          <div className="font-sans leading-tight space-y-0.5">
+            <span className="font-bold text-red-100 block">體力瀕危警告</span>
+            <span>體力僅剩 1 點！下一回合體力將歸 0 進入下一局（若未獲體力補充）。請謹慎抉擇！</span>
+          </div>
+        </div>
+      )}
 
       {character ? (
         <>
@@ -116,9 +135,9 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
             <div
               className={`w-12 h-12 rounded-xl bg-gradient-to-br ${character.avatarColor} flex items-center justify-center shadow-md border border-white/10 shrink-0`}
             >
-              <span className="text-2xl filter drop-shadow select-none">
-                {character.avatarIcon || '🪵'}
-              </span>
+              <div className="filter drop-shadow select-none">
+                <CharacterAvatarIcon character={character} size="lg" />
+              </div>
             </div>
             <div className="flex flex-col overflow-hidden">
               <div className="flex items-center gap-2">

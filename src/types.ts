@@ -10,6 +10,9 @@ export interface CardOption {
     itemCount?: number;
     flag?: string;
     flagValue?: boolean | string | number;
+    notFlag?: string;
+    flag2?: string;
+    flag2Value?: boolean | string | number;
   };
   resultText: string;
   effect?: {
@@ -20,10 +23,12 @@ export interface CardOption {
     setMetaFlag?: Record<string, boolean | string | number>;
     forceNextCardId?: string;
     changeCharacter?: string;
-    apChange?: number; // 行動力變更 (+ 恢復, - 消耗)
+    apChange?: number; // 體力/行動力變更 (+ 恢復, - 消耗)
     triggerVictory?: '太陽之子' | '最偉大的作品' | '周杰倫家庭';
     triggerDefeat?: string;
-    rewindRound?: number; // for 回到過去 or 時光機 or 反方向的鐘
+    rewindRound?: number; // 回合數倒流 (遞減) 例如: 《反方向的鐘》回到第 1 回合
+    advanceRound?: number; // 回合數推進 (遞增) 例如: 穿梭跳躍
+    advanceGame?: number; // 局數推進
     clearItems?: boolean;
     timedAction?: {
       seconds: number;
@@ -88,6 +93,35 @@ export interface GameHistoryRecord {
   }>;
 }
 
+export interface RouteVictoryRecord {
+  route: '太陽之子' | '最偉大的作品' | '周杰倫家庭' | string;
+  gameNumber: number; // 達成時的累計局數 (例如：第 5 局)
+  round: number; // 達成時當局的回合 (例如：第 16 回合)
+  totalRounds: number; // 跨局累計總消耗回合
+  timestamp: string;
+  characterName: string;
+}
+
+export interface SettlementRecord {
+  id: string;
+  gameNumber: number;
+  round: number;
+  totalRounds: number;
+  outcomeType: 'VICTORY' | 'DEFEAT';
+  route: string;
+  characterName: string;
+  characterTitle?: string;
+  characterIcon?: string;
+  timestamp: string;
+  isAllCompleted: boolean;
+  grade: 'S' | 'A' | 'B' | 'C' | 'D';
+  gradeTitle: string;
+  gradeColor: string;
+  itemsCount: number;
+  allRecords?: Record<string, RouteVictoryRecord>;
+  defeatReason?: string;
+}
+
 export interface MetaProgress {
   unlockedCardIds: string[]; // 圖鑑解鎖
   unlockedAchievements: string[]; // 成就解鎖
@@ -96,9 +130,12 @@ export interface MetaProgress {
   unlockedDiaries: string[]; // 日記篇章
   ironBoxItems: string[]; // 半島鐵盒保存物品
   pastGamesCount: number; // 累計遊玩局數
-  victories: string[]; // 達成過的結局
+  totalRoundsPlayed?: number; // 跨局累計遊玩總回合
+  victories: string[]; // 達成過的結局名稱
+  routeVictoryRecords?: Record<string, RouteVictoryRecord>; // 路線通關戰績結算
   nextGameFlags: Record<string, boolean | string | number>; // 跨局 Flag (如 亂舞春秋時代)
   gameHistories?: GameHistoryRecord[]; // 歷代冒險日誌記錄
+  settlementHistory?: SettlementRecord[]; // 傳奇殿堂・歷次結算戰績卡
 }
 
 export interface JokerEquipment {

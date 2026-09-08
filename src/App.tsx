@@ -6,6 +6,8 @@ import {
   JokerEquipment,
   CharacterDefinition,
   GameHistoryRecord,
+  RouteVictoryRecord,
+  SettlementRecord,
 } from './types';
 import { CARD_DATABASE } from './data/cards';
 import { INITIAL_SELECTABLE_CHARACTERS, ALL_CHARACTERS } from './data/characters';
@@ -19,6 +21,10 @@ import { BossBattleView } from './components/BossBattleView';
 import { CompendiumModal } from './components/CompendiumModal';
 import { DevModal } from './components/DevModal';
 import { GameOverModal } from './components/GameOverModal';
+import { HallOfFameModal } from './components/HallOfFameModal';
+import { CharacterAvatarIcon } from './components/CharacterAvatarIcon';
+import { JayQuoteEasterEgg } from './components/JayQuoteEasterEgg';
+import { getSettlementGrade } from './utils/exportSettlement';
 
 const STORAGE_KEY_META = 'jay_chou_rpg_meta_v1';
 
@@ -77,11 +83,13 @@ export default function App() {
 
   // Modals state
   const [showCompendium, setShowCompendium] = useState<boolean>(false);
+  const [showHallOfFame, setShowHallOfFame] = useState<boolean>(false);
+  const [showNewGamePlusModal, setShowNewGamePlusModal] = useState<boolean>(false);
   const [showDevModal, setShowDevModal] = useState<boolean>(false);
   const [showDevPasswordModal, setShowDevPasswordModal] = useState<boolean>(false);
   const [isDevAuthenticated, setIsDevAuthenticated] = useState<boolean>(() => {
     try {
-      return typeof window !== 'undefined' && sessionStorage.getItem('jay_dev_auth_1028') === 'true';
+      return typeof window !== 'undefined' && sessionStorage.getItem('jay_dev_auth_session') === 'true';
     } catch {
       return false;
     }
@@ -111,6 +119,34 @@ export default function App() {
     confirmText?: string;
     onConfirm: () => void;
   } | null>(null);
+
+  // 周董經典口頭禪彩蛋狀態
+  const [jayQuote, setJayQuote] = useState<string | null>(null);
+
+  const triggerJayQuote = useCallback((customQuote?: string) => {
+    const defaultQuotes = [
+      '「哎呦，不錯喔！」',
+      '「這個超屌！」',
+      '「有點屌喔！」',
+      '「聽媽媽的話，不錯喔！」',
+      '「屌爆了！」',
+      '「哎呦，可以喔！」',
+    ];
+    const q = customQuote || defaultQuotes[Math.floor(Math.random() * defaultQuotes.length)];
+    setJayQuote(q);
+    setTimeout(() => {
+      setJayQuote(null);
+    }, 3500);
+  }, []);
+
+  // 判定玩家是否已全通關取得過評級戰績卡（解鎖「傳奇殿堂」與「開啟新周目」）
+  const hasAchievedGrandSlam = useMemo(() => {
+    const hasFullSettlement = Boolean(
+      meta.settlementHistory && meta.settlementHistory.some((s) => s.isAllCompleted)
+    );
+    const hasThreeRoutes = Object.keys(meta.routeVictoryRecords || {}).length >= 3;
+    return hasFullSettlement || hasThreeRoutes;
+  }, [meta.settlementHistory, meta.routeVictoryRecords]);
 
   // Add Log Helper
   const addLog = useCallback(
@@ -188,8 +224,42 @@ export default function App() {
       const pool = [...candidates];
       const selected: CardDefinition[] = [];
 
-      for (let i = 0; i < 3; i++) {
-        if (pool.length === 0) break;
+      // Guaranteed priority cards (100% appearance when conditions are met)
+      // 1. 亂舞春秋 (C2004-07): 持有 忍者、印地安老斑鳩、半獸人、龍戰騎士 且當局未抽取過
+      const chaosEraEligible = Boolean(
+        state.inventory['忍者'] &&
+        state.inventory['印地安老斑鳩'] &&
+        state.inventory['半獸人'] &&
+        state.inventory['龍戰騎士'] &&
+        !state.flags['chaos_era_obtained']
+      );
+
+      // 2. 最後的戰役 (C2002-10): 處於亂舞春秋時代 且未持有最後的戰役 且非第30回合
+      const lastBattleEligible = Boolean(
+        (state.flags['chaos_era_active'] || metaData.nextGameFlags['next_game_chaos_era']) &&
+        !state.inventory['最後的戰役'] &&
+        state.round !== 30
+      );
+
+      if (chaosEraEligible) {
+        const chaosCard = pool.find((c) => c.id === 'C2004-07');
+        if (chaosCard && !selected.some((c) => c.id === chaosCard.id)) {
+          selected.push(chaosCard);
+          const idx = pool.findIndex((c) => c.id === chaosCard.id);
+          if (idx !== -1) pool.splice(idx, 1);
+        }
+      }
+
+      if (lastBattleEligible) {
+        const battleCard = pool.find((c) => c.id === 'C2002-10');
+        if (battleCard && !selected.some((c) => c.id === battleCard.id)) {
+          selected.push(battleCard);
+          const idx = pool.findIndex((c) => c.id === battleCard.id);
+          if (idx !== -1) pool.splice(idx, 1);
+        }
+      }
+
+      while (selected.length < 3 && pool.length > 0) {
         const totalWeight = pool.reduce((acc, c) => acc + c.weight, 0);
         let randomVal = Math.random() * totalWeight;
 
@@ -318,6 +388,17 @@ export default function App() {
 
     addLog(`抽到了【${card.name}】`, 'draw');
 
+    // 觸發周董彩蛋語錄：若抽到神級卡、高稀有度卡或太陽之子路線卡
+    const isSpecialCard =
+      card.weight <= 4 ||
+      card.route === '太陽之子' ||
+      ['《跨時代》', '《葉惠美》', '《范特西》', '《杰倫》', '最後的戰役', '龍戰騎士', '亂舞春秋'].includes(
+        card.name
+      );
+    if (isSpecialCard && Math.random() < 0.7) {
+      triggerJayQuote();
+    }
+
     // 3. Reveal this card ONLY (the other 2 remain mystery cards, never spoiled!)
     setGameState((prev) => ({
       ...prev,
@@ -409,7 +490,7 @@ export default function App() {
         nextDefeat = eff.triggerDefeat;
       }
 
-      // Time Travel Rewind logic
+      // Time Travel Rewind & Advance logic
       if (eff.rewindRound !== undefined) {
         nextRound = eff.rewindRound;
         if (eff.clearItems) {
@@ -423,6 +504,110 @@ export default function App() {
         }
       }
 
+      if (eff.advanceRound !== undefined) {
+        nextRound = nextRound + eff.advanceRound;
+        addLog(`【時空流轉】受到卡牌效果影響，時光流速加快，回合推進了 ${eff.advanceRound} 回合！`, 'action');
+      }
+
+      if (eff.advanceGame !== undefined) {
+        setGameState((prev) => ({ ...prev, gameNumber: prev.gameNumber + eff.advanceGame! }));
+        addLog(`【命運輪迴】受到卡牌效果干預，當前局數推進了 ${eff.advanceGame} 局！`, 'milestone');
+      }
+
+      // Special logic for 亂舞春秋 (C2004-07)
+      if (card.id === 'C2004-07') {
+        nextFlags['chaos_era_obtained'] = true;
+        setMeta((prev) => ({
+          ...prev,
+          nextGameFlags: { ...prev.nextGameFlags, next_game_chaos_era: true },
+        }));
+        if (gameState.round <= 24) {
+          nextFlags['chaos_era_active'] = true;
+          addLog('【亂舞春秋】在第 24 回合前啟動！時空震盪，當局全面進入【亂舞春秋時代】！', 'milestone');
+        } else {
+          addLog('【亂舞春秋】在第 25 回合後啟動！時空震盪延遲，將於下一局全面進入【亂舞春秋時代】！', 'milestone');
+        }
+      }
+
+      // Check Core Route 2: 《最偉大的作品》 Victory (4 SS albums collected: 《杰倫》, 《范特西》, 《葉惠美》, 《跨時代》)
+      if (
+        nextInventory['《杰倫》'] &&
+        nextInventory['《范特西》'] &&
+        nextInventory['《葉惠美》'] &&
+        nextInventory['《跨時代》']
+      ) {
+        nextVictory = '最偉大的作品';
+        addLog('【登峰造極】四大神卡《杰倫》《范特西》《葉惠美》《跨時代》齊聚！達成《最偉大的作品》傳奇結局！', 'milestone');
+      }
+
+      // Check Core Route 3: 《周杰倫家庭》 Victory (Family members and songs collected)
+      if (
+        nextInventory['外婆'] &&
+        nextInventory['聽媽媽的話'] &&
+        nextInventory['聽爸爸的話'] &&
+        (nextInventory['女兒殿下'] || nextCharacter.name === '女兒殿下')
+      ) {
+        nextVictory = '周杰倫家庭';
+        addLog('【溫馨團聚】外婆、媽媽、爸爸、女兒殿下全員相聚，達成《周杰倫家庭》溫情傳奇結局！', 'milestone');
+      }
+
+      // Sunshine guy evolution check
+      if (nextCharacter.name === '陽光宅男' && nextInventory['公主病']) {
+        const daughterChar = ALL_CHARACTERS.find((c) => c.id === 'char_daughter');
+        if (daughterChar) {
+          nextCharacter = daughterChar;
+          addLog('【血脈覺醒】陽光宅男感應到了任性的公主病真情，奇蹟進化為神級化身【女兒殿下】！', 'milestone');
+        }
+      }
+
+      checkAchievements(nextInventory);
+
+      // If victory condition reached, trigger victory immediately (even at round 30 or AP exhaustion)
+      if (nextVictory) {
+        const victoryRoute = nextVictory;
+        const totalRoundsNow = (meta.totalRoundsPlayed || 0) + gameState.round;
+        const record: RouteVictoryRecord = {
+          route: victoryRoute,
+          gameNumber: gameState.gameNumber,
+          round: Math.min(30, gameState.round),
+          totalRounds: totalRoundsNow,
+          timestamp: new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }),
+          characterName: nextCharacter.name,
+        };
+
+        setGameState((prev) => ({
+          ...prev,
+          inventory: nextInventory,
+          flags: nextFlags,
+          character: nextCharacter,
+          stats: nextStats,
+          victoryType: victoryRoute,
+          phase: 'GAME_OVER',
+        }));
+        setMeta((prev) => ({
+          ...prev,
+          victories: Array.from(new Set([...prev.victories, victoryRoute])),
+          routeVictoryRecords: {
+            ...(prev.routeVictoryRecords || {}),
+            [victoryRoute]: prev.routeVictoryRecords?.[victoryRoute] || record,
+          },
+        }));
+        return;
+      }
+
+      if (nextDefeat) {
+        setGameState((prev) => ({
+          ...prev,
+          inventory: nextInventory,
+          flags: nextFlags,
+          character: nextCharacter,
+          stats: nextStats,
+          defeatReason: nextDefeat,
+          phase: 'GAME_OVER',
+        }));
+        return;
+      }
+
       // Force Next Card Encounter (事件連動過場視窗)
       if (eff.forceNextCardId) {
         const nextCard = CARD_DATABASE.find((c) => c.id === eff.forceNextCardId);
@@ -430,16 +615,35 @@ export default function App() {
           // Action consumes 1 AP
           nextStats.ap = Math.max(0, nextStats.ap - 1);
 
+          // 【第30回合邊界條件機制】
+          // (1) 延伸 - 持續觸發卡牌或效果，直到無法觸發為止 (A卡跳接B卡，B卡如果還會觸發跳接到C卡的話依然持續，以此類推)
+          // (2) 回合不計數 - 依然是第 30 回合，不會變成第 31、32 回合，結算依然不超過 30 回合上限
+          if (gameState.round >= 30) {
+            setPendingEventTransition({
+              sourceCardName: card.name,
+              targetCard: nextCard,
+              nextRound: 30,
+              effectNarrative:
+                option.resultText ||
+                `※ 第 30 回合宿命延伸！宿命牽引你由【${card.name}】直接連動邁入【${nextCard.name}】！`,
+              nextInventory,
+              nextFlags,
+              nextStats,
+              nextCharacter,
+            });
+            return;
+          }
+
           if (nextStats.ap <= 0) {
             nextStats.ap = 0;
-            addLog('【行動力竭】行動力歸 0，身體已達極限，CG 強制結束！', 'warning');
+            addLog('【行動力竭】行動力歸 0，身體已達極限，本局冒險強制結束！', 'warning');
             setGameState((prev) => ({
               ...prev,
               inventory: nextInventory,
               flags: nextFlags,
               character: nextCharacter,
               stats: nextStats,
-              defeatReason: '行動力已歸 0，CG 強制結束。所有的遺憾都將化為下一局的經驗！',
+              defeatReason: '行動力已歸 0，本局冒險強制結束。所有的遺憾都將化為下一局的經驗！',
             }));
             setShowApExhaustedModal(true);
             return;
@@ -460,82 +664,19 @@ export default function App() {
       }
     }
 
-    // Check Core Route 2: 《最偉大的作品》 Victory (4 SS albums collected: 《杰倫》, 《范特西》, 《葉惠美》, 《跨時代》)
-    if (
-      nextInventory['《杰倫》'] &&
-      nextInventory['《范特西》'] &&
-      nextInventory['《葉惠美》'] &&
-      nextInventory['《跨時代》']
-    ) {
-      nextVictory = '最偉大的作品';
-      addLog('【登峰造極】四大神卡《杰倫》《范特西》《葉惠美》《跨時代》齊聚！達成《最偉大的作品》傳奇結局！', 'milestone');
-    }
-
-    // Check Core Route 3: 《周杰倫家庭》 Victory (Family members and songs collected)
-    if (
-      nextInventory['外婆'] &&
-      nextInventory['聽媽媽的話'] &&
-      nextInventory['聽爸爸的話'] &&
-      (nextInventory['女兒殿下'] || nextCharacter.name === '女兒殿下')
-    ) {
-      nextVictory = '周杰倫家庭';
-      addLog('【溫馨團聚】外婆、媽媽、爸爸、女兒殿下全員相聚，達成《周杰倫家庭》溫情傳奇結局！', 'milestone');
-    }
-
-    // Sunshine guy evolution check
-    if (nextCharacter.name === '陽光宅男' && nextInventory['公主病']) {
-      const daughterChar = ALL_CHARACTERS.find((c) => c.id === 'char_daughter');
-      if (daughterChar) {
-        nextCharacter = daughterChar;
-        addLog('【血脈覺醒】陽光宅男感應到了任性的公主病真情，奇蹟進化為神級化身【女兒殿下】！', 'milestone');
-      }
-    }
-
-    checkAchievements(nextInventory);
-
-    if (nextVictory) {
-      setGameState((prev) => ({
-        ...prev,
-        inventory: nextInventory,
-        flags: nextFlags,
-        character: nextCharacter,
-        stats: nextStats,
-        victoryType: nextVictory,
-        phase: 'GAME_OVER',
-      }));
-      setMeta((prev) => ({
-        ...prev,
-        victories: Array.from(new Set([...prev.victories, nextVictory!])),
-      }));
-      return;
-    }
-
-    if (nextDefeat) {
-      setGameState((prev) => ({
-        ...prev,
-        inventory: nextInventory,
-        flags: nextFlags,
-        character: nextCharacter,
-        stats: nextStats,
-        defeatReason: nextDefeat,
-        phase: 'GAME_OVER',
-      }));
-      return;
-    }
-
     // Action consumes 1 AP
     nextStats.ap = Math.max(0, nextStats.ap - 1);
 
     if (nextStats.ap <= 0) {
       nextStats.ap = 0;
-      addLog('【行動力竭】行動力歸 0，身體已達極限，CG 強制結束！', 'warning');
+      addLog('【行動力竭】行動力歸 0，身體已達極限，本局冒險強制結束！', 'warning');
       setGameState((prev) => ({
         ...prev,
         inventory: nextInventory,
         flags: nextFlags,
         character: nextCharacter,
         stats: nextStats,
-        defeatReason: '行動力已歸 0，CG 強制結束。所有的遺憾都將化為下一局的經驗！',
+        defeatReason: '行動力已歸 0，本局冒險強制結束。所有的遺憾都將化為下一局的經驗！',
       }));
       setShowApExhaustedModal(true);
       return;
@@ -579,6 +720,12 @@ export default function App() {
       badges.push({ label: '化身覺醒', value: `【${nextCharacter.name}】`, color: 'text-yellow-300' });
     }
 
+    // 【第30回合邊界條件機制】
+    // (3) 觸發卡牌導致增加體力的情況，不影響原先機制，因為原先機制本來就是就算體力再多也是得 30 回合結束，就算體力從 0 補回 1 也一樣
+    // (2) 回合不計數 - 依然是第 30 回合，不會變成第 31、32 回合，結算依然不超過 30 回合上限
+    const isAtOrExceedingRound30 = gameState.round >= 30;
+    const finalConfirmRound = isAtOrExceedingRound30 ? 31 : nextRound;
+
     // Display outcome confirmation modal before advancing to next round
     setOutcomeModal({
       title: eff?.addItem ? '✦ 獲得物品・決策結算 ✦' : '✦ 冒險決策・事件結算 ✦',
@@ -586,10 +733,12 @@ export default function App() {
       subtitle: `【${card.name}】・${option.text}`,
       narrative: option.resultText || `做出選擇：${option.text}。`,
       badges: badges.length > 0 ? badges : undefined,
-      confirmText: `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
+      confirmText: isAtOrExceedingRound30
+        ? '確定（第 30 回合冒險結算）'
+        : `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
       onConfirm: () => {
         setOutcomeModal(null);
-        startNewRound(nextRound, {
+        startNewRound(finalConfirmRound, {
           inventory: nextInventory,
           flags: nextFlags,
           character: nextCharacter,
@@ -804,10 +953,42 @@ export default function App() {
       logs: [...gameState.logs],
     };
 
+    const isGrandSlam = Object.keys(meta.routeVictoryRecords || {}).length >= 3;
+    const gradeInfo = getSettlementGrade(gameState.gameNumber);
+
+    const settlementRec: SettlementRecord = {
+      id: `set_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      gameNumber: gameState.gameNumber,
+      round: gameState.round,
+      totalRounds: (meta.totalRoundsPlayed || 0) + gameState.round,
+      outcomeType: finalOutcomeType,
+      route: gameState.victoryType || '冒險結算',
+      characterName: gameState.character?.name || '未知',
+      characterTitle: gameState.character?.title,
+      characterIcon: gameState.character?.avatarIcon || '🪵',
+      timestamp: new Date().toLocaleDateString('zh-TW', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      isAllCompleted: isGrandSlam,
+      grade: gradeInfo.grade as any,
+      gradeTitle: gradeInfo.title,
+      gradeColor: gradeInfo.color,
+      itemsCount: (Object.values(gameState.inventory) as number[]).reduce((a, b) => a + Number(b), 0),
+      allRecords: meta.routeVictoryRecords,
+      defeatReason: gameState.defeatReason,
+    };
+
     setMeta((prev) => ({
       ...prev,
       pastGamesCount: prev.pastGamesCount + 1,
+      totalRoundsPlayed: (prev.totalRoundsPlayed || 0) + gameState.round,
       gameHistories: [historyRecord, ...(prev.gameHistories || [])],
+      settlementHistory: isGrandSlam
+        ? [settlementRec, ...(prev.settlementHistory || [])]
+        : (prev.settlementHistory || []),
     }));
 
     setGameState((prev) => ({
@@ -825,7 +1006,7 @@ export default function App() {
       logs: [
         {
           round: 0,
-          text: `開啟第 ${prev.gameNumber + 1} 局新探索！請抽取初始角色化身……`,
+          text: `順勢推進，開啟第 ${prev.gameNumber + 1} 局新探索！請抽取初始角色化身……`,
           type: 'milestone',
         },
       ],
@@ -846,7 +1027,7 @@ export default function App() {
       characterIcon: gameState.character?.avatarIcon || '🪵',
       endRound: gameState.round,
       outcomeType: 'AP_DEPLETED',
-      outcomeTitle: '行動力耗盡 (CG強制結束)',
+      outcomeTitle: '體力耗盡 (重生增加局數處罰)',
       timestamp: new Date().toLocaleDateString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
       logs: [...gameState.logs],
     };
@@ -854,6 +1035,7 @@ export default function App() {
     setMeta((prev) => ({
       ...prev,
       pastGamesCount: prev.pastGamesCount + 1,
+      totalRoundsPlayed: (prev.totalRoundsPlayed || 0) + gameState.round,
       gameHistories: [historyRecord, ...(prev.gameHistories || [])],
     }));
 
@@ -872,7 +1054,7 @@ export default function App() {
       logs: [
         {
           round: 0,
-          text: `行動力耗盡重整完畢，進入第 ${prev.gameNumber + 1} 局（NG）！請抽取命運化身……`,
+          text: `體力耗盡重整完畢，受到處罰局數+1，進入第 ${prev.gameNumber + 1} 局！請抽取命運化身……`,
           type: 'milestone',
         },
       ],
@@ -944,17 +1126,26 @@ export default function App() {
   };
 
   const handleFullMemoryWipe = () => {
-    localStorage.clear();
-    setMeta({
+    // 傳奇殿堂的歷次評級戰績卡永久保存，不隨新周目清空！
+    const preservedSettlements = meta.settlementHistory || [];
+
+    const cleanMeta: MetaProgress = {
       unlockedCardIds: [],
       unlockedAchievements: [],
       unlockedDiaries: [],
       ironBoxItems: [],
       pastGamesCount: 1,
+      totalRoundsPlayed: 0,
       victories: [],
+      routeVictoryRecords: {},
       nextGameFlags: {},
       gameHistories: [],
-    });
+      settlementHistory: preservedSettlements,
+    };
+
+    localStorage.setItem(STORAGE_KEY_META, JSON.stringify(cleanMeta));
+
+    setMeta(cleanMeta);
     setGameState({
       gameNumber: 1,
       round: 0,
@@ -969,7 +1160,7 @@ export default function App() {
       logs: [
         {
           round: 0,
-          text: '【時空歸零】所有歷史輪迴與前世記憶皆已抹除，新的宿命即將開展……',
+          text: '【新周目開啟】踏上全新的時空輪迴！傳奇殿堂已永久珍藏你過往的巔峰戰績，本次輪迴請以更少局數挑戰極限！',
           type: 'milestone',
         },
       ],
@@ -978,6 +1169,7 @@ export default function App() {
       currentDrawChoices: [],
     });
     setShowWipeMemoryModal(false);
+    setShowNewGamePlusModal(false);
     setShowCompendium(false);
   };
 
@@ -1000,7 +1192,8 @@ export default function App() {
         </div>
 
         {/* Global Action Buttons */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* 全域圖鑑 */}
           <button
             id="compendium-btn"
             onClick={() => setShowCompendium(true)}
@@ -1013,20 +1206,47 @@ export default function App() {
             </span>
           </button>
 
-          <button
-            id="wipe-memory-btn"
-            onClick={() => setShowWipeMemoryModal(true)}
-            className="px-3 py-1.5 rounded-lg bg-stone-900/90 hover:bg-red-950/50 text-stone-300 hover:text-red-300 border border-stone-800 hover:border-red-900/70 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-            title="清除所有記憶，徹底歸零重新開始"
-          >
-            <span>🔄</span>
-            <span>記憶清除</span>
-          </button>
+          {/* (2) 傳奇殿堂：全通關取得戰績卡後方才解鎖顯示 */}
+          {hasAchievedGrandSlam && (
+            <button
+              id="hall-of-fame-btn"
+              onClick={() => setShowHallOfFame(true)}
+              className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-amber-300 border border-amber-800/80 hover:border-amber-500/80 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm animate-in fade-in"
+              title="傳奇殿堂：查看每次全通關的評級戰績卡與歷史榮耀"
+            >
+              <span>🏛️</span>
+              <span>傳奇殿堂</span>
+            </button>
+          )}
 
+          {/* (1) 開啟新周目：全通關取得戰績卡後方才出現，供玩家重新挑戰更少局數 */}
+          {hasAchievedGrandSlam && (
+            <button
+              id="start-new-cycle-btn"
+              onClick={() => setShowNewGamePlusModal(true)}
+              className="px-3 py-1.5 rounded-lg bg-stone-900/90 hover:bg-red-950/50 text-stone-300 hover:text-red-300 border border-stone-800 hover:border-red-900/70 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm animate-in fade-in"
+              title="開啟新周目重新挑戰（傳奇殿堂戰績卡完整保留，以最少局數與回合挑戰巔峰成績）"
+            >
+              <span>🔄</span>
+              <span>開啟新周目</span>
+            </button>
+          )}
+
+          {/* 開發測試：同一次打開網頁只需輸入一次 1028 密碼 */}
           <button
             id="dev-mode-btn"
             onClick={() => {
-              if (isDevAuthenticated) {
+              let authed = isDevAuthenticated;
+              try {
+                if (
+                  typeof window !== 'undefined' &&
+                  sessionStorage.getItem('jay_dev_auth_session') === 'true'
+                ) {
+                  authed = true;
+                }
+              } catch (e) {}
+
+              if (authed) {
                 setShowDevModal(true);
               } else {
                 setDevPasswordInput('');
@@ -1035,6 +1255,7 @@ export default function App() {
               }
             }}
             className="px-2.5 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/80 text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1"
+            title="開發者測試控制台（密碼 1028，本網頁開啟期間只需輸入一次）"
           >
             <span>🔧</span>
             <span>開發測試</span>
@@ -1044,7 +1265,7 @@ export default function App() {
             id="restart-game-btn"
             onClick={handleRestartCurrentGame}
             title="測試功能：重新開始當前局（保持當前局數，重返第 1 回合）"
-            className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-amber-200 border border-stone-800 text-xs font-medium transition-all cursor-pointer"
+            className="hidden sm:flex px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-amber-200 border border-stone-800 text-xs font-medium transition-all cursor-pointer"
           >
             重啟當前局 (測試)
           </button>
@@ -1190,6 +1411,15 @@ export default function App() {
               <BossBattleView
                 gameState={gameState}
                 onVictory={(type) => {
+                  const totalRoundsNow = (meta.totalRoundsPlayed || 0) + gameState.round;
+                  const record: RouteVictoryRecord = {
+                    route: type,
+                    gameNumber: gameState.gameNumber,
+                    round: gameState.round,
+                    totalRounds: totalRoundsNow,
+                    timestamp: new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }),
+                    characterName: gameState.character?.name || '未知',
+                  };
                   setGameState((prev) => ({
                     ...prev,
                     victoryType: type,
@@ -1198,6 +1428,10 @@ export default function App() {
                   setMeta((prev) => ({
                     ...prev,
                     victories: Array.from(new Set([...prev.victories, type])),
+                    routeVictoryRecords: {
+                      ...(prev.routeVictoryRecords || {}),
+                      [type]: prev.routeVictoryRecords?.[type] || record,
+                    },
                   }));
                 }}
                 onDefeat={(reason) => {
@@ -1216,8 +1450,10 @@ export default function App() {
             {gameState.phase === 'GAME_OVER' && (
               <GameOverModal
                 gameState={gameState}
+                meta={meta}
                 onRestartNewGame={handleStartNextGame}
                 onRewindWithClock={handleRewindWithClock}
+                onTriggerJayQuote={triggerJayQuote}
               />
             )}
           </div>
@@ -1265,7 +1501,7 @@ export default function App() {
                 if (devPasswordInput.trim() === '1028') {
                   setIsDevAuthenticated(true);
                   try {
-                    sessionStorage.setItem('jay_dev_auth_1028', 'true');
+                    sessionStorage.setItem('jay_dev_auth_session', 'true');
                   } catch (err) {}
                   setShowDevPasswordModal(false);
                   setShowDevModal(true);
@@ -1324,6 +1560,9 @@ export default function App() {
       {/* Developer Test Modal */}
       {showDevModal && (
         <DevModal
+          currentRound={gameState.round}
+          currentGameNumber={gameState.gameNumber}
+          currentAp={gameState.stats.ap}
           onClose={() => setShowDevModal(false)}
           onForceDrawCard={(card) => {
             handleDrawCard(card);
@@ -1339,6 +1578,23 @@ export default function App() {
             }));
             addLog(`【開發者指令】獲取道具【${item}】。`, 'milestone');
           }}
+          onAddMultipleItems={(items) => {
+            setGameState((prev) => {
+              const nextInv = { ...prev.inventory };
+              items.forEach((it) => {
+                nextInv[it] = (nextInv[it] || 0) + 1;
+              });
+              return { ...prev, inventory: nextInv };
+            });
+            addLog(`【開發者指令】批量獲取套裝道具：${items.join('、')}。`, 'milestone');
+          }}
+          onClearInventory={() => {
+            setGameState((prev) => ({
+              ...prev,
+              inventory: {},
+            }));
+            addLog('【開發者指令】已清空行囊物品。', 'milestone');
+          }}
           onChangeCharacter={(charId) => {
             const char = ALL_CHARACTERS.find((c) => c.id === charId);
             if (char) {
@@ -1346,9 +1602,20 @@ export default function App() {
               addLog(`【開發者指令】化身切換為【${char.name}】。`, 'milestone');
             }
           }}
-          onSetRound={(r) => {
-            setGameState((prev) => ({ ...prev, round: r }));
-            addLog(`【開發者指令】回合調整為第 ${r} 回合。`, 'milestone');
+          onSetRoundAndGame={(r, g) => {
+            setGameState((prev) => ({ ...prev, round: r, gameNumber: g }));
+            setMeta((prev) => ({
+              ...prev,
+              pastGamesCount: Math.max(prev.pastGamesCount, g),
+            }));
+            addLog(`【開發者指令】進度跳轉設定為：第 ${g} 局、第 ${r} 回合。`, 'milestone');
+          }}
+          onSetAp={(ap) => {
+            setGameState((prev) => ({
+              ...prev,
+              stats: { ...prev.stats, ap: Math.max(0, ap) },
+            }));
+            addLog(`【開發者指令】AP 體力調節為 ${ap}。`, 'milestone');
           }}
           onTriggerBoss={() => {
             setGameState((prev) => ({
@@ -1360,6 +1627,15 @@ export default function App() {
             addLog('【開發者指令】直接觸發第 30 回合決戰【將軍】！', 'milestone');
           }}
           onTriggerVictory={(type) => {
+            const totalRoundsNow = (meta.totalRoundsPlayed || 0) + gameState.round;
+            const record: RouteVictoryRecord = {
+              route: type,
+              gameNumber: gameState.gameNumber,
+              round: gameState.round,
+              totalRounds: totalRoundsNow,
+              timestamp: new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }),
+              characterName: gameState.character?.name || '音樂冒險者',
+            };
             setGameState((prev) => ({
               ...prev,
               victoryType: type,
@@ -1368,8 +1644,83 @@ export default function App() {
             setMeta((prev) => ({
               ...prev,
               victories: Array.from(new Set([...prev.victories, type])),
+              routeVictoryRecords: {
+                ...(prev.routeVictoryRecords || {}),
+                [type]: record,
+              },
             }));
+            setShowDevModal(false);
             addLog(`【開發者指令】強制觸發【${type}】傳奇勝利！`, 'milestone');
+          }}
+          onTriggerGrandSlam={() => {
+            const currentTotal = (meta.totalRoundsPlayed || 0) + gameState.round;
+            const today = new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+            const charName = gameState.character?.name || '音樂冒險者';
+            const newRecords: Record<string, RouteVictoryRecord> = {
+              '太陽之子': {
+                route: '太陽之子',
+                gameNumber: Math.max(1, gameState.gameNumber - 2),
+                round: 30,
+                totalRounds: Math.max(30, currentTotal - 15),
+                timestamp: today,
+                characterName: charName,
+              },
+              '最偉大的作品': {
+                route: '最偉大的作品',
+                gameNumber: Math.max(2, gameState.gameNumber - 1),
+                round: 22,
+                totalRounds: Math.max(52, currentTotal - 8),
+                timestamp: today,
+                characterName: charName,
+              },
+              '周杰倫家庭': {
+                route: '周杰倫家庭',
+                gameNumber: gameState.gameNumber,
+                round: gameState.round,
+                totalRounds: currentTotal,
+                timestamp: today,
+                characterName: charName,
+              },
+            };
+            setGameState((prev) => ({
+              ...prev,
+              victoryType: '全路線大滿貫',
+              phase: 'GAME_OVER',
+            }));
+            setMeta((prev) => ({
+              ...prev,
+              victories: ['太陽之子', '最偉大的作品', '周杰倫家庭'],
+              routeVictoryRecords: newRecords,
+            }));
+            setShowDevModal(false);
+            addLog('【開發者指令】直接觸發【全路線大滿貫】終極大結局！', 'milestone');
+          }}
+          onUnlockAllSongs={() => {
+            const allSongIds = CARD_DATABASE.filter((c) => c.id.startsWith('C')).map((c) => c.id);
+            setMeta((prev) => ({
+              ...prev,
+              unlockedCardIds: Array.from(new Set([...(prev.unlockedCardIds || []), ...allSongIds])),
+            }));
+            addLog('【開發者指令】全數 63 首歌曲圖鑑已解鎖！', 'milestone');
+          }}
+          onUnlockAllAchievements={() => {
+            const allAchIds = ALL_ACHIEVEMENTS.map((a) => a.id);
+            setMeta((prev) => ({
+              ...prev,
+              unlockedAchievements: allAchIds,
+            }));
+            addLog('【開發者指令】全數 9 大傳奇成就已解鎖！', 'milestone');
+          }}
+          onClearHallOfFame={() => {
+            setMeta((prev) => {
+              const updated = {
+                ...prev,
+                settlementHistory: [],
+              };
+              localStorage.setItem(STORAGE_KEY_META, JSON.stringify(updated));
+              return updated;
+            });
+            addLog('【開發者指令】傳奇殿堂戰績卡已全部清空！', 'milestone');
           }}
           onTestDrawChopin={() => {
             const chopin = ALL_CHARACTERS.find((c) => c.id === 'char_chopin');
@@ -1381,54 +1732,83 @@ export default function App() {
         />
       )}
 
-      {/* Universal Memory Wipe Modal */}
-      {showWipeMemoryModal && (
+      {/* Hall of Fame Modal (傳奇殿堂・歷次結算戰績卡) */}
+      <HallOfFameModal
+        isOpen={showHallOfFame}
+        onClose={() => setShowHallOfFame(false)}
+        meta={meta}
+        gameState={gameState}
+      />
+
+      {/* 開啟新周目 / Universal Memory Wipe Modal */}
+      {(showNewGamePlusModal || showWipeMemoryModal) && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-[#141418] border-2 border-red-900/60 rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-red-950/60 border border-red-800 flex items-center justify-center mx-auto text-xl text-red-400">
-              ⚠️
+          <div className="w-full max-w-md bg-gradient-to-b from-[#1c1414] via-[#140e0e] to-[#0a0707] border-2 border-red-700/80 rounded-2xl p-6 shadow-[0_0_40px_rgba(220,38,38,0.3)] flex flex-col gap-4 text-center">
+            <div className="w-14 h-14 rounded-full bg-red-950/60 border border-red-600 flex items-center justify-center mx-auto text-2xl text-red-400 shadow-inner">
+              🔄
             </div>
 
             <div>
-              <h3 className="text-lg font-black text-amber-200 font-serif">
-                全域記憶清除・重啟輪迴
+              <h3 className="text-lg font-black text-red-300 font-serif">
+                開啟新周目・重新挑戰
               </h3>
-              <p className="text-xs text-stone-300 mt-2 leading-relaxed">
-                確定要清除所有記憶嗎？此操作將<span className="text-red-400 font-bold">永久抹除</span>以下所有進度：
+              <p className="text-xs text-stone-300 mt-2 font-sans leading-relaxed">
+                確定要開啟新周目重新挑戰嗎？
+                <br />
+                <span className="text-amber-300 font-bold">
+                  為確保挑戰的純粹性與成績的公平真實，開啟新周目將會【全數清空】所有紀錄！
+                </span>
               </p>
             </div>
 
-            <div className="bg-[#0e0e11] border border-stone-800 rounded-xl p-3.5 text-left text-xs text-stone-400 space-y-2 font-sans">
-              <div className="flex items-center gap-2">
-                <span className="text-red-400 font-bold">✕</span>
-                <span>已解鎖歌曲圖鑑歸零 (0/63)</span>
+            <div className="bg-black/60 border border-stone-800 rounded-xl p-3.5 text-left text-xs text-stone-400 space-y-2 font-sans">
+              <div className="flex items-center gap-2 text-amber-300 font-bold bg-amber-950/40 p-2 rounded-lg border border-amber-700/60">
+                <span className="text-base text-amber-400">🛡️</span>
+                <span>【傳奇殿堂戰績卡永久保存】過往所有已獲得的全通關評級戰績將完整珍藏，不會丟失！</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-red-400 font-bold">✕</span>
-                <span>全域成就與永久解鎖特質清空</span>
+                <span>已解鎖歌曲圖鑑全數歸零 (0/63)</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-red-400 font-bold">✕</span>
-                <span>當前行囊道具與跨局保存遺物全面清除</span>
+                <span>各主線通關進度重新開始</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-red-400 font-bold">✕</span>
-                <span>重返第 1 局最初的命運化身盲抽起點</span>
+                <span>全域成就與特質加成重新挑戰</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-red-400 font-bold">✕</span>
+                <span>當前行囊道具與鐵盒遺物清空</span>
+              </div>
+              <div className="flex items-center gap-2 pt-1 border-t border-stone-800 text-amber-300/90 font-sans">
+                <span>✦</span>
+                <span>重返第 1 局最初起點，以更少局數衝刺更高的綜合評級！</span>
               </div>
             </div>
 
             <div className="flex gap-3 mt-2">
               <button
-                onClick={() => setShowWipeMemoryModal(false)}
+                id="cancel-new-cycle-btn"
+                onClick={() => {
+                  setShowNewGamePlusModal(false);
+                  setShowWipeMemoryModal(false);
+                }}
                 className="flex-1 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-bold transition-all cursor-pointer"
               >
                 取消保留
               </button>
               <button
-                onClick={handleFullMemoryWipe}
-                className="flex-1 py-2.5 rounded-xl bg-red-900/80 hover:bg-red-700 text-white text-xs font-bold border border-red-700 transition-all cursor-pointer shadow-md"
+                id="confirm-new-cycle-btn"
+                onClick={() => {
+                  setShowNewGamePlusModal(false);
+                  setShowWipeMemoryModal(false);
+                  handleFullMemoryWipe();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-red-900/90 hover:bg-red-700 text-white text-xs font-black border border-red-600 transition-all cursor-pointer shadow-md active:scale-98"
               >
-                確認徹底清除
+                確認開啟新周目
               </button>
             </div>
           </div>
@@ -1483,13 +1863,10 @@ export default function App() {
                     : 'w-20 h-20 rounded-2xl bg-gradient-to-br ' + pendingCharacter.avatarColor + ' shadow-xl'
                 } flex items-center justify-center border border-white/30 my-1`}
               >
-                <span
-                  className={`${
-                    pendingCharacter.id === 'char_chopin' ? 'text-5xl' : 'text-4xl'
-                  } filter drop-shadow select-none`}
-                >
-                  {pendingCharacter.avatarIcon || '🪵'}
-                </span>
+                <CharacterAvatarIcon
+                  character={pendingCharacter}
+                  size={pendingCharacter.id === 'char_chopin' ? 'xl' : 'lg'}
+                />
               </div>
 
               <div>
@@ -1622,7 +1999,7 @@ export default function App() {
         </div>
       )}
 
-      {/* AP Exhausted Modal (行動力歸0，跳出視窗告知CG強制結束，確認後強制進入NG，迫使總局數+1) */}
+      {/* AP Exhausted Modal (體力歸0，失敗處罰：局數+1，物品清空，保留圖鑑與回憶) */}
       {showApExhaustedModal && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="w-full max-w-md bg-gradient-to-b from-[#240e0e] via-[#170a0a] to-[#0d0505] border-2 border-red-700/80 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center gap-4">
@@ -1632,20 +2009,25 @@ export default function App() {
 
             <div>
               <h3 className="text-xl font-black text-white font-serif tracking-wider">
-                行動力耗盡・CG 強制結束
+                體力耗盡・冒險失敗重生
               </h3>
-              <p className="text-xs text-red-300/80 font-mono mt-1">
-                ACTION POINTS DEPLETED
+              <p className="text-xs text-red-300/80 font-mono mt-1 uppercase">
+                STAMINA DEPLETED・FAILURE PENALTY APPLIED
               </p>
             </div>
 
-            <p className="text-xs sm:text-sm text-stone-300 leading-relaxed font-sans bg-black/50 border border-stone-800 rounded-xl p-4">
-              你的行動力已降為 0，冒險旅程在力竭中戛然而止。當前 CG 強制終結，所有的閱歷與足跡已銘刻於歷史日誌中。請重整行囊，開啟下一局（NG）的新宿命！
-            </p>
+            <div className="text-xs sm:text-sm text-stone-300 leading-relaxed font-sans bg-black/50 border border-stone-800 rounded-xl p-4 text-left space-y-2">
+              <p>
+                此局體力已耗盡！你的身體已達極限，不得不就地重整。請重生進入下一局（<span className="text-amber-300 font-bold">行囊物品清空</span>，但<span className="text-amber-300 font-bold">全域歌曲圖鑑與歷史成就將永久保留</span>）。
+              </p>
+              <div className="p-2.5 rounded-lg bg-red-950/30 border border-red-900/60 text-red-200 text-xs font-sans">
+                ⚠️ <span className="font-bold">失敗處罰機制</span>：本次體力耗盡導致重生，使你的【總結算局數 +1】。局數越少代表最終通關成績越好；若頻繁耗盡體力，累積過多局數將嚴重拉低最終通關評級！
+              </div>
+            </div>
 
             <div className="w-full grid grid-cols-2 gap-2 text-xs font-mono bg-black/40 border border-stone-800 rounded-xl p-3">
-              <div className="text-stone-400">當前結束局：<span className="text-stone-200 font-bold">第 {gameState.gameNumber} 局</span></div>
-              <div className="text-stone-400">生存回合：<span className="text-stone-200 font-bold">{gameState.round} / 30</span></div>
+              <div className="text-stone-400">力竭局數：<span className="text-stone-200 font-bold">第 {gameState.gameNumber} 局</span></div>
+              <div className="text-stone-400">處罰後局數：<span className="text-red-400 font-bold">第 {gameState.gameNumber + 1} 局</span></div>
             </div>
 
             <button
@@ -1653,7 +2035,7 @@ export default function App() {
               onClick={handleConfirmApExhausted}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-red-700 via-red-600 to-amber-700 text-white font-bold text-sm tracking-wider hover:brightness-110 transition-all shadow-[0_4px_18px_rgba(239,68,68,0.35)] cursor-pointer mt-1 active:scale-98"
             >
-              確認結束・進入下一局 (NG)
+              確認重生・進入第 {gameState.gameNumber + 1} 局
             </button>
           </div>
         </div>
@@ -1718,6 +2100,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 周董經典語錄浮動彩蛋 */}
+      <JayQuoteEasterEgg quote={jayQuote} onDismiss={() => setJayQuote(null)} />
     </div>
   );
 }

@@ -50,7 +50,7 @@ export const ALL_CHARACTERS: CharacterDefinition[] = [
     id: 'char_loser',
     name: '愛情廢柴',
     title: '飄落落葉・平淡無奇',
-    description: '在下著雪的街角獨自喝著熱咖啡，無任何特異功能，全憑純粹的造化在世間闖蕩。',
+    description: '無任何特異功能，全憑純粹的造化在世間闖蕩。',
     avatarColor: 'from-amber-900 to-stone-900',
     avatarIcon: '🪵',
     specialTrait: '身無長物，不被任何光環眷顧，唯有憑藉堅毅的決策摸索生存之道。',

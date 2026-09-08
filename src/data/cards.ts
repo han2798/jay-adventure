@@ -218,37 +218,36 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「以敦煌為圓心的東北東，這民族的海岸線像一隻弓，渴望著飛騰的宿命之龍！」',
     options: [
       {
-        text: '「等待英雄我就是那條龍」',
+        text: '等待英雄 我就是那條龍',
         require: { character: '英雄' },
-        resultText: '金色的龍影自你雙拳升騰而起！天地共鳴，宿命之戰已被引動！',
+        resultText: '身為天命真龍，英雄雙拳金芒爆綻！你已成為了龍，引動與龍戰騎士的宿命一決！',
         effect: {
           setFlag: { dragon_awakened: true },
           forceNextCardId: 'C2008-01', // 強制下一回合遭遇龍戰騎士
         },
       },
       {
-        text: '「我右拳打開了天化身為龍」',
+        text: '我 右拳打開了天 化身為龍',
         require: { notCharacter: '英雄' },
-        resultText: '狂暴的龍魂湧入全身！你體內的潛能被徹底點燃，宿命之戰即將降臨！',
+        resultText: '狂暴的龍魂湧入周身！你右拳打開了天化身為龍，引動與龍戰騎士的宿命一決！',
         effect: {
           setFlag: { dragon_awakened: true },
           forceNextCardId: 'C2008-01', // 強制下一回合遭遇龍戰騎士
         },
       },
       {
-        text: '「將東方的日出調整了時空」',
+        text: '將 東方 的日出調整了時空',
         require: { notCharacter: '英雄' },
-        resultText: '時空指針發生逆流偏轉，周遭景致急速褪色，你被吸入光陰漩渦！',
+        resultText: '時空指針發生偏轉，東方的日出逆流而動，周遭景致倒退，你被捲入時光長河！',
         effect: {
           forceNextCardId: 'C2002-08', // 強制遭遇 回到過去
         },
       },
       {
-        text: '「我把天地拆封將長江水掏空」',
+        text: '我把天地拆封將長江水掏空',
         require: { notCharacter: '英雄' },
-        resultText: '天地反噬，浩蕩水氣潰散！你行動力大幅透支，陷入沉重的心境深淵。',
+        resultText: '長江之水奔湧而盡，你身心俱疲，在乾涸的河灘上動彈不得……',
         effect: {
-          apChange: -5,
           forceNextCardId: 'C2004-06', // 強制遭遇 擱淺
         },
       },
@@ -268,9 +267,9 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「末日遠方戰火燃燒，龍戰騎士跨坐在機械巨龍之上，熾熱的龍息封鎖了一切退路。」',
     options: [
       {
-        text: '「我已化身為龍，迎戰宿命！」揮動雙刀斬擊',
+        text: '用【雙刀】攻擊（消耗雙刀）',
         require: { flag: 'dragon_awakened', flagValue: true, item: '雙刀' },
-        resultText: '雙刀流星般交錯劈砍！龍戰騎士佩劍震顫，讚嘆道：「我認可你了，但你終會被將一軍！」你成功贏得龍戰騎士卡片！',
+        resultText: '雙刀流星般劈開重重龍息！龍戰騎士震顫收劍：「我認可你了，但你終會被將一軍」你成功獲得了【龍戰騎士】！',
         effect: {
           removeItem: '雙刀',
           addItem: '龍戰騎士',
@@ -278,9 +277,20 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '「我已化身為龍，迎戰宿命！」揮動雙截棍狂擊',
-        require: { flag: 'dragon_awakened', flagValue: true, item: '雙截棍' },
-        resultText: '雙截棍呼嘯破空，快如疾電！龍戰騎士單膝跪地，收起巨劍：「我認可你了，但你終會被將一軍！」你成功奪得龍戰騎士卡片！',
+        text: '用兩副【雙截棍】連續攻擊兩次（消耗兩副雙截棍）',
+        require: { flag: 'dragon_awakened', flagValue: true, item: '雙截棍', itemCount: 2 },
+        resultText: '雙截棍呼嘯連續重擊破開厚重龍甲！龍戰騎士單膝跪地：「我認可你了，但你終會被將一軍」你成功獲得了【龍戰騎士】！',
+        effect: {
+          removeItem: '雙截棍',
+          removeItems: ['雙截棍'],
+          addItem: '龍戰騎士',
+          setFlag: { defeated_dragon_knight: true },
+        },
+      },
+      {
+        text: '用第二副【雙截棍】發動第二次終結攻擊（消耗雙截棍）',
+        require: { flag: 'dragon_awakened', flagValue: true, item: '雙截棍', flag2: 'nunchaku_hit_once' },
+        resultText: '第二副雙截棍狂暴砸落！龍戰騎士佩劍落地：「我認可你了，但你終會被將一軍」你成功獲得了【龍戰騎士】！',
         effect: {
           removeItem: '雙截棍',
           addItem: '龍戰騎士',
@@ -288,25 +298,31 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '英雄天威・降龍拔劍',
-        require: { character: '英雄', flag: 'dragon_awakened', flagValue: true },
-        resultText: '身為天命真龍，英雄雙掌平推硬生生接下巨龍衝擊！龍戰騎士動容折服，奉上專屬戰卡！',
+        text: '用【雙截棍】發動第一次攻擊（消耗雙截棍）',
+        require: { flag: 'dragon_awakened', flagValue: true, item: '雙截棍', notFlag: 'nunchaku_hit_once' },
+        resultText: '雙截棍擊碎了第一道外層龍鱗，但武器亦隨之損毀！尚需用雙截棍再攻擊一次方能制敵！',
         effect: {
-          addItem: '龍戰騎士',
-          setFlag: { defeated_dragon_knight: true },
+          removeItem: '雙截棍',
+          setFlag: { nunchaku_hit_once: true },
         },
       },
       {
-        text: '穿上【黑色毛衣】抵擋龍息並退走',
+        text: '穿上【黑色毛衣】擋下龍戰騎士的一次致命攻擊（消耗黑色毛衣）',
         require: { item: '黑色毛衣' },
-        resultText: '黑色毛衣溫柔地化解了致命灼燒，你在煙塵中全身而退，但未能折服龍戰騎士。',
+        resultText: '黑色毛衣替你承受了熾烈狂暴的龍息，化作漫天飛灰！你安然無恙，但若想獲得認可奪取卡片，仍需以神兵（雙刀或雙截棍）正面破陣！',
         effect: {
           removeItem: '黑色毛衣',
         },
       },
       {
-        text: '正面迎戰機械巨龍',
-        resultText: '龍戰騎士居高臨下冷冷凝視你：「你還不是宿命之人，退下吧！」勁風將你震退，無法獲得此卡。',
+        text: '迎向機械巨龍嘗試交手',
+        require: { notFlag: 'dragon_awakened' },
+        resultText: '龍戰騎士居高臨下冷冷凝視你：「你還不是宿命之人！」強大的龍息將你逼退，即使交手也無法獲得此卡。',
+        effect: {},
+      },
+      {
+        text: '未備齊神兵武器，暫避其鋒芒',
+        resultText: '熾熱龍息遮天蔽日，在尚未備齊雙刀或雙截棍前，你決定暫且撤離。',
         effect: {},
       },
     ],
@@ -327,15 +343,15 @@ export const CARD_DATABASE: CardDefinition[] = [
         state.inventory['印地安老斑鳩'] &&
         state.inventory['半獸人'] &&
         state.inventory['龍戰騎士'] &&
-        !state.flags['chaos_era_triggered']
+        !state.flags['chaos_era_obtained']
       ),
     flavorText: '「那場景千軍萬馬，刀光劍影，歷史的齒輪在此刻劇烈顛簸，戰國烽火跨越時空席捲而來！」',
     options: [
       {
         text: '踏入烽火長卷，啟動時代變革',
-        resultText: '烽煙四起！天地時空在此定格，【亂舞春秋時代】正式降臨！',
+        resultText: '烽煙四起！天地時空在此定格，戰國烽火跨越時空席捲而來！',
         effect: {
-          setFlag: { chaos_era_triggered: true, chaos_era_active: true },
+          setFlag: { chaos_era_obtained: true },
           setMetaFlag: { next_game_chaos_era: true },
         },
       },
@@ -349,12 +365,13 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 10,
     type: '事件',
     maxDraws: 1,
-    weight: 100, // 亂舞春秋後每回合極高機率出現
+    weight: 100, // 亂舞春秋時代每回合必定出現
     route: '太陽之子',
     condition: (state, meta) =>
       Boolean(
         (state.flags['chaos_era_active'] || meta.nextGameFlags['next_game_chaos_era']) &&
-        !state.flags['ready_for_general']
+        !state.inventory['最後的戰役'] &&
+        state.round !== 30
       ),
     flavorText: '「機槍掃射聲中，戰友倒在身旁，你在硝煙瀰漫的戰壕中，接到了一封來自敵軍統帥的親筆決戰書……」',
     options: [
@@ -925,7 +942,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「蔚藍深海中游動著美麗的倩影，美人魚浮出水面，歌聲如天籟般動聽。」',
     options: [
       {
-        text: '向美人魚請教《周杰倫家庭》路線秘辛',
+        text: '傾聽美人魚歌聲中隱藏的深海絮語',
         resultText: '美人魚輕聲唱道：「親情是最溫暖的避風港……外婆的微笑、父母的叮嚀，當陽光宅男得到任性公主病的眷顧，真愛將化為女兒殿下降臨。」',
         effect: { addItem: '美人魚的提示' },
       },

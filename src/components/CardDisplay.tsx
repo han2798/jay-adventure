@@ -73,9 +73,33 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
         return { available: false, reason: '未滿足特定前置劇情條件' };
       }
     }
+    if (r.notFlag) {
+      if (Boolean(gameState.flags[r.notFlag])) {
+        return { available: false, reason: '已觸發互斥劇情條件' };
+      }
+    }
+    if (r.flag2) {
+      const flagVal = gameState.flags[r.flag2];
+      const requiredVal = r.flag2Value !== undefined ? r.flag2Value : true;
+      if (flagVal !== requiredVal) {
+        return { available: false, reason: '未滿足第二階段前置條件' };
+      }
+    }
 
     return { available: true };
   };
+
+  // Dynamic flavor text (e.g. 龍戰騎士: 宿命之人 vs 一般抽卡)
+  const displayFlavorText = (() => {
+    if (card.id === 'C2008-01') {
+      if (gameState.flags['dragon_awakened']) {
+        return '「你已成為了龍，將與我宿命一決！」龍戰騎士跨坐在機械巨龍之上，熾熱的龍息封鎖了一切退路。';
+      } else {
+        return '「你還不是宿命之人！」龍戰騎士居高臨下冷冷凝視你，狂暴的龍息阻隔了前路。';
+      }
+    }
+    return card.flavorText;
+  })();
 
   return (
     <div className="w-full flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-200">
@@ -130,7 +154,7 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
         {/* 3. Flavor Text / Story Lyrics Box */}
         <div className="p-5">
           <div className="bg-[#121215] p-4 rounded-xl border border-stone-800/80 text-sm text-stone-300 leading-relaxed font-sans shadow-inner">
-            {card.flavorText}
+            {displayFlavorText}
           </div>
         </div>
 

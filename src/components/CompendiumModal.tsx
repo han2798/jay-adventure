@@ -45,9 +45,23 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
       }
       const trackA = typeof a.track === 'number' ? a.track : 999;
       const trackB = typeof b.track === 'number' ? b.track : 999;
-      return trackA - trackB;
+      if (trackA !== trackB) {
+        return trackA - trackB;
+      }
+      return a.id.localeCompare(b.id);
     });
   }, [albumOrderMap]);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   // Check if player has ever unlocked Peninsula Iron Box (strictly hide tab if not yet unlocked)
   const isIronBoxUnlocked = Boolean(

@@ -60,6 +60,18 @@ export const BossBattleView: React.FC<BossBattleViewProps> = ({
     setVictoryModalData({ title, lyric, narrative });
   };
 
+  useEffect(() => {
+    if (!victoryModalData) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
+        e.preventDefault();
+        onVictory('太陽之子');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [victoryModalData, onVictory]);
+
   const handleAction = (action: 'attack' | 'cannon' | 'horse' | 'idle') => {
     // 1. If currently in Step 8 and boss is weakened:
     if (step === 8 && bossWeakened) {
@@ -239,42 +251,38 @@ export const BossBattleView: React.FC<BossBattleViewProps> = ({
         </div>
       )}
 
-      {/* Standard 4 Action Buttons: strictly uniform, no spoiler hints, all available every round */}
+      {/* Standard 4 Action Buttons: strictly uniform, no spoiler hints, clean layout */}
       <div className="grid grid-cols-2 gap-3">
         <button
           id="boss-normal-attack"
           onClick={() => handleAction('attack')}
-          className="py-3 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-200 border border-stone-700 font-bold text-xs flex flex-col items-center justify-center gap-1 cursor-pointer transition-all active:scale-98 shadow-sm"
+          className="py-4 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-100 hover:text-amber-200 border border-stone-700 font-bold text-sm flex items-center justify-center cursor-pointer transition-all active:scale-98 shadow-sm hover:border-amber-500/50"
         >
-          <span className="text-sm">普通攻擊</span>
-          <span className="text-xs text-amber-300 font-mono font-bold">固定 -1</span>
+          <span>普通攻擊</span>
         </button>
 
         <button
           id="boss-idle-action"
           onClick={() => handleAction('idle')}
-          className="py-3 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-200 border border-stone-700 font-bold text-xs flex flex-col items-center justify-center gap-1 cursor-pointer transition-all active:scale-98 shadow-sm"
+          className="py-4 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-100 hover:text-emerald-300 border border-stone-700 font-bold text-sm flex items-center justify-center cursor-pointer transition-all active:scale-98 shadow-sm hover:border-emerald-500/50"
         >
-          <span className="text-sm">不動作</span>
-          <span className="text-xs text-emerald-400 font-mono font-bold">靜待時機</span>
+          <span>不動作</span>
         </button>
 
         <button
           id="boss-cannon-attack"
           onClick={() => handleAction('cannon')}
-          className="py-3 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-200 border border-stone-700 font-bold text-xs flex flex-col items-center justify-center gap-1 cursor-pointer transition-all active:scale-98 shadow-sm"
+          className="py-4 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-100 hover:text-amber-200 border border-stone-700 font-bold text-sm flex items-center justify-center cursor-pointer transition-all active:scale-98 shadow-sm hover:border-amber-500/50"
         >
-          <span className="text-sm">當頭炮</span>
-          <span className="text-xs text-amber-300 font-mono font-bold">固定 -5</span>
+          <span>當頭炮</span>
         </button>
 
         <button
           id="boss-horse-attack"
           onClick={() => handleAction('horse')}
-          className="py-3 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-200 border border-stone-700 font-bold text-xs flex flex-col items-center justify-center gap-1 cursor-pointer transition-all active:scale-98 shadow-sm"
+          className="py-4 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-100 hover:text-sky-300 border border-stone-700 font-bold text-sm flex items-center justify-center cursor-pointer transition-all active:scale-98 shadow-sm hover:border-sky-500/50"
         >
-          <span className="text-sm">屏風馬</span>
-          <span className="text-xs text-sky-400 font-mono font-bold">守禦化解</span>
+          <span>屏風馬</span>
         </button>
       </div>
 

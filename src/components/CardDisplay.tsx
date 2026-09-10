@@ -121,14 +121,25 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
         <div
           className={`relative w-full h-40 bg-gradient-to-br ${albumMeta.themeColor} flex items-center justify-between px-7 border-b border-stone-800 overflow-hidden`}
         >
-          {/* Decorative Vinyl Disc Graphic */}
-          <div className="absolute -right-6 -bottom-6 w-44 h-44 rounded-full border-4 border-black/80 bg-zinc-950/90 shadow-2xl flex items-center justify-center opacity-85">
-            <div className="w-28 h-28 rounded-full border border-zinc-700/60 flex items-center justify-center">
-              <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
-                <span className="text-[10px] text-[#d4af37] font-mono font-bold">JAY</span>
+          {/* Decorative Vinyl Disc Graphic or Album Cover */}
+          {card.coverImage ? (
+            <div className="absolute right-4 top-4 bottom-4 w-32 h-32 rounded-xl overflow-hidden border-2 border-amber-500/50 shadow-2xl shrink-0 z-0">
+              <img
+                src={card.coverImage}
+                alt={card.name}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="absolute -right-6 -bottom-6 w-44 h-44 rounded-full border-4 border-black/80 bg-zinc-950/90 shadow-2xl flex items-center justify-center opacity-85">
+              <div className="w-28 h-28 rounded-full border border-zinc-700/60 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
+                  <span className="text-[10px] text-[#d4af37] font-mono font-bold">JAY</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Hero Song Title & Album Info */}
           <div className="relative z-10 flex flex-col pr-16">
@@ -146,7 +157,9 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
 
             {/* Reference Info */}
             <p className="text-xs text-stone-300/90 font-medium tracking-wide mt-1 drop-shadow-sm font-sans">
-              收錄於 {card.year}年《{card.album}》 第 {card.track} 首
+              {card.track === 'SS'
+                ? `收錄於 ${card.year}年《${card.album}》【傳奇神專卡】`
+                : `收錄於 ${card.year}年《${card.album}》 第 ${card.track} 首`}
             </p>
           </div>
         </div>

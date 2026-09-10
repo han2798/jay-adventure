@@ -54,6 +54,7 @@ export interface CardDefinition {
   flavorText: string;
   condition?: (state: GameState, meta: MetaProgress) => boolean;
   options?: CardOption[];
+  coverImage?: string; // 原版專輯封面或卡牌插圖 (可選)
   // Special immediate effect on draw
   onDraw?: (state: GameState, meta: MetaProgress) => { log: string; nextCardId?: string };
 }

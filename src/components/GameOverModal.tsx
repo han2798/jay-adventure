@@ -74,6 +74,17 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
     }
   }, [isAllCompleted, gradeInfo.grade, onTriggerJayQuote]);
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === 'Escape') {
+        e.preventDefault();
+        onRestartNewGame();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onRestartNewGame]);
+
   const handleCopy = async () => {
     const success = await copySettlementToClipboard(settlementPayload);
     if (success) {

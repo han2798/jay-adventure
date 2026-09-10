@@ -123,7 +123,7 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
           <span className="text-base shrink-0 mt-0.5">⚠️</span>
           <div className="font-sans leading-tight space-y-0.5">
             <span className="font-bold text-red-100 block">體力瀕危警告</span>
-            <span>體力僅剩 1 點！下一回合體力將歸 0 進入下一局（若未獲體力補充）。請謹慎抉擇！</span>
+            <span>體力僅剩 1 點！下一回合體力將歸 0 進入下一局（若未獲體力補充）。</span>
           </div>
         </div>
       )}

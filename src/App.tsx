@@ -100,6 +100,7 @@ export default function App() {
   const [pendingCharacter, setPendingCharacter] = useState<CharacterDefinition | null>(null);
   const [showCharConfirmModal, setShowCharConfirmModal] = useState<boolean>(false);
   const [showApExhaustedModal, setShowApExhaustedModal] = useState<boolean>(false);
+  const [showGeneralEncounterModal, setShowGeneralEncounterModal] = useState<boolean>(false);
   const [pendingEventTransition, setPendingEventTransition] = useState<{
     sourceCardName: string;
     targetCard: CardDefinition;
@@ -292,8 +293,9 @@ export default function App() {
           revealedCard: null,
         };
 
-        // If Round === 30 and ready for general, trigger Boss battle!
+        // If Round === 30 and ready for general, trigger Boss battle with intro transition modal!
         if (targetRound === 30 && nextState.flags['ready_for_general']) {
+          setShowGeneralEncounterModal(true);
           return {
             ...nextState,
             phase: 'BOSS_BATTLE',
@@ -607,53 +609,120 @@ export default function App() {
         }));
         return;
       }
+    }
 
-      // Force Next Card Encounter (事件連動過場視窗)
-      if (eff.forceNextCardId) {
+    // Action consumes 1 AP
+    nextStats.ap = Math.max(0, nextStats.ap - 1);
+
+      // Construct outcome modal badges
+      const badges: { label: string; value: string; color?: string }[] = [];
+      if (eff?.addItem) {
+        badges.push({ label: '獲得物品', value: `【${eff.addItem}】`, color: 'text-amber-300' });
+      }
+      if (eff?.removeItem) {
+        badges.push({ label: '消耗物品', value: `【${eff.removeItem}】`, color: 'text-stone-400' });
+      }
+      if (eff?.removeItems && eff.removeItems.length > 0) {
+        badges.push({
+          label: '消耗物品',
+          value: eff.removeItems.map((i) => `【${i}】`).join('、'),
+          color: 'text-stone-400',
+        });
+      }
+      if (eff?.apChange) {
+        badges.push({
+          label: '行動力變動',
+          value: `${eff.apChange > 0 ? '+' : ''}${eff.apChange} AP`,
+          color: eff.apChange > 0 ? 'text-emerald-400' : 'text-red-400',
+        });
+      }
+      if (eff?.rewindRound !== undefined) {
+        badges.push({ label: '時空逆轉', value: '重返第 1 回合', color: 'text-cyan-300' });
+      }
+      if (nextCharacter.name !== gameState.character?.name) {
+        badges.push({ label: '化身覺醒', value: `【${nextCharacter.name}】`, color: 'text-yellow-300' });
+      }
+
+      // 【第30回合邊界條件機制】：
+      // 假設 R30 抽到 A 卡跳接 B 卡（例如《跨時代》跳接《威廉古堡》）
+      // 允許先跳接完成，讓玩家可以在連動卡牌中做最後一次抉擇
+      if (gameState.round >= 30 && eff?.forceNextCardId && !gameState.flags['_r30_chained_once']) {
         const nextCard = CARD_DATABASE.find((c) => c.id === eff.forceNextCardId);
         if (nextCard) {
-          // Action consumes 1 AP
-          nextStats.ap = Math.max(0, nextStats.ap - 1);
-
-          // 【第30回合邊界條件機制】
-          // (1) 延伸 - 持續觸發卡牌或效果，直到無法觸發為止 (A卡跳接B卡，B卡如果還會觸發跳接到C卡的話依然持續，以此類推)
-          // (2) 回合不計數 - 依然是第 30 回合，不會變成第 31、32 回合，結算依然不超過 30 回合上限
-          if (gameState.round >= 30) {
-            setPendingEventTransition({
-              sourceCardName: card.name,
-              targetCard: nextCard,
-              nextRound: 30,
-              effectNarrative:
-                option.resultText ||
-                `※ 第 30 回合宿命延伸！宿命牽引你由【${card.name}】直接連動邁入【${nextCard.name}】！`,
-              nextInventory,
-              nextFlags,
-              nextStats,
-              nextCharacter,
-            });
-            return;
-          }
-
-          if (nextStats.ap <= 0) {
-            nextStats.ap = 0;
-            addLog('【行動力竭】行動力歸 0，身體已達極限，本局冒險強制結束！', 'warning');
-            setGameState((prev) => ({
-              ...prev,
-              inventory: nextInventory,
-              flags: nextFlags,
-              character: nextCharacter,
-              stats: nextStats,
-              defeatReason: '行動力已歸 0，本局冒險強制結束。所有的遺憾都將化為下一局的經驗！',
-            }));
-            setShowApExhaustedModal(true);
-            return;
-          }
-
           setPendingEventTransition({
             sourceCardName: card.name,
             targetCard: nextCard,
-            nextRound: nextRound,
-            effectNarrative: option.resultText || `命運交織，你由【${card.name}】開啟了前往【${nextCard.name}】的宿命通道！`,
+            nextRound: 30,
+            effectNarrative:
+              option.resultText ||
+              `※ 第 30 回合宿命延伸！宿命牽引你由【${card.name}】直接連動邁入【${nextCard.name}】！`,
+            nextInventory,
+            nextFlags: { ...nextFlags, _r30_chained_once: true },
+            nextStats,
+            nextCharacter,
+          });
+          return;
+        }
+      }
+
+      // 體力耗盡判定（包含在 R30 跳接後卡牌抉擇、或一般卡牌體力歸 0 時）
+      if (nextStats.ap <= 0) {
+        nextStats.ap = 0;
+        // 系統保留此選項的物品、狀態、成就與化身，以利後續繼承判定（如鐵盒存放）
+        setGameState((prev) => ({
+          ...prev,
+          inventory: nextInventory,
+          flags: nextFlags,
+          character: nextCharacter,
+          stats: nextStats,
+        }));
+        addLog('【行動力竭】行動力歸 0，身體已達極限，本局冒險結束！', 'warning');
+
+        let narrativeDesc = '';
+        if (eff?.rewindRound !== undefined) {
+          narrativeDesc = `雖然必須時空逆轉重返第 1 回合，但因體力已耗盡，本局冒險在此結束。`;
+        } else if (eff?.forceNextCardId) {
+          const targetNext = CARD_DATABASE.find((c) => c.id === eff.forceNextCardId);
+          narrativeDesc = `雖然觸發連動前往【${targetNext?.name || '下一卡牌'}】，但因體力已耗盡，本局冒險在此結束。`;
+        } else if (option.resultText) {
+          narrativeDesc = `雖然${option.resultText}，但因體力已耗盡，本局冒險在此結束。`;
+        } else {
+          narrativeDesc = `雖然做出了抉擇，但因體力耗盡，本局冒險結束。`;
+        }
+
+        setOutcomeModal({
+          title: '✦ 宿命終曲・體力耗盡 ✦',
+          icon: '⏳',
+          subtitle: `【${card.name}】・${option.text}`,
+          narrative: narrativeDesc,
+          badges: badges.length > 0 ? badges : undefined,
+          confirmText: '確認結算・結束本局',
+          onConfirm: () => {
+            setOutcomeModal(null);
+            setGameState((prev) => ({
+              ...prev,
+              defeatReason: '行動力已歸 0，本局冒險強制結束。所有的遺憾都將化為下一局的經驗！',
+              phase: 'GAME_OVER',
+            }));
+            setShowApExhaustedModal(true);
+          },
+        });
+        return;
+      }
+
+      // 若有卡牌連動（AP 充足情況）
+      if (eff?.forceNextCardId) {
+        const nextCard = CARD_DATABASE.find((c) => c.id === eff.forceNextCardId);
+        if (nextCard) {
+          setPendingEventTransition({
+            sourceCardName: card.name,
+            targetCard: nextCard,
+            nextRound: gameState.round >= 30 ? 30 : nextRound,
+            effectNarrative:
+              option.resultText ||
+              (gameState.round >= 30
+                ? `※ 第 30 回合宿命延伸！宿命牽引你由【${card.name}】直接連動邁入【${nextCard.name}】！`
+                : `命運交織，你由【${card.name}】開啟了前往【${nextCard.name}】的宿命通道！`),
             nextInventory,
             nextFlags,
             nextStats,
@@ -662,80 +731,32 @@ export default function App() {
           return;
         }
       }
-    }
 
-    // Action consumes 1 AP
-    nextStats.ap = Math.max(0, nextStats.ap - 1);
-
-    if (nextStats.ap <= 0) {
-      nextStats.ap = 0;
-      addLog('【行動力竭】行動力歸 0，身體已達極限，本局冒險強制結束！', 'warning');
+      // Apply immediate state for background HUD reflection
       setGameState((prev) => ({
         ...prev,
         inventory: nextInventory,
         flags: nextFlags,
         character: nextCharacter,
         stats: nextStats,
-        defeatReason: '行動力已歸 0，本局冒險強制結束。所有的遺憾都將化為下一局的經驗！',
       }));
-      setShowApExhaustedModal(true);
-      return;
-    }
 
-    // Apply immediate state for background HUD reflection
-    setGameState((prev) => ({
-      ...prev,
-      inventory: nextInventory,
-      flags: nextFlags,
-      character: nextCharacter,
-      stats: nextStats,
-    }));
+      // 【第30回合邊界條件機制】
+      // (3) 觸發卡牌導致增加體力的情況，不影響原先機制，因為原先機制本來就是就算體力再多也是得 30 回合結束，就算體力從 0 補回 1 也一樣
+      // (2) 回合不計數 - 依然是第 30 回合，不會變成第 31、32 回合，結算依然不超過 30 回合上限
+      const isAtOrExceedingRound30 = gameState.round >= 30;
+      const finalConfirmRound = isAtOrExceedingRound30 ? 31 : nextRound;
 
-    // Construct outcome modal badges
-    const badges: { label: string; value: string; color?: string }[] = [];
-    if (eff?.addItem) {
-      badges.push({ label: '獲得物品', value: `【${eff.addItem}】`, color: 'text-amber-300' });
-    }
-    if (eff?.removeItem) {
-      badges.push({ label: '消耗物品', value: `【${eff.removeItem}】`, color: 'text-stone-400' });
-    }
-    if (eff?.removeItems && eff.removeItems.length > 0) {
-      badges.push({
-        label: '消耗物品',
-        value: eff.removeItems.map((i) => `【${i}】`).join('、'),
-        color: 'text-stone-400',
-      });
-    }
-    if (eff?.apChange) {
-      badges.push({
-        label: '行動力變動',
-        value: `${eff.apChange > 0 ? '+' : ''}${eff.apChange} AP`,
-        color: eff.apChange > 0 ? 'text-emerald-400' : 'text-red-400',
-      });
-    }
-    if (eff?.rewindRound !== undefined) {
-      badges.push({ label: '時空逆轉', value: '重返第 1 回合', color: 'text-cyan-300' });
-    }
-    if (nextCharacter.name !== gameState.character?.name) {
-      badges.push({ label: '化身覺醒', value: `【${nextCharacter.name}】`, color: 'text-yellow-300' });
-    }
-
-    // 【第30回合邊界條件機制】
-    // (3) 觸發卡牌導致增加體力的情況，不影響原先機制，因為原先機制本來就是就算體力再多也是得 30 回合結束，就算體力從 0 補回 1 也一樣
-    // (2) 回合不計數 - 依然是第 30 回合，不會變成第 31、32 回合，結算依然不超過 30 回合上限
-    const isAtOrExceedingRound30 = gameState.round >= 30;
-    const finalConfirmRound = isAtOrExceedingRound30 ? 31 : nextRound;
-
-    // Display outcome confirmation modal before advancing to next round
-    setOutcomeModal({
-      title: eff?.addItem ? '✦ 獲得物品・決策結算 ✦' : '✦ 冒險決策・事件結算 ✦',
-      icon: eff?.addItem ? '🎁' : '📜',
-      subtitle: `【${card.name}】・${option.text}`,
-      narrative: option.resultText || `做出選擇：${option.text}。`,
-      badges: badges.length > 0 ? badges : undefined,
-      confirmText: isAtOrExceedingRound30
-        ? '確定（第 30 回合冒險結算）'
-        : `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
+      // Display outcome confirmation modal before advancing to next round
+      setOutcomeModal({
+        title: eff?.addItem ? '✦ 獲得物品・決策結算 ✦' : '✦ 冒險決策・事件結算 ✦',
+        icon: eff?.addItem ? '🎁' : '📜',
+        subtitle: `【${card.name}】・${option.text}`,
+        narrative: option.resultText || `做出選擇：${option.text}。`,
+        badges: badges.length > 0 ? badges : undefined,
+        confirmText: isAtOrExceedingRound30
+          ? '確定（第 30 回合冒險結算）'
+          : `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
       onConfirm: () => {
         setOutcomeModal(null);
         startNewRound(finalConfirmRound, {
@@ -1068,13 +1089,135 @@ export default function App() {
     setShowApExhaustedModal(false);
   };
 
+  // 全域鍵盤事件監聽：ESC / Enter / 空白鍵 快捷確認或關閉彈出視窗
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 若當前焦點在文字輸入框，不攔截打字鍵
+      const activeTag = document.activeElement?.tagName;
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') {
+        if (e.key === 'Escape' && showDevPasswordModal) {
+          setShowDevPasswordModal(false);
+        }
+        return;
+      }
+
+      // 優先序 1：事件結果確認視窗 (Outcome Modal)
+      if (outcomeModal) {
+        if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
+          e.preventDefault();
+          outcomeModal.onConfirm();
+          return;
+        }
+      }
+
+      // 優先序 2：R30 決戰將軍過場提醒視窗 (General Encounter Modal)
+      if (showGeneralEncounterModal) {
+        if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
+          e.preventDefault();
+          setShowGeneralEncounterModal(false);
+          setGameState((prev) => ({
+            ...prev,
+            phase: 'BOSS_BATTLE',
+          }));
+          return;
+        }
+      }
+
+      // 優先序 3：卡牌事件跳接連動視窗 (A -> B card jump)
+      if (pendingEventTransition) {
+        if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
+          e.preventDefault();
+          const trans = pendingEventTransition;
+          setPendingEventTransition(null);
+          const finalRound = Math.min(30, trans.nextRound);
+          addLog(
+            `【事件連動】時空流轉至第 ${finalRound} 回合，直接遭遇【${trans.targetCard.name}】！`,
+            'milestone'
+          );
+          setGameState((prev) => ({
+            ...prev,
+            round: finalRound,
+            inventory: trans.nextInventory,
+            flags: trans.nextFlags,
+            stats: trans.nextStats,
+            character: trans.nextCharacter,
+            revealedCard: trans.targetCard,
+            phase: 'REVEAL_CARD',
+          }));
+          checkAchievements(trans.nextInventory);
+          return;
+        }
+      }
+
+      // 優先序 4：化身盲抽確認視窗
+      if (showCharConfirmModal && pendingCharacter) {
+        if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
+          e.preventDefault();
+          setShowCharConfirmModal(false);
+          handleSelectCharacter(pendingCharacter);
+          setPendingCharacter(null);
+          return;
+        }
+      }
+
+      // 優先序 5：體力耗盡失敗處罰視窗
+      if (showApExhaustedModal) {
+        if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
+          e.preventDefault();
+          handleConfirmApExhausted();
+          return;
+        }
+      }
+
+      // ESC 鍵關閉其他資訊視窗
+      if (e.key === 'Escape') {
+        if (showCompendium) {
+          e.preventDefault();
+          setShowCompendium(false);
+        } else if (showHallOfFame) {
+          e.preventDefault();
+          setShowHallOfFame(false);
+        } else if (showDevModal) {
+          e.preventDefault();
+          setShowDevModal(false);
+        } else if (showDevPasswordModal) {
+          e.preventDefault();
+          setShowDevPasswordModal(false);
+        } else if (showNewGamePlusModal || showWipeMemoryModal) {
+          e.preventDefault();
+          setShowNewGamePlusModal(false);
+          setShowWipeMemoryModal(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    outcomeModal,
+    showGeneralEncounterModal,
+    pendingEventTransition,
+    showCharConfirmModal,
+    pendingCharacter,
+    showApExhaustedModal,
+    showCompendium,
+    showHallOfFame,
+    showDevModal,
+    showDevPasswordModal,
+    showNewGamePlusModal,
+    showWipeMemoryModal,
+    addLog,
+    checkAchievements,
+    handleSelectCharacter,
+  ]);
+
   // Dynamic Progress Goal for Section B (回合資訊欄)
   const currentProgressGoal = useMemo(() => {
     if (gameState.phase === 'CHOOSE_CHARACTER') {
       return '命運迷霧・擇定化身';
     }
     if (gameState.flags['ready_for_general']) {
-      return '決戰前夕・楚河漢界迎戰將軍';
+      return '決戰前夕';
     }
     if (gameState.flags['chaos_era_active']) {
       return '烽火亂世・追尋最後的戰役';
@@ -1306,7 +1449,7 @@ export default function App() {
               </span>
               {gameState.flags['chaos_era_active'] && (
                 <span className="text-[10px] bg-red-950 text-red-300 border border-red-800 px-2 py-0.5 rounded font-mono font-bold animate-pulse">
-                  烽火・亂舞春秋時代
+                  亂舞春秋時代
                 </span>
               )}
             </div>
@@ -1618,6 +1761,7 @@ export default function App() {
             addLog(`【開發者指令】AP 體力調節為 ${ap}。`, 'milestone');
           }}
           onTriggerBoss={() => {
+            setShowGeneralEncounterModal(true);
             setGameState((prev) => ({
               ...prev,
               round: 30,
@@ -2036,6 +2180,60 @@ export default function App() {
               className="w-full py-3 rounded-xl bg-gradient-to-r from-red-700 via-red-600 to-amber-700 text-white font-bold text-sm tracking-wider hover:brightness-110 transition-all shadow-[0_4px_18px_rgba(239,68,68,0.35)] cursor-pointer mt-1 active:scale-98"
             >
               確認重生・進入第 {gameState.gameNumber + 1} 局
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Boss General Encounter Intro Modal (進入 R30 決戰將軍前的專屬過場提醒視窗) */}
+      {showGeneralEncounterModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-gradient-to-b from-[#2a1010] via-[#1a0808] to-[#0c0404] border-2 border-red-600/90 rounded-2xl p-6 shadow-[0_0_50px_rgba(239,68,68,0.4)] flex flex-col items-center text-center gap-4">
+            <div className="w-full flex items-center justify-between border-b border-red-900/60 pb-2">
+              <span className="text-xs text-amber-400 font-mono tracking-widest uppercase font-bold flex items-center gap-1.5">
+                <span>✦</span>
+                <span>決戰時刻降臨</span>
+                <span>✦</span>
+              </span>
+              <span className="text-[10px] text-stone-500 font-mono">
+                ROUND 30 CLASH
+              </span>
+            </div>
+
+            <div className="w-16 h-16 rounded-2xl bg-red-950/60 border border-red-500/80 flex items-center justify-center text-3xl shadow-[0_0_30px_rgba(239,68,68,0.4)] my-1">
+              <span>⚔️</span>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-black text-amber-100 font-serif tracking-wide">
+                來到第 30 回合・將軍與您決戰！
+              </h3>
+              <p className="text-xs text-red-300 font-serif mt-1 italic">
+                「時間的箭頭 指向最後的戰役」
+              </p>
+            </div>
+
+            <div className="w-full bg-black/60 border border-red-900/50 rounded-xl p-4 text-xs text-stone-200 leading-relaxed text-left space-y-2 font-sans">
+              <p>
+                宿命終局吹響號角！統帥【將軍】親率森嚴大陣步入楚河漢界戰場，親自下場與你一局定乾坤！
+              </p>
+              <div className="p-2.5 rounded-lg bg-red-950/50 border border-red-800 text-amber-200 text-xs font-sans">
+                ⚠️ <span className="font-bold text-amber-100">決戰規則提醒</span>：你只有 <span className="font-bold text-red-300">8 回合</span>的機會！若未能在此限期內破除將軍防線並予以擊潰，氣力耗竭將全盤皆輸！
+              </div>
+            </div>
+
+            <button
+              id="confirm-general-encounter-btn"
+              onClick={() => {
+                setShowGeneralEncounterModal(false);
+                setGameState((prev) => ({
+                  ...prev,
+                  phase: 'BOSS_BATTLE',
+                }));
+              }}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-700 via-red-600 to-amber-700 hover:brightness-110 text-white font-black text-sm tracking-wider shadow-[0_0_25px_rgba(239,68,68,0.4)] transition-all cursor-pointer mt-1 active:scale-98"
+            >
+              應戰將軍・進入決戰回合（限8回合）
             </button>
           </div>
         </div>

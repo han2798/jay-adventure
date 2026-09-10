@@ -1,6 +1,6 @@
 {
-  "name": "跨時代：周杰倫文字冒險",
-  "description": "以周杰倫歷年專輯與歌曲為核心的純文字冒險探索遊戲。",
+  "name": "周杰倫歌曲卡牌冒險",
+  "description": "以周杰倫歷年專輯與歌曲為核心的卡牌文字冒險探索遊戲。",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

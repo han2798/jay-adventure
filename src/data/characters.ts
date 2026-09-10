@@ -4,11 +4,11 @@ export const ALL_CHARACTERS: CharacterDefinition[] = [
   {
     id: 'char_hero',
     name: '英雄',
-    title: '宿命之龍・天生英武',
-    description: '縱使雙手空空，亦有赤手空拳降伏猛獸之能。浩氣長存，能在關鍵宿命決戰中展現破陣之威。',
+    title: '擊殺 雙殺 三殺！',
+    description: '英雄必勝，赤手空拳也能擊退敵人。',
     avatarColor: 'from-amber-600 to-red-800',
     avatarIcon: '🗡️',
-    specialTrait: '對手遭遇戰中毋需消耗武器亦可突圍；持專屬神級兵魄能在決戰秒殺將軍。',
+    specialTrait: '對手遭遇戰中毋需消耗武器亦可突圍；天下無雙之人，能在關鍵決戰中展現一擊必殺。',
   },
   {
     id: 'char_joker',
@@ -17,7 +17,7 @@ export const ALL_CHARACTERS: CharacterDefinition[] = [
     description: '身懷魔術雜耍絕技，看似歡樂滑稽，心中深藏著博取心儀之人歡笑的心願。',
     avatarColor: 'from-purple-600 to-indigo-900',
     avatarIcon: '🤡',
-    specialTrait: '擁有專屬解謎裝備欄：隱藏著三段式命運詰問，唯有填入契合之物，方能博得心上人的嫣然一笑。',
+    specialTrait: '擁有專屬解謎裝備欄：唯有填入契合之物，方能博得心上人的嫣然一笑。',
   },
   {
     id: 'char_magic',
@@ -35,7 +35,7 @@ export const ALL_CHARACTERS: CharacterDefinition[] = [
     description: '背著吉他浪跡城市與荒野，四處結交萍水相逢的過客。',
     avatarColor: 'from-stone-600 to-amber-950',
     avatarIcon: '🎸',
-    specialTrait: '大幅提升遭遇各式奇遇NPC的機率；但若抽中《還在流浪》，將直接遭遇強大宿敵。',
+    specialTrait: '大幅提升遭遇各式奇遇NPC的機率；但流浪之人總不願意還在流浪……',
   },
   {
     id: 'char_sunshine',
@@ -44,7 +44,7 @@ export const ALL_CHARACTERS: CharacterDefinition[] = [
     description: '平日窩在角落沉浸音樂，一旦遭遇命運重擊或洗禮，將迎來不可思議的血脈覺醒。',
     avatarColor: 'from-yellow-500 to-orange-700',
     avatarIcon: '🧑‍💻',
-    specialTrait: '抽中《公主病》或被凱薩琳詛咒時，能突破極限進化為神話級化身【女兒殿下】。',
+    specialTrait: '抽中《公主病》時，能突破極限血脈覺醒，進化為神話級化身【女兒殿下】。',
   },
   {
     id: 'char_loser',
@@ -77,7 +77,7 @@ export const ALL_CHARACTERS: CharacterDefinition[] = [
   },
 ];
 
-// 玩家測試階段：初始盲抽化身僅開放【愛情廢柴】，怎麼抽都是
-export const INITIAL_SELECTABLE_CHARACTERS = ALL_CHARACTERS.filter(
-  (c) => c.id === 'char_loser'
+// 開放抽取的初始角色化身：陽光宅男、愛情廢柴、英雄
+export const INITIAL_SELECTABLE_CHARACTERS = ALL_CHARACTERS.filter((c) =>
+  ['char_sunshine', 'char_loser', 'char_hero'].includes(c.id)
 );

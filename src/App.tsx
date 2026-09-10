@@ -23,7 +23,6 @@ import { DevModal } from './components/DevModal';
 import { GameOverModal } from './components/GameOverModal';
 import { HallOfFameModal } from './components/HallOfFameModal';
 import { CharacterAvatarIcon } from './components/CharacterAvatarIcon';
-import { JayQuoteEasterEgg } from './components/JayQuoteEasterEgg';
 import { getSettlementGrade } from './utils/exportSettlement';
 
 const STORAGE_KEY_META = 'jay_chou_rpg_meta_v1';
@@ -121,6 +120,11 @@ export default function App() {
     onConfirm: () => void;
   } | null>(null);
 
+  // 半島鐵盒：當局回合耗盡時詢問繼承 5 樣卡牌至下一局 (NG)
+  const [showIronBoxInheritModal, setShowIronBoxInheritModal] = useState<boolean>(false);
+  const [selectedIronBoxItems, setSelectedIronBoxItems] = useState<string[]>([]);
+  const [pendingNextGameCallback, setPendingNextGameCallback] = useState<(() => void) | null>(null);
+
   // 周董經典口頭禪彩蛋狀態
   const [jayQuote, setJayQuote] = useState<string | null>(null);
 
@@ -210,8 +214,13 @@ export default function App() {
         if (alreadyDrawn >= card.maxDraws) {
           return false;
         }
-        // 3. Weight check (weight <= 0 cannot be drawn normally)
-        if (card.weight <= 0) {
+        // 3. Weight check (weight <= 0 cannot be drawn normally, unless specifically triggered like 最後的戰役 in 亂舞春秋)
+        const isSpecialLinked = card.id === 'C2002-10' && Boolean(
+          (state.flags['chaos_era_active'] || metaData.nextGameFlags['next_game_chaos_era']) &&
+          !state.inventory['最後的戰役'] &&
+          state.round !== 30
+        );
+        if (card.weight <= 0 && !isSpecialLinked) {
           return false;
         }
         return true;
@@ -367,6 +376,7 @@ export default function App() {
         },
       ],
     }));
+    triggerJayQuote();
   };
 
   // Draw Card from the 3 choices
@@ -390,14 +400,9 @@ export default function App() {
 
     addLog(`抽到了【${card.name}】`, 'draw');
 
-    // 觸發周董彩蛋語錄：若抽到神級卡、高稀有度卡或太陽之子路線卡
-    const isSpecialCard =
-      card.weight <= 4 ||
-      card.route === '太陽之子' ||
-      ['《跨時代》', '《葉惠美》', '《范特西》', '《杰倫》', '最後的戰役', '龍戰騎士', '亂舞春秋'].includes(
-        card.name
-      );
-    if (isSpecialCard && Math.random() < 0.7) {
+    // 觸發周董即時評語：依最新指示，稀有卡定義修改為 5% 以下 (含 5%)
+    const isRareCard = card.weight > 0 && card.weight <= 5;
+    if (isRareCard) {
       triggerJayQuote();
     }
 
@@ -423,8 +428,6 @@ export default function App() {
           effect: { addItem: card.name },
         };
 
-    addLog(`做出選擇：${option.text}。${option.resultText}`, 'action');
-
     const eff = option.effect;
     const nextInventory = { ...gameState.inventory };
     const nextFlags = { ...gameState.flags };
@@ -433,11 +436,112 @@ export default function App() {
     let nextVictory = gameState.victoryType;
     let nextDefeat = gameState.defeatReason;
     let nextRound = gameState.round + 1;
+    let optionResultText = option.resultText;
+    let effectiveForceNextCardId = eff?.forceNextCardId;
+
+    // 特殊邏輯：威廉古堡 (C2001-08) 四大核心選項
+    if (card.id === 'C2001-08') {
+      // 1. 凱薩琳選項：向凱薩琳公主問好 / 問安
+      if (option.text.includes('凱薩琳') || option.text.includes('問好') || option.text.includes('問安')) {
+        if (gameState.character?.name === '陽光宅男') {
+          // 角色是陽光宅男：因為窺視凱薩琳而被詛咒使得角色變成愛情廢柴
+          const loserChar = ALL_CHARACTERS.find((c) => c.id === 'char_loser');
+          if (loserChar) nextCharacter = loserChar;
+          optionResultText = '凱薩琳公主幽藍的雙眼閃爍著嗜血光芒！你因暗中窺視凱薩琳而觸犯了禁忌，凱薩琳詛咒你，使你化身成為【愛情廢柴】！';
+          addLog('窺視凱薩琳公主觸犯禁忌！受到惡毒詛咒，化身退化為【愛情廢柴】！', 'warning');
+        } else {
+          // 陽光宅男以外的角色：判斷是否持有公主病
+          const hasPrincessSickness = (nextInventory['公主病'] || gameState.inventory['公主病'] || 0) > 0;
+          if (hasPrincessSickness) {
+            delete nextInventory['公主病'];
+            const sunshineChar = ALL_CHARACTERS.find((c) => c.id === 'char_sunshine');
+            if (sunshineChar) nextCharacter = sunshineChar;
+            optionResultText = '凱薩琳公主幽藍的雙眼閃爍著嗜血光芒，你看著她傲慢病態的姿態，忍不住出言批評其患有嚴重的公主病，凱薩琳一氣之下把你的化身被轉化為【陽光宅男】！';
+            addLog('出言批評了凱薩琳公主患有公主病！身上的《公主病》破除消散，化身轉化為【陽光宅男】！', 'warning');
+          } else {
+            const apLoss = 3;
+            nextStats.ap = Math.max(0, nextStats.ap - apLoss);
+            optionResultText = '你向凱薩琳公主問好，卻只見她面不改色地當場抓起AB血型的公老鼠撕咬吞食！你親眼目睹這血腥猙獰的一幕被嚇得毛骨悚然、心力交瘁，行動力 -3！';
+            addLog('【恐怖目擊】親眼目睹凱薩琳公主生吞老鼠！被嚇得魂飛魄散，行動力-3！', 'warning');
+          }
+        }
+      }
+
+      // 2. 胖女巫選項：好奇胖女巫手上的東西
+      else if (option.text.includes('胖女巫') || option.text.includes('水晶球')) {
+        const hasTimeMachine = (nextInventory['時光機'] || gameState.inventory['時光機'] || 0) > 0;
+        const isYongWuUnlocked = Boolean(meta.unlockedAchievements?.includes('ach_yong_wu'));
+
+        if (hasTimeMachine) {
+          // 持有時光機優先權 > 啟動"詠物調"
+          const apLoss = 3;
+          nextStats.ap = Math.max(0, nextStats.ap - apLoss);
+          optionResultText = '胖女巫手握水晶球冷眼斜睨著你！她尖嘯一聲揮動掃帚施放驅逐咒將你強行送出古堡，行動力 -3！';
+          addLog('【逐出古堡】胖女巫發現你，冷笑施法將你驅逐出古堡，行動力-3！', 'warning');
+        } else if (isYongWuUnlocked) {
+          // 啟動成就"詠物調"：讚美水晶球，開心贈送時光機
+          nextInventory['時光機'] = (nextInventory['時光機'] || 0) + 1;
+          optionResultText = '你身負【詠物調】之古韻雅意，由衷讚嘆胖女巫手中晶瑩剔透的水晶球。胖女巫聽得心花怒放，欣喜地將失落已久的秘寶【時光機】大方贈予了你！';
+          addLog('【女巫賜寶】讚美胖女巫的水晶球，胖女巫欣喜贈送傳奇秘寶【時光機】！', 'milestone');
+        } else {
+          // 一般情況：胖女巫用水晶球替你占卜得知前世，觸發《愛在西元前》
+          effectiveForceNextCardId = 'C2001-01';
+          optionResultText = '胖女巫手捧剔透的水晶球替你占卜前世因果。水晶球中波光流轉，浮現出美索不達米亞平原的泥板與漢摩拉比法典……你得知了自己的前世，時空逆流呼嘯而起！';
+          addLog('【水晶占卜】胖女巫用水晶球占卜得知前世，時空共鳴，回合將回到《愛在西元前》！', 'milestone');
+        }
+      }
+
+      // 3. 威廉二世選項：偷偷進入威廉二世房間
+      else if (option.text.includes('威廉二世')) {
+        const hasBedtimeStory = (nextInventory['床邊故事'] || gameState.inventory['床邊故事'] || 0) > 0;
+        if (hasBedtimeStory) {
+          if (nextInventory['床邊故事'] > 1) {
+            nextInventory['床邊故事'] -= 1;
+          } else {
+            delete nextInventory['床邊故事'];
+          }
+          nextInventory['反方向的鐘'] = (nextInventory['反方向的鐘'] || 0) + 1;
+          nextFlags['got_reversed_clock'] = true;
+          optionResultText = '你輕手輕腳潛入威廉二世昏暗的寢殿，藉由手中的【床邊故事】輕輕哼唱催眠。威廉二世沉沉睡去，你悄悄自他腰間取下了傳奇秘寶【反方向的鐘】！';
+          addLog('【古堡秘寶】輕唱床邊故事安撫威廉二世，成功獲得【反方向的鐘】！消耗【床邊故事】。', 'milestone');
+        } else {
+          const apLoss = 3;
+          nextStats.ap = Math.max(0, nextStats.ap - apLoss);
+          optionResultText = '你偷偷潛入威廉二世的寢殿，木地板的吱嘎聲頓時驚醒了威廉二世！他雷霆大怒召集古堡守衛將你強行趕出古堡，狼狽逃竄中體力消耗，行動力 -3！';
+          addLog('【驚動二世】潛入威廉二世寢殿缺乏《床邊故事》安撫，驚醒威廉二世被趕出古堡，行動力-3！', 'warning');
+        }
+      }
+
+      // 4. 豬管家選項：詢問豬管家為什麼要念約翰福音做彌補
+      else if (option.text.includes('豬管家')) {
+        const hasZongzi = (nextInventory['療傷燒肉粽'] || gameState.inventory['療傷燒肉粽'] || 0) > 0;
+        if (hasZongzi) {
+          if (nextInventory['療傷燒肉粽'] > 1) {
+            nextInventory['療傷燒肉粽'] -= 1;
+          } else {
+            delete nextInventory['療傷燒肉粽'];
+          }
+          nextInventory['琴傷'] = (nextInventory['琴傷'] || 0) + 1;
+          optionResultText = '豬管家正眼淚汪汪地念著約翰福音做彌補，熱騰騰的【療傷燒肉粽】香氣打動了他受傷的心靈！他感動得熱淚盈眶，向你傾訴往事並贈予你泛黃的日記《琴傷》！';
+          addLog('【感化管家】熱騰騰的燒肉粽溫暖了豬管家，獲得日記《琴傷》！消耗【療傷燒肉粽】。', 'milestone');
+        } else {
+          optionResultText = '豬管家滿面愁容，口中福音喃喃念著，沉浸在深沉的哀傷與懺悔中，並未對你多吐露半句心聲。';
+          addLog('【管家的彌補】豬管家滿面愁容念著約翰福音，想辦法為他療傷吧！', 'info');
+        }
+      }
+    }
+
+    addLog(`做出選擇：${option.text}。${optionResultText}`, 'action');
 
     // Apply effects
     if (eff) {
       if (eff.addItem) {
-        nextInventory[eff.addItem] = (nextInventory[eff.addItem] || 0) + 1;
+        if (eff.addItem === '公主病') {
+          // 公主病上限為 1
+          nextInventory['公主病'] = 1;
+        } else {
+          nextInventory[eff.addItem] = (nextInventory[eff.addItem] || 0) + 1;
+        }
         // Diary unlock check
         if (card.type === '日記' && !meta.unlockedDiaries.includes(eff.addItem)) {
           setMeta((prev) => ({
@@ -496,13 +600,19 @@ export default function App() {
       if (eff.rewindRound !== undefined) {
         nextRound = eff.rewindRound;
         if (eff.clearItems) {
-          // Clear items (except iron box stored ones or character)
+          // 愛在西元前：只保留角色身份重新回到第 1 回合（道具與當局成就蒐集清除）
           Object.keys(nextInventory).forEach((k) => {
-            if (k !== '時光機') delete nextInventory[k];
+            delete nextInventory[k];
           });
-          addLog('【時光倒流】你回到了第 1 回合！身上的常規物品在時空亂流中悉數消散。', 'warning');
+          if (eff.clearProgress) {
+            Object.keys(nextFlags).forEach((k) => {
+              delete nextFlags[k];
+            });
+          }
+          addLog('【愛在西元前・時光逆流】時空狂瀾撕扯！只保留角色身份重新回到第 1 回合，道具與當局成就蒐集在泥板歲月中悉數清除！', 'warning');
         } else {
-          addLog('【時光機啟動】帶著全部物品與記憶，毫髮無傷地重返第 1 回合！', 'milestone');
+          // 回到過去：重新回到第 1 回合（保留目前全身狀態）
+          addLog('【回到過去・時空逆流】想回到過去，試著讓故事繼續！你保留了目前全部全身狀態與行囊道具，重新回到第 1 回合！', 'milestone');
         }
       }
 
@@ -616,44 +726,87 @@ export default function App() {
 
       // Construct outcome modal badges
       const badges: { label: string; value: string; color?: string }[] = [];
-      if (eff?.addItem) {
-        badges.push({ label: '獲得物品', value: `【${eff.addItem}】`, color: 'text-amber-300' });
-      }
-      if (eff?.removeItem) {
-        badges.push({ label: '消耗物品', value: `【${eff.removeItem}】`, color: 'text-stone-400' });
-      }
-      if (eff?.removeItems && eff.removeItems.length > 0) {
-        badges.push({
-          label: '消耗物品',
-          value: eff.removeItems.map((i) => `【${i}】`).join('、'),
-          color: 'text-stone-400',
-        });
-      }
-      if (eff?.apChange) {
-        badges.push({
-          label: '行動力變動',
-          value: `${eff.apChange > 0 ? '+' : ''}${eff.apChange} AP`,
-          color: eff.apChange > 0 ? 'text-emerald-400' : 'text-red-400',
-        });
-      }
-      if (eff?.rewindRound !== undefined) {
-        badges.push({ label: '時空逆轉', value: '重返第 1 回合', color: 'text-cyan-300' });
-      }
-      if (nextCharacter.name !== gameState.character?.name) {
-        badges.push({ label: '化身覺醒', value: `【${nextCharacter.name}】`, color: 'text-yellow-300' });
+      if (card.id === 'C2001-08') {
+        if (option.text.includes('凱薩琳') || option.text.includes('問好') || option.text.includes('問安')) {
+          if (gameState.character?.name === '陽光宅男') {
+            badges.push({ label: '化身退化', value: '【愛情廢柴】', color: 'text-red-400' });
+          } else {
+            const hadPrincessSickness = (gameState.inventory['公主病'] || 0) > 0;
+            if (hadPrincessSickness) {
+              badges.push({ label: '破除詛咒', value: '【公主病】消散', color: 'text-stone-400' });
+              badges.push({ label: '化身轉化', value: '【陽光宅男】', color: 'text-amber-300' });
+            } else {
+              badges.push({ label: '恐怖目擊', value: '-3 AP', color: 'text-red-400' });
+            }
+          }
+        } else if (option.text.includes('胖女巫') || option.text.includes('水晶球')) {
+          const hasTimeMachine = (gameState.inventory['時光機'] || 0) > 0;
+          const isYongWuUnlocked = Boolean(meta.unlockedAchievements?.includes('ach_yong_wu'));
+          if (hasTimeMachine) {
+            badges.push({ label: '逐出古堡', value: '-3 AP', color: 'text-red-400' });
+          } else if (isYongWuUnlocked) {
+            badges.push({ label: '女巫賜寶', value: '【時光機】', color: 'text-amber-300' });
+          } else {
+            badges.push({ label: '占卜前世', value: '觸發《愛在西元前》', color: 'text-cyan-300' });
+          }
+        } else if (option.text.includes('威廉二世')) {
+          const hasBedtimeStory = (gameState.inventory['床邊故事'] || 0) > 0;
+          if (hasBedtimeStory) {
+            badges.push({ label: '消耗物品', value: '【床邊故事】', color: 'text-stone-400' });
+            badges.push({ label: '古堡秘寶', value: '【反方向的鐘】', color: 'text-amber-300' });
+          } else {
+            badges.push({ label: '驚動二世', value: '-3 AP', color: 'text-red-400' });
+          }
+        } else if (option.text.includes('豬管家')) {
+          const hasZongzi = (gameState.inventory['療傷燒肉粽'] || 0) > 0;
+          if (hasZongzi) {
+            badges.push({ label: '消耗物品', value: '【療傷燒肉粽】', color: 'text-stone-400' });
+            badges.push({ label: '感化管家', value: '【琴傷】', color: 'text-amber-300' });
+          } else {
+            badges.push({ label: '念約翰福音', value: '為往事彌補', color: 'text-stone-400' });
+          }
+        }
+      } else {
+        if (eff?.addItem) {
+          badges.push({ label: '獲得物品', value: `【${eff.addItem}】`, color: 'text-amber-300' });
+        }
+        if (eff?.removeItem) {
+          badges.push({ label: '消耗物品', value: `【${eff.removeItem}】`, color: 'text-stone-400' });
+        }
+        if (eff?.removeItems && eff.removeItems.length > 0) {
+          badges.push({
+            label: '消耗物品',
+            value: eff.removeItems.map((i) => `【${i}】`).join('、'),
+            color: 'text-stone-400',
+          });
+        }
+        if (eff?.apChange) {
+          badges.push({
+            label: '行動力變動',
+            value: `${eff.apChange > 0 ? '+' : ''}${eff.apChange} AP`,
+            color: eff.apChange > 0 ? 'text-emerald-400' : 'text-red-400',
+          });
+        }
+        if (eff?.rewindRound !== undefined) {
+          badges.push({ label: '時空逆轉', value: '重返第 1 回合', color: 'text-cyan-300' });
+        }
+        if (nextCharacter.name !== gameState.character?.name) {
+          badges.push({ label: '化身覺醒', value: `【${nextCharacter.name}】`, color: 'text-yellow-300' });
+        }
       }
 
       // 【第30回合邊界條件機制】：
       // 假設 R30 抽到 A 卡跳接 B 卡（例如《跨時代》跳接《威廉古堡》）
       // 允許先跳接完成，讓玩家可以在連動卡牌中做最後一次抉擇
-      if (gameState.round >= 30 && eff?.forceNextCardId && !gameState.flags['_r30_chained_once']) {
-        const nextCard = CARD_DATABASE.find((c) => c.id === eff.forceNextCardId);
+      if (gameState.round >= 30 && effectiveForceNextCardId && !gameState.flags['_r30_chained_once']) {
+        const nextCard = CARD_DATABASE.find((c) => c.id === effectiveForceNextCardId);
         if (nextCard) {
           setPendingEventTransition({
             sourceCardName: card.name,
             targetCard: nextCard,
             nextRound: 30,
             effectNarrative:
+              optionResultText ||
               option.resultText ||
               `※ 第 30 回合宿命延伸！宿命牽引你由【${card.name}】直接連動邁入【${nextCard.name}】！`,
             nextInventory,
@@ -681,11 +834,11 @@ export default function App() {
         let narrativeDesc = '';
         if (eff?.rewindRound !== undefined) {
           narrativeDesc = `雖然必須時空逆轉重返第 1 回合，但因體力已耗盡，本局冒險在此結束。`;
-        } else if (eff?.forceNextCardId) {
-          const targetNext = CARD_DATABASE.find((c) => c.id === eff.forceNextCardId);
+        } else if (effectiveForceNextCardId) {
+          const targetNext = CARD_DATABASE.find((c) => c.id === effectiveForceNextCardId);
           narrativeDesc = `雖然觸發連動前往【${targetNext?.name || '下一卡牌'}】，但因體力已耗盡，本局冒險在此結束。`;
-        } else if (option.resultText) {
-          narrativeDesc = `雖然${option.resultText}，但因體力已耗盡，本局冒險在此結束。`;
+        } else if (optionResultText || option.resultText) {
+          narrativeDesc = `雖然${optionResultText || option.resultText}，但因體力已耗盡，本局冒險在此結束。`;
         } else {
           narrativeDesc = `雖然做出了抉擇，但因體力耗盡，本局冒險結束。`;
         }
@@ -711,14 +864,15 @@ export default function App() {
       }
 
       // 若有卡牌連動（AP 充足情況）
-      if (eff?.forceNextCardId) {
-        const nextCard = CARD_DATABASE.find((c) => c.id === eff.forceNextCardId);
+      if (effectiveForceNextCardId) {
+        const nextCard = CARD_DATABASE.find((c) => c.id === effectiveForceNextCardId);
         if (nextCard) {
           setPendingEventTransition({
             sourceCardName: card.name,
             targetCard: nextCard,
             nextRound: gameState.round >= 30 ? 30 : nextRound,
             effectNarrative:
+              optionResultText ||
               option.resultText ||
               (gameState.round >= 30
                 ? `※ 第 30 回合宿命延伸！宿命牽引你由【${card.name}】直接連動邁入【${nextCard.name}】！`
@@ -752,7 +906,7 @@ export default function App() {
         title: eff?.addItem ? '✦ 獲得物品・決策結算 ✦' : '✦ 冒險決策・事件結算 ✦',
         icon: eff?.addItem ? '🎁' : '📜',
         subtitle: `【${card.name}】・${option.text}`,
-        narrative: option.resultText || `做出選擇：${option.text}。`,
+        narrative: optionResultText || option.resultText || `做出選擇：${option.text}。`,
         badges: badges.length > 0 ? badges : undefined,
         confirmText: isAtOrExceedingRound30
           ? '確定（第 30 回合冒險結算）'
@@ -881,9 +1035,9 @@ export default function App() {
     });
   };
 
-  // Iron Box store/take handlers
+  // Iron Box store/take handlers (支援至多 5 樣卡牌跨局封存傳承)
   const handleStoreIronBox = (itemName: string) => {
-    if (meta.ironBoxItems.length >= 3) return;
+    if (meta.ironBoxItems.length >= 5) return;
     setGameState((prev) => {
       const nextInv = { ...prev.inventory };
       nextInv[itemName] = Math.max(0, (nextInv[itemName] || 1) - 1);
@@ -904,6 +1058,24 @@ export default function App() {
       confirmText: '確認',
       onConfirm: () => setOutcomeModal(null),
     });
+  };
+
+  // 於當局回合耗盡時（GameOver結算或體力耗盡），若持有半島鐵盒，啟動詢問玩家要保留哪些獲得卡牌繼承到 NG (至多 5 樣)
+  const triggerNextGameWithIronBoxCheck = (proceedFn: () => void) => {
+    const hasIronBox = Boolean(gameState.inventory['半島鐵盒']);
+    const availableItems = Object.keys(gameState.inventory).filter(
+      (k) => (gameState.inventory[k] || 0) > 0
+    );
+    if (hasIronBox && availableItems.length > 0) {
+      const initialSelected = (meta.ironBoxItems || [])
+        .filter((it) => availableItems.includes(it))
+        .slice(0, 5);
+      setSelectedIronBoxItems(initialSelected);
+      setPendingNextGameCallback(() => proceedFn);
+      setShowIronBoxInheritModal(true);
+    } else {
+      proceedFn();
+    }
   };
 
   const handleTakeIronBox = (itemName: string) => {
@@ -1040,7 +1212,7 @@ export default function App() {
   };
 
   // Confirm AP Exhausted - forced CG end, transitions to NG (gameNumber + 1)
-  const handleConfirmApExhausted = () => {
+  const executeConfirmApExhausted = () => {
     const historyRecord: GameHistoryRecord = {
       gameNumber: gameState.gameNumber,
       characterName: gameState.character?.name || '未知',
@@ -1087,6 +1259,11 @@ export default function App() {
     }));
 
     setShowApExhaustedModal(false);
+  };
+
+  const handleConfirmApExhausted = () => {
+    setShowApExhaustedModal(false);
+    triggerNextGameWithIronBoxCheck(executeConfirmApExhausted);
   };
 
   // 全域鍵盤事件監聽：ESC / Enter / 空白鍵 快捷確認或關閉彈出視窗
@@ -1320,18 +1497,13 @@ export default function App() {
     <div className="min-h-screen w-full bg-[#0a0a0d] text-[#e0deda] font-sans antialiased flex flex-col items-center select-none overflow-x-hidden">
       {/* Top Universal App Header */}
       <header className="w-full bg-[#121215] border-b border-stone-800 px-6 py-3 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#d4af37] to-amber-800 flex items-center justify-center text-black font-serif font-black text-base shadow-sm">
-            跨
-          </div>
-          <div>
-            <h1 className="text-sm font-black text-amber-100 tracking-wider font-serif">
-              跨時代：周杰倫文字冒險
-            </h1>
-            <p className="text-[10px] text-stone-500 font-mono tracking-tight">
-              JAY CHOU ROGUELIKE ADVENTURE
-            </p>
-          </div>
+        <div>
+          <h1 className="text-sm font-black text-amber-100 tracking-wider font-serif">
+            周杰倫歌曲卡牌冒險
+          </h1>
+          <p className="text-[10px] text-stone-500 font-mono tracking-tight">
+            JAY CHOU SONG CARD ADVENTURE
+          </p>
         </div>
 
         {/* Global Action Buttons */}
@@ -1349,7 +1521,7 @@ export default function App() {
             </span>
           </button>
 
-          {/* (2) 傳奇殿堂：全通關取得戰績卡後方才解鎖顯示 */}
+          {/* 傳奇殿堂：全通關取得戰績卡後方才解鎖顯示 */}
           {hasAchievedGrandSlam && (
             <button
               id="hall-of-fame-btn"
@@ -1362,18 +1534,16 @@ export default function App() {
             </button>
           )}
 
-          {/* (1) 開啟新周目：全通關取得戰績卡後方才出現，供玩家重新挑戰更少局數 */}
-          {hasAchievedGrandSlam && (
-            <button
-              id="start-new-cycle-btn"
-              onClick={() => setShowNewGamePlusModal(true)}
-              className="px-3 py-1.5 rounded-lg bg-stone-900/90 hover:bg-red-950/50 text-stone-300 hover:text-red-300 border border-stone-800 hover:border-red-900/70 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm animate-in fade-in"
-              title="開啟新周目重新挑戰（傳奇殿堂戰績卡完整保留，以最少局數與回合挑戰巔峰成績）"
-            >
-              <span>🔄</span>
-              <span>開啟新周目</span>
-            </button>
-          )}
+          {/* 開啟新周目：初始就開放，隨時可讓玩家重新挑戰以拚更少局數 */}
+          <button
+            id="start-new-cycle-btn"
+            onClick={() => setShowNewGamePlusModal(true)}
+            className="px-3 py-1.5 rounded-lg bg-stone-900/90 hover:bg-red-950/50 text-stone-300 hover:text-red-300 border border-stone-800 hover:border-red-900/70 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm animate-in fade-in"
+            title="開啟新周目重新挑戰（傳奇殿堂戰績卡完整保留，以最少局數與回合挑戰巔峰成績）"
+          >
+            <span>🔄</span>
+            <span>開啟新周目</span>
+          </button>
 
           {/* 開發測試：同一次打開網頁只需輸入一次 1028 密碼 */}
           <button
@@ -1404,13 +1574,14 @@ export default function App() {
             <span>開發測試</span>
           </button>
 
+          {/* 重啟當前局 */}
           <button
             id="restart-game-btn"
             onClick={handleRestartCurrentGame}
-            title="測試功能：重新開始當前局（保持當前局數，重返第 1 回合）"
+            title="重新開始當前局（保持當前局數，重返第 1 回合）"
             className="hidden sm:flex px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-amber-200 border border-stone-800 text-xs font-medium transition-all cursor-pointer"
           >
-            重啟當前局 (測試)
+            重啟當前局
           </button>
         </div>
       </header>
@@ -1432,20 +1603,35 @@ export default function App() {
           />
 
           {/* D. 行囊狀態 (置於角色欄下方) */}
-          <InventoryGrid inventory={gameState.inventory} />
+          <InventoryGrid
+            inventory={gameState.inventory}
+            onItemClick={(itemName) => {
+              if (itemName === '半島鐵盒') {
+                const availableItems = Object.keys(gameState.inventory).filter(
+                  (k) => (gameState.inventory[k] || 0) > 0
+                );
+                const initialSelected = (meta.ironBoxItems || [])
+                  .filter((it) => availableItems.includes(it))
+                  .slice(0, 5);
+                setSelectedIronBoxItems(initialSelected);
+                setPendingNextGameCallback(null);
+                setShowIronBoxInheritModal(true);
+              }
+            }}
+          />
         </div>
 
         {/* ======================================================== */}
         {/* CENTER COLUMN: B.回合資訊欄 + C.中央舞台 */}
         {/* ======================================================== */}
         <div className="lg:col-span-5 xl:col-span-5 flex flex-col gap-4 w-full">
-          {/* B. 回合資訊欄: Strictly Chinese "第 X 局 - 第 Y 回合 / 30" */}
+          {/* B. 回合資訊欄: 依需求顯示為 "第 X/30 回合" */}
           <div className="w-full bg-[#141417] border border-stone-800 rounded-xl px-5 py-3.5 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
               <span className="text-base lg:text-lg font-black text-[#d4af37] font-serif tracking-wider">
                 {gameState.phase === 'CHOOSE_CHARACTER'
                   ? `第 ${gameState.gameNumber} 局 - 命運抉擇（盲抽化身）`
-                  : `第 ${gameState.gameNumber} 局 - 第 ${gameState.round} 回合 / ${gameState.maxRounds}`}
+                  : `第 ${gameState.round}/${gameState.maxRounds} 回合`}
               </span>
               {gameState.flags['chaos_era_active'] && (
                 <span className="text-[10px] bg-red-950 text-red-300 border border-red-800 px-2 py-0.5 rounded font-mono font-bold animate-pulse">
@@ -1486,6 +1672,7 @@ export default function App() {
                         const drawnChar = INITIAL_SELECTABLE_CHARACTERS[randomIndex];
                         setPendingCharacter(drawnChar);
                         setShowCharConfirmModal(true);
+                        triggerJayQuote();
                       }}
                       className="group w-28 sm:w-36 h-44 sm:h-52 rounded-xl bg-gradient-to-b from-[#1c1b22] via-[#141318] to-[#0c0c10] border-2 border-stone-800 hover:border-[#d4af37] p-3 flex flex-col items-center justify-between shadow-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.25)] transition-all transform hover:-translate-y-1.5 cursor-pointer relative overflow-hidden active:scale-95"
                     >
@@ -1594,7 +1781,11 @@ export default function App() {
               <GameOverModal
                 gameState={gameState}
                 meta={meta}
-                onRestartNewGame={handleStartNextGame}
+                onRestartNewGame={() => {
+                  triggerNextGameWithIronBoxCheck(() => {
+                    handleStartNextGame();
+                  });
+                }}
                 onRewindWithClock={handleRewindWithClock}
                 onTriggerJayQuote={triggerJayQuote}
               />
@@ -1606,7 +1797,7 @@ export default function App() {
         {/* RIGHT COLUMN: E.冒險日誌 (獨立置於右側，加寬以減少折行) */}
         {/* ======================================================== */}
         <div className="lg:col-span-4 xl:col-span-4 flex flex-col gap-4 w-full">
-          <AdventureLog logs={gameState.logs} />
+          <AdventureLog logs={gameState.logs} jayQuote={jayQuote} />
         </div>
       </main>
 
@@ -2039,19 +2230,6 @@ export default function App() {
                 {pendingCharacter.description}
               </div>
 
-              {pendingCharacter.specialTrait && (
-                <div
-                  className={`w-full ${
-                    pendingCharacter.id === 'char_chopin'
-                      ? 'bg-amber-950/50 border-2 border-amber-600/80 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
-                      : 'bg-amber-950/30 border border-amber-900/60'
-                  } rounded-xl p-3 text-xs text-amber-200 text-left font-sans flex items-start gap-2`}
-                >
-                  <span className="shrink-0 text-amber-400 font-bold">天賦：</span>
-                  <span className="leading-relaxed">{pendingCharacter.specialTrait}</span>
-                </div>
-              )}
-
               <button
                 id="confirm-start-adventure-btn"
                 onClick={() => {
@@ -2299,8 +2477,107 @@ export default function App() {
         </div>
       )}
 
-      {/* 周董經典語錄浮動彩蛋 */}
-      <JayQuoteEasterEgg quote={jayQuote} onDismiss={() => setJayQuote(null)} />
+      {/* 半島鐵盒・跨局記憶傳承 (當局回合耗盡時詢問選擇保留至多 5 樣卡牌繼承至下一局 NG) */}
+      {showIronBoxInheritModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-lg bg-gradient-to-b from-[#221c13] via-[#16130d] to-[#0c0a07] border-2 border-amber-600/90 rounded-2xl p-6 shadow-[0_0_50px_rgba(245,158,11,0.35)] flex flex-col items-center text-center gap-4">
+            <div className="w-full flex items-center justify-between border-b border-amber-900/60 pb-2">
+              <span className="text-xs text-amber-400 font-mono tracking-widest uppercase font-bold flex items-center gap-1.5">
+                <span>📻</span>
+                <span>半島鐵盒・時空傳承</span>
+                <span>✦</span>
+              </span>
+              <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-600/40 px-2 py-0.5 rounded font-mono font-bold">
+                已選 {selectedIronBoxItems.length} / 5 樣
+              </span>
+            </div>
+
+            <div className="w-14 h-14 rounded-2xl bg-amber-950/60 border border-amber-500/80 flex items-center justify-center text-3xl shadow-[0_0_25px_rgba(245,158,11,0.3)] my-0.5">
+              <span>📻</span>
+            </div>
+
+            <div>
+              <h3 className="text-lg sm:text-xl font-black text-amber-100 font-serif tracking-wide">
+                當局回合耗盡・半島鐵盒開啟
+              </h3>
+              <p className="text-xs text-amber-300/80 font-serif mt-1 italic">
+                「沉澱的呢喃清唱 封存跨越時空的記憶」
+              </p>
+            </div>
+
+            <div className="w-full bg-black/50 border border-amber-900/40 rounded-xl p-3 text-xs text-stone-200 leading-relaxed text-left font-sans">
+              <p>
+                你在此局持有神物【半島鐵盒】！請挑選至多 <span className="text-amber-300 font-bold">5 樣</span> 獲得的卡牌/道具放入鐵盒中，它們將跨越時空，於下一局冒險初始時直接隨身出現在你的行囊中：
+              </p>
+            </div>
+
+            {/* 可選物品清單 */}
+            <div className="w-full max-h-56 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2 pr-1 text-left">
+              {Object.keys(gameState.inventory)
+                .filter((name) => (gameState.inventory[name] || 0) > 0)
+                .map((itemName) => {
+                  const isSelected = selectedIronBoxItems.includes(itemName);
+                  const count = gameState.inventory[itemName];
+                  return (
+                    <button
+                      key={itemName}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedIronBoxItems((prev) => prev.filter((it) => it !== itemName));
+                        } else {
+                          if (selectedIronBoxItems.length >= 5) {
+                            addLog('【半島鐵盒】最多只能挑選 5 樣卡牌繼承至下一局！', 'warning');
+                            return;
+                          }
+                          setSelectedIronBoxItems((prev) => [...prev, itemName]);
+                        }
+                      }}
+                      className={`py-2 px-2.5 rounded-lg border transition-all text-xs font-sans flex items-center justify-between cursor-pointer ${
+                        isSelected
+                          ? 'bg-amber-950/80 border-amber-400 text-amber-100 shadow-[0_0_12px_rgba(245,158,11,0.3)] ring-1 ring-amber-400/50'
+                          : 'bg-black/40 border-stone-800 text-stone-300 hover:border-stone-600 hover:bg-stone-900/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-xs font-mono">{isSelected ? '✅' : '▫️'}</span>
+                        <span className="truncate font-bold">{itemName}</span>
+                      </div>
+                      {count > 1 && (
+                        <span className="text-[10px] text-stone-400 font-mono shrink-0 ml-1">
+                          x{count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+            </div>
+
+            <div className="w-full flex gap-2.5 mt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setMeta((prev) => ({
+                    ...prev,
+                    ironBoxItems: selectedIronBoxItems,
+                  }));
+                  if (selectedIronBoxItems.length > 0) {
+                    addLog(
+                      `【半島鐵盒】已將【${selectedIronBoxItems.join('、')}】封存，將於下一局冒險繼承出現在行囊中！`,
+                      'milestone'
+                    );
+                  }
+                  setShowIronBoxInheritModal(false);
+                  pendingNextGameCallback?.();
+                }}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 via-[#d4af37] to-amber-500 text-stone-950 font-black text-sm tracking-wider hover:brightness-110 transition-all shadow-[0_4px_18px_rgba(212,175,55,0.35)] cursor-pointer active:scale-98"
+              >
+                確認封存（{selectedIronBoxItems.length}/5）・邁向下一局冒險
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

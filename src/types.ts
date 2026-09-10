@@ -30,6 +30,7 @@ export interface CardOption {
     advanceRound?: number; // 回合數推進 (遞增) 例如: 穿梭跳躍
     advanceGame?: number; // 局數推進
     clearItems?: boolean;
+    clearProgress?: boolean;
     timedAction?: {
       seconds: number;
       buttonText: string;

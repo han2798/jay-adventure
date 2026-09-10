@@ -165,7 +165,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 8,
     type: '遭遇',
     maxDraws: 30,
-    weight: 18,
+    weight: 30, // 遭遇機率設定為 30% 相對權重
     route: '太陽之子',
     flavorText: '「印地安老斑鳩，腿短毛長，在仙人掌中飛揚跋扈地擋住去路，眼神桀驁不馴。」',
     options: [
@@ -255,17 +255,18 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「古巴比倫王頒布了漢摩拉比法典，刻在黑色的玄武岩，距今已經三千七百多年……」狂暴的時空亂流撕扯著一切物質！',
     options: [
       {
-        text: '肉身穿越回西元前',
-        resultText: '身邊所有現代武器與物品在泥板歲月中化為塵埃！你只憑藉靈魂記憶重返最初的起點。',
+        text: '穿越時空回到西元前',
+        resultText: '時空逆流！只保留角色身份重新回到第 1 回合，身上的道具與當局成就蒐集在狂瀾中悉數清除！',
         effect: {
           rewindRound: 1,
           clearItems: true,
+          clearProgress: true,
         },
       },
       {
-        text: '啟動【時光機】防護罩',
+        text: '啟動【時光機】維持當前時空',
         require: { item: '時光機' },
-        resultText: '時光機發出璀璨的護盾，將你牢牢固定在當前的時空節點，未被時空狂瀾捲走。',
+        resultText: '你啟動了【時光機】護盾，抵抗住時空狂瀾，選擇不進行時光逆流，平穩繼續當前的冒險。',
         effect: {},
       },
     ],
@@ -310,7 +311,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 4,
     type: '遭遇',
     maxDraws: 1,
-    weight: 8,
+    weight: 15, // 遭遇機率設定為 15% 相對權重
     route: '太陽之子',
     flavorText: '「居合斬！身穿黑衣的忍者無聲無息自陰影中掠出，手握手裏劍，眼神冷冽如冰。」',
     options: [
@@ -383,47 +384,28 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 8,
     type: '事件',
     maxDraws: 2,
-    weight: 5,
+    weight: 0, // 抽卡機率 0%，只有跨時代選項正確才會觸發
     route: '最偉大的作品',
-    flavorText: '「藤蔓爬滿了伯爵的墳墓，古堡深處傳來古怪的私語。四名各懷秘密的古堡人物正注視著你……」',
+    flavorText: '「眼前的藤蔓爬滿了伯爵的墳墓，眼前一片荒蕪，而你進入古堡裡......」',
     options: [
       {
-        text: '晉見威廉二世',
-        require: { item: '床邊故事' },
-        resultText: '你輕輕吟唱床邊故事，威廉二世沉沉睡去，你悄悄自他腰間取下了【反方向的鐘】！',
-        effect: {
-          removeItem: '床邊故事',
-          addItem: '反方向的鐘',
-          setFlag: { got_reversed_clock: true },
-        },
+        text: '偷偷進入威廉二世房間',
+        resultText: '你輕手輕腳地探入威廉二世昏暗的寢殿……',
+        effect: {},
       },
       {
-        text: '向凱薩琳公主問安',
-        resultText: '凱薩琳公主勃然大怒：「大膽！竟敢說本宮有公主病！」憤怒的魔法降臨，你被詛咒化身為【陽光宅男】！',
-        effect: {
-          changeCharacter: 'char_sunshine',
-          addItem: '公主病',
-        },
+        text: '向凱薩琳公主問好',
+        resultText: '向高傲冷豔的凱薩琳公主問好致意……',
+        effect: {},
       },
       {
-        text: '拜訪胖女巫',
-        resultText: '胖女巫冷眼打量著你。若你已解鎖【詠物調】神曲，她將為你呈上失落的【時光機】；若無，則觸發時空亂流《愛在西元前》！',
-        effect: {
-          setFlag: { visited_witch: true },
-        },
+        text: '好奇胖女巫手上的東西',
+        resultText: '你好奇地湊上前去打量胖女巫手中的神祕物件……',
+        effect: {},
       },
       {
-        text: '慰勞豬管家',
-        require: { item: '療傷燒肉粽' },
-        resultText: '熱騰騰的燒肉粽讓豬管家感動得熱淚盈眶，傷感地回憶起往事，贈予你泛黃的日記《琴傷》！',
-        effect: {
-          removeItem: '療傷燒肉粽',
-          addItem: '琴傷',
-        },
-      },
-      {
-        text: '摸摸鼻子從古堡離開',
-        resultText: '城堡裡的僕役與幽靈冷漠地看著你。沒有對應信物，你只能暫且退回迷霧之中。',
+        text: '詢問豬管家為什麼要念約翰福音做彌補',
+        resultText: '你走向愁容滿面的豬管家，輕聲詢問他口中的約翰福音……',
         effect: {},
       },
     ],
@@ -491,7 +473,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 1,
     type: '遭遇',
     maxDraws: 1,
-    weight: 7,
+    weight: 10, // 遭遇機率設定為 10% 相對權重
     route: '太陽之子',
     flavorText: '「昏暗的石窟深處，粗重的咆哮迴盪，嗜血的半獸人正揮舞著沉重的石斧怒目而視！」',
     options: [
@@ -682,16 +664,15 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '順著旋律逆轉光陰',
-        resultText: '身上的器物飄落時空長河，但你的心中保留了所有冒險的記憶與悔恨，重新回到第 1 回合！',
+        resultText: '想回到過去，試著讓故事繼續！你保留了目前全部的行囊道具、成就與全身狀態，重新回到第 1 回合！',
         effect: {
           rewindRound: 1,
-          clearItems: true,
         },
       },
       {
-        text: '憑藉【時光機】自主選擇',
+        text: '啟動【時光機】撫平時空裂痕',
         require: { item: '時光機' },
-        resultText: '時光機懸浮運轉，你從容地撫平了時間裂痕，選擇繼續當前的冒險。',
+        resultText: '時光機懸浮運轉，你從容地撫平了時間裂痕，選擇不進行時光逆流，繼續當前的冒險。',
         effect: {},
       },
     ],
@@ -723,7 +704,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 10,
     type: '事件',
     maxDraws: 1,
-    weight: 100, // 亂舞春秋時代每回合必定出現
+    weight: 0, // 本身機率 0%，只有進入亂舞春秋時代後連動機率 100%
     route: '太陽之子',
     condition: (state, meta) =>
       Boolean(
@@ -2071,7 +2052,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 1,
     type: '遭遇',
     maxDraws: 2,
-    weight: 3,
+    weight: 2, // 遭遇機率設定為 2% 相對權重
     route: '太陽之子',
     condition: (state) => !state.inventory['龍戰騎士'],
     flavorText: '「末日遠方戰火燃燒，龍戰騎士跨坐在機械巨龍之上，熾熱的龍息封鎖了一切退路。」',
@@ -2312,19 +2293,10 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '收納至行囊中',
-        resultText: '你獲得了至高神器【時光機】！自此任何時空倒流皆由你自主定奪，甚至可主動回溯歲月。',
+        resultText: '你獲得了至高神器【時光機】！自此後續若遭遇《回到過去》或《愛在西元前》時，可憑藉時光機自主決定是否時光逆流。',
         effect: {
           addItem: '時光機',
           setFlag: { hasTimeMachine: true },
-        },
-      },
-      {
-        text: '立即發動時光機',
-        resultText: '你握緊時光機操縱桿，帶著滿載的行囊與線索，毫髮無傷地重新回到第 1 回合！人生得以重啟！',
-        effect: {
-          addItem: '時光機',
-          rewindRound: 1,
-          clearItems: false,
         },
       },
     ],
@@ -2412,7 +2384,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 2,
     weight: 6,
     route: '最偉大的作品',
-    flavorText: '「鐘逆時針而繞，惡菊對月而笑。黑色的披風獵獵作響，時代的巨輪呼嘯跨越……」',
+    flavorText: '「鐘逆時針而繞，惡物猙獰的傾巢……」',
     options: [
       {
         text: '「我謙卑安靜的於城堡下的晚禱」',
@@ -2423,14 +2395,14 @@ export const CARD_DATABASE: CardDefinition[] = [
         },
       },
       {
-        text: '「我跨越過世代如獸般的姿態」',
+        text: '「我跨越過世代 如獸般的姿態」',
         resultText: '咆哮聲震碎夜空，野獸般的氣息呼嘯而來，驚動了嗜血的半獸人！',
         effect: {
           forceNextCardId: 'C2002-01',
         },
       },
       {
-        text: '「我的樂器在環繞時代無法淘汰我霸氣的皇朝」',
+        text: '「我的樂器在環繞 時代無法淘汰我霸氣的皇朝」',
         resultText: '悠揚深沉的琴聲響徹雲霄，你獲得了樂器【比較大的大提琴】！',
         effect: {
           addItem: '比較大的大提琴',
@@ -2559,8 +2531,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '向空姐打聽傳奇時空與古典樂章的秘辛',
-        resultText: '空姐低語道：「尋找城堡吧……威廉二世枕下的指針，能扭轉光陰；唯有四張SS傳世專輯合一，方能跨越時空巔峰。」',
-        effect: { addItem: '空姐的提示' },
+        resultText: '空姐遞過香檳，指尖輕觸雲霧謎語：「古堡深處沉睡著逆流的刻度，唯有伴隨安眠之音方能悄然揭示；四座橫跨世紀的神聖豐碑若能匯聚於同一個行囊，時間將為極致的藝術停滯。」',
+        effect: { addItem: '空姐的雲端密語' },
       },
     ],
   },
@@ -2751,7 +2723,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     year: 2011,
     track: 4,
     type: '物品',
-    maxDraws: 2,
+    maxDraws: 1,
     weight: 6,
     route: '周杰倫家庭',
     flavorText: '「說我愛你，要天天說；說我不美，你就死定了……」帶著嬌蠻與純真的魔法氣息。',
@@ -2907,8 +2879,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '向超跑女神請教終局決戰的秘辛',
-        resultText: '女神踩下油門笑言：「打倒四個對手只是開胃菜。若想攻克將軍，必須在第六回合沉住氣『不動作』，大招時更萬萬不可點擊『逃』！」',
-        effect: { addItem: '超跑女神的提示' },
+        resultText: '女神微揚嘴角，引擎轟鳴中拋下一句判詞：「四方烽火盡平息，方迎帥旗降臨；棋盤上第六步的靜默勝過萬鈞雷霆，面對滔天大浪，唯有直攖其鋒者方能破繭生還。」',
+        effect: { addItem: '超跑女神的偈語' },
       },
     ],
   },
@@ -3474,8 +3446,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '傾聽美人魚歌聲中隱藏的深海絮語',
-        resultText: '美人魚輕聲唱道：「親情是最溫暖的避風港……外婆的微笑、父母的叮嚀，當陽光宅男得到任性公主病的眷顧，真愛將化為女兒殿下降臨。」',
-        effect: { addItem: '美人魚的提示' },
+        resultText: '美人魚輕吐氣泡，海風中幽幽傳唱：「三代溫存的絮語交織在潮汐深處……沉睡在角落的宅心，若被任性的刺痛輕輕喚醒，真摯的淚水終將化作冠冕上的明珠。」',
+        effect: { addItem: '美人魚的深海呢喃' },
       },
     ],
   },

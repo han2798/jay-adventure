@@ -8,17 +8,22 @@ export interface CardOption {
     item?: string;
     items?: string[]; // 多件物品同時需求（如合成材料）
     itemCount?: number;
+    notItem?: string; // 不能持有某物品
+    minAp?: number; // 最小體力需求（例如收割稻香需 6 點以上，扣除 5 點後不耗盡）
     flag?: string;
     flagValue?: boolean | string | number;
     notFlag?: string;
     flag2?: string;
     flag2Value?: boolean | string | number;
+    hideWhenUnavailable?: boolean; // 未滿足條件時是否隱藏（true: 隱藏不顯示；false/undefined: 顯示但 disabled）
+    unavailableReason?: string; // 自訂未滿足條件時的提示文字（例如：原料不足、體力不足）
   };
   resultText: string;
   effect?: {
     addItem?: string;
     removeItem?: string;
     removeItems?: string[]; // 多件物品同時消耗
+    removeRandomItem?: boolean; // 隨機移除行囊中一件物品（如老斑鳩偷走）
     setFlag?: Record<string, boolean | string | number>;
     setMetaFlag?: Record<string, boolean | string | number>;
     forceNextCardId?: string;
@@ -56,6 +61,13 @@ export interface CardDefinition {
   condition?: (state: GameState, meta: MetaProgress) => boolean;
   options?: CardOption[];
   coverImage?: string; // 原版專輯封面或卡牌插圖 (可選)
+  hasEnvironmentEffect?: boolean; // 是否具備環境變化效果
+  environmentEffectName?: string; // 環境狀態名稱（如：亂舞春秋時代、追逐忍者、煙火燃燒）
+  isSynthesizedOnly?: boolean; // 是否僅能透過特定合成/特殊鍛造產出（抽卡盲抽機率為0，獲得時呼叫專屬亮相框）
+  isPeninsulaRestricted?: boolean; // 是否限制不可透過半島鐵盒跨局繼承（如特定當局決戰令）
+  acquisitionSource?: string; // 特殊獲得來源標籤（如：米蘭的小鐵匠慢火熬製）
+  hintText?: string; // 提示文本欄位（例如：卡牌獲取時的重要機制說明或提示，顯示於新卡亮相視窗取得說明上方）
+  specialAcquisitionNote?: string; // 特殊獲得說明文本（顯示於新卡亮相視窗取得說明框）
   // Special immediate effect on draw
   onDraw?: (state: GameState, meta: MetaProgress) => { log: string; nextCardId?: string };
 }
@@ -146,16 +158,30 @@ export interface JokerEquipment {
   performance: string | null; // 表演紅模仿
 }
 
+export type LogEntry = {
+  round: number;
+  text: string;
+  type?: 'draw' | 'action' | 'combat' | 'milestone' | 'warning';
+};
+
 export interface GameState {
   gameNumber: number; // 第 X 局
   round: number; // 第 Y 回合 (1-30)
   maxRounds: number; // 30
   character: CharacterDefinition | null;
   inventory: Record<string, number>; // item name -> count
+  itemAcquisitionOrder?: string[]; // 物品獲取順序 (舊到新，最新獲得的在最後)
+  latestAcquiredItemsThisRound?: string[]; // 當前回合剛獲得的最新物品 (煙火燃燒不燒毀)
   drawnCount: Record<string, number>; // card id -> count drawn in current game
   flags: Record<string, boolean | string | number>; // 當前局標籤
   jokerSlots?: JokerEquipment;
   reversedClockUsesRemaining: number; // 反方向的鐘剩餘次數 (上限3次)
+  ninjaChasing?: boolean;
+  ninjaRound?: number; // 忍者目前前進的回合數 (1~30)
+  ninjaNextEncounterRound?: number | null; // 忍者下次現身回合
+  fireworksBurning?: boolean; // 錯過的煙火燃燒狀態
+  burntItemNotice?: string | null; // 煙火燒毀物品通知橫幅訊息
+  blacksmithUnlocked?: boolean; // 米蘭的小鐵匠鋪是否留存在村莊隨時可用
   stats: {
     ap: number; // 行動力 (Action Points)
   };

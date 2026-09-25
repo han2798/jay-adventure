@@ -26,8 +26,20 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
 }) => {
   const isVictory = Boolean(gameState.victoryType);
   const victoryRoute = gameState.victoryType || '';
+  // 判斷是否為將軍決戰戰敗（不論是在 R30 終局決戰，或因不拆信在 R+1 突襲提前遭遇將軍戰敗）
+  const isGeneralBattleDefeat = Boolean(
+    gameState.flags['in_boss_battle'] ||
+      gameState.flags['ready_for_general'] ||
+      gameState.defeatReason?.includes('將軍') ||
+      gameState.defeatReason?.includes('棋') ||
+      gameState.defeatReason?.includes('兵臨城下')
+  );
+  const targetRewindRound = Math.max(1, gameState.round - 1);
   const hasClock = Boolean(
-    gameState.inventory['反方向的鐘'] && gameState.reversedClockUsesRemaining > 0
+    !isVictory &&
+      gameState.inventory['反方向的鐘'] &&
+      gameState.reversedClockUsesRemaining > 0 &&
+      isGeneralBattleDefeat
   );
 
   const [copied, setCopied] = useState<boolean>(false);
@@ -169,12 +181,21 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         ) : (
           <div>
             <h2 className="text-xl sm:text-2xl font-black font-serif text-white tracking-wider">
-              冒險在此止步
+              {gameState.defeatReason?.includes('忍者') ? '追逐落幕・提早結束' : '冒險在此止步'}
             </h2>
-            <p className="mt-2 text-xs sm:text-sm text-stone-300 font-sans max-w-lg mx-auto leading-relaxed">
-              {gameState.defeatReason ||
-                '30 回合光陰已盡，未能達成通關條件。所有的遺憾與試煉都將累積至全域圖鑑中！'}
-            </p>
+            {gameState.defeatReason?.includes('忍者') ? (
+              <div className="mt-3 px-4 sm:px-6 py-3.5 bg-gradient-to-r from-red-950/95 via-red-900/80 to-red-950/95 border-2 border-red-500 rounded-xl shadow-[0_0_25px_rgba(239,68,68,0.4)] max-w-xl mx-auto">
+                <p className="text-base sm:text-lg font-black text-red-200 font-sans tracking-wide leading-relaxed flex items-center justify-center gap-2 text-center">
+                  <span>⚠️</span>
+                  <span>{gameState.defeatReason}</span>
+                </p>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs sm:text-sm text-stone-300 font-sans max-w-lg mx-auto leading-relaxed">
+                {gameState.defeatReason ||
+                  '30 回合光陰已盡，未能達成通關條件。所有的遺憾與試煉都將累積至全域圖鑑中！'}
+              </p>
+            )}
           </div>
         )}
 
@@ -384,7 +405,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
               onClick={onRewindWithClock}
               className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-purple-800 to-indigo-700 text-white font-bold text-xs hover:brightness-110 shadow-lg cursor-pointer transition-all"
             >
-              發動【反方向的鐘】（倒流至第29回合）
+              發動【反方向的鐘】（倒流至第{targetRewindRound}回合，剩餘 {gameState.reversedClockUsesRemaining} 次機會）
             </button>
           )}
 

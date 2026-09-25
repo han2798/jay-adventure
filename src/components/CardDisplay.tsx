@@ -14,6 +14,8 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
   gameState,
   onSelectOption,
 }) => {
+  if (!card) return null;
+
   const albumMeta = ALBUMS[card.album] || {
     name: card.album,
     year: card.year,
@@ -47,42 +49,51 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
     if (!option.require) return { available: true };
     const r = option.require;
 
+    if (r.minAp !== undefined && gameState.stats.ap < r.minAp) {
+      return { available: false, reason: r.unavailableReason || '行動力不足' };
+    }
     if (r.character && gameState.character?.name !== r.character) {
-      return { available: false, reason: `需化身為【${r.character}】` };
+      return { available: false, reason: r.unavailableReason || `需化身為【${r.character}】` };
     }
     if (r.notCharacter && gameState.character?.name === r.notCharacter) {
-      return { available: false, reason: `【${r.notCharacter}】無法選擇此項` };
+      return { available: false, reason: r.unavailableReason || `【${r.notCharacter}】無法選擇此項` };
     }
     if (r.item) {
-      const currentCount = gameState.inventory[r.item] || 0;
+      const currentCount =
+        r.item === '時光機'
+          ? (gameState.inventory['時光機'] || 0) + (gameState.inventory['飛行時光機'] || 0)
+          : gameState.inventory[r.item] || 0;
       const neededCount = r.itemCount || 1;
       if (currentCount < neededCount) {
-        return { available: false, reason: `缺少道具【${r.item}】` };
+        return { available: false, reason: r.unavailableReason };
       }
+    }
+    if (r.notItem && (gameState.inventory[r.notItem] || 0) > 0) {
+      return { available: false, reason: r.unavailableReason || `已持有【${r.notItem}】無法選擇` };
     }
     if (r.items && r.items.length > 0) {
       const missing = r.items.filter((item) => !(gameState.inventory[item] > 0));
       if (missing.length > 0) {
-        return { available: false, reason: `缺少素材【${missing.join('、')}】` };
+        return { available: false, reason: r.unavailableReason };
       }
     }
     if (r.flag) {
       const flagVal = gameState.flags[r.flag];
       const requiredVal = r.flagValue !== undefined ? r.flagValue : true;
       if (flagVal !== requiredVal) {
-        return { available: false, reason: '未滿足特定前置劇情條件' };
+        return { available: false, reason: r.unavailableReason || '未滿足特定前置劇情條件' };
       }
     }
     if (r.notFlag) {
       if (Boolean(gameState.flags[r.notFlag])) {
-        return { available: false, reason: '已觸發互斥劇情條件' };
+        return { available: false, reason: r.unavailableReason || '已觸發互斥劇情條件' };
       }
     }
     if (r.flag2) {
       const flagVal = gameState.flags[r.flag2];
       const requiredVal = r.flag2Value !== undefined ? r.flag2Value : true;
       if (flagVal !== requiredVal) {
-        return { available: false, reason: '未滿足第二階段前置條件' };
+        return { available: false, reason: r.unavailableReason || '未滿足第二階段前置條件' };
       }
     }
 
@@ -93,7 +104,7 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
   const displayFlavorText = (() => {
     if (card.id === 'C2008-01') {
       if (gameState.flags['dragon_awakened']) {
-        return '「你已成為了龍，將與我宿命一決！」龍戰騎士跨坐在機械巨龍之上，熾熱的龍息封鎖了一切退路。';
+        return '「你已成為了龍，將與我宿命一決！」龍戰騎士熾熱的龍息封鎖了一切退路。';
       } else {
         return '「你還不是宿命之人！」龍戰騎士居高臨下冷冷凝視你，狂暴的龍息阻隔了前路。';
       }
@@ -143,11 +154,17 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
 
           {/* Hero Song Title & Album Info */}
           <div className="relative z-10 flex flex-col pr-16">
-            {/* Card ID on top-left as requested (replacing redundant album badge) */}
-            <div className="flex items-center">
+            {/* Card ID and Environment Badge on top-left */}
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-mono font-bold text-amber-200 bg-black/70 border border-amber-800/80 px-2.5 py-0.5 rounded-md shadow-sm">
                 {card.id}
               </span>
+              {card.hasEnvironmentEffect && (
+                <span className="text-[11px] font-mono font-bold text-red-300 bg-red-950/90 border border-red-700/80 px-2 py-0.5 rounded-md shadow-sm animate-pulse flex items-center gap-1">
+                  <span>⚡</span>
+                  <span>環境變化{card.environmentEffectName ? `・${card.environmentEffectName}` : ''}</span>
+                </span>
+              )}
             </div>
 
             {/* Song Title as the Hero Focus */}
@@ -171,29 +188,150 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
           </div>
         </div>
 
-        {/* 4. Interactive Options Area - strictly filter out unavailable requirement options to prevent spoilers */}
+        {/* 4. Interactive Options Area */}
         <div className="px-5 pb-5 flex flex-col gap-2.5">
           {(() => {
-            const availableOptions = (card.options || [])
-              .map((opt, originalIdx) => ({
+            const isDragonPunch = card.id === 'C2002-04';
+            const isHero = gameState.character?.name === '英雄';
+            const isHeroWithTape = isHero && Boolean(gameState.inventory['免費教學錄影帶']);
+
+            const rawOptions = (card.options || []).map((opt, originalIdx) => {
+              if (isDragonPunch) {
+                // 龍拳 (C2002-04)：
+                // 選項 0 (我把天地拆封將長江水掏空) 與 1 (將 東方 的日出調整了時空)：正常可顯示點選觸發，無紅字
+                // 選項 2 (等待英雄 我就是那條龍)：僅英雄角色出現且可點選，無紅字
+                // 選項 3 (我 右拳打開了天 化身為龍)：僅非英雄角色出現且可點選，無紅字
+                if (originalIdx === 0 || originalIdx === 1) {
+                  return { opt, originalIdx, check: { available: true } };
+                }
+                if (originalIdx === 2) {
+                  return { opt, originalIdx, check: { available: isHero } };
+                }
+                if (originalIdx === 3) {
+                  return { opt, originalIdx, check: { available: !isHero } };
+                }
+              }
+
+              if (card.id === 'C2001-04' && gameState.flags['ninja_confrontation']) {
+                // 忍者對峙：英雄且持有【免費教學錄影帶】時天賦生效，赤手空拳亦可突圍，毋需雙截棍即可攔截
+                if (originalIdx === 0 && isHeroWithTape) {
+                  return {
+                    opt: {
+                      ...opt,
+                      text: '英雄天賦：赤手空拳攔截飛躍的忍者',
+                    },
+                    originalIdx,
+                    check: { available: true },
+                  };
+                }
+              }
+
+              return {
                 opt,
                 originalIdx,
                 check: checkOptionAvailable(opt),
-              }))
-              .filter((item) => item.check.available);
+              };
+            });
 
-            if (availableOptions.length > 0) {
-              return availableOptions.map(({ opt, originalIdx }) => (
+            // Filter options: hide if hideWhenUnavailable is true and check is not available,
+            // or if options require specific items/cards that the player does not possess (to avoid spoiling key items)
+            const visibleOptions = rawOptions.filter((item) => {
+              if (isDragonPunch) {
+                if (item.originalIdx === 2) return isHero;
+                if (item.originalIdx === 3) return !isHero;
+                return true;
+              }
+
+              // 忍者 (C2001-04)：追上對峙階段 (ninja_confrontation)
+              if (card.id === 'C2001-04' && gameState.flags['ninja_confrontation']) {
+                if (isHeroWithTape) {
+                  // 英雄持有免費教學錄影帶啟動天賦，顯示制伏選項 0，隱藏未持有雙截棍逃離選項 1
+                  if (item.originalIdx === 0) return true;
+                  if (item.originalIdx === 1) return false;
+                }
+              }
+
+              // 米蘭的小鐵匠 (C2002-09)：若小鐵鋪已經常駐解鎖，則不顯示「指引小鐵匠」
+              if (card.id === 'C2002-09' && item.opt.text.includes('指引小鐵匠')) {
+                if (gameState.blacksmithUnlocked || gameState.flags['blacksmith_unlocked']) {
+                  return false;
+                }
+              }
+
+              const req = item.opt.require;
+              if (!req) return true;
+              if (req.hideWhenUnavailable && !item.check.available) {
+                return false;
+              }
+
+              // 任何需要特定道具但玩家未持有的選項：
+              // 若未指定非劇透的抽象提示(unavailableReason)，則直接隱藏避免洩漏具體道具名稱；
+              // 若有明確指定抽象提示（例如「缺少可餵食的東西」），則正常顯示讓玩家探索解謎！
+              if (
+                !item.check.available &&
+                (req.item || (req.items && req.items.length > 0)) &&
+                !req.unavailableReason
+              ) {
+                return false;
+              }
+
+              // Mutually exclusive story branches
+              if (req.flag && gameState.flags[req.flag] !== (req.flagValue ?? true)) {
+                return false;
+              }
+              if (req.notFlag && Boolean(gameState.flags[req.notFlag])) {
+                return false;
+              }
+              return true;
+            });
+
+            // 針對龍戰騎士 (C2008-01)：若身上完全沒有任何克制或抵禦道具，不爆雷洩漏關鍵道具名稱，提供正面承受攻擊選項
+            if (card.id === 'C2008-01' && visibleOptions.length === 0) {
+              const hasSweater = (gameState.inventory['黑色毛衣'] || 0) > 0;
+              return (
+                <button
+                  id="card-option-dragon-knight-attacked"
+                  onClick={() => onSelectOption(-2)}
+                  className="w-full text-left px-4 py-3 rounded-xl border border-red-700/80 bg-red-950/50 hover:bg-red-900/60 text-red-100 font-medium text-sm transition-all duration-200 flex flex-col gap-1 shadow-sm active:scale-[0.99] cursor-pointer"
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="font-semibold text-sm font-sans">
+                      無合適道具抵禦，正面承受巨龍咆哮與烈焰猛攻
+                    </span>
+                    <span className="text-xs font-mono text-red-400 font-bold ml-2 shrink-0">
+                      {hasSweater ? '(黑色毛衣抵擋)' : '(行動力 -8)'}
+                    </span>
+                  </div>
+                </button>
+              );
+            }
+
+            if (visibleOptions.length > 0) {
+              return visibleOptions.map(({ opt, originalIdx, check }) => (
                 <button
                   key={originalIdx}
                   id={`card-option-${originalIdx}`}
-                  onClick={() => onSelectOption(originalIdx)}
-                  className="w-full text-left px-4 py-3 rounded-xl border font-medium text-sm transition-all duration-200 flex flex-col gap-1 bg-[#1d1c1a] hover:bg-[#2c281d] text-amber-100 border-[#6b5820] hover:border-[#d4af37] shadow-sm hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] active:scale-[0.99] cursor-pointer"
+                  disabled={!check.available}
+                  onClick={() => check.available && onSelectOption(originalIdx)}
+                  className={`w-full text-left px-4 py-3 rounded-xl border font-medium text-sm transition-all duration-200 flex flex-col gap-1 shadow-sm ${
+                    check.available
+                      ? 'bg-[#1d1c1a] hover:bg-[#2c281d] text-amber-100 border-[#6b5820] hover:border-[#d4af37] hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] active:scale-[0.99] cursor-pointer'
+                      : 'bg-stone-900/60 text-stone-500 border-stone-800/80 cursor-not-allowed opacity-60'
+                  }`}
                 >
                   <div className="flex items-center justify-between w-full">
-                    <span className="font-semibold text-sm font-sans text-stone-200">
+                    <span className="font-semibold text-sm font-sans">
                       {opt.text}
                     </span>
+                    {!check.available &&
+                      check.reason &&
+                      !check.reason.includes('信物') &&
+                      !check.reason.includes('道具') &&
+                      !check.reason.includes('物品') && (
+                        <span className="text-xs font-mono text-red-400/90 font-bold ml-2 shrink-0">
+                          ({check.reason})
+                        </span>
+                      )}
                   </div>
                 </button>
               ));

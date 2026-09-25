@@ -31,6 +31,13 @@ export const CharacterAvatarIcon: React.FC<CharacterAvatarIconProps> = ({
     charIcon === '木柴' ||
     charIcon === 'wood';
 
+  // Check if it represents "龍" (化身為龍)
+  const isDragonChar =
+    charId === 'char_dragon' ||
+    charName === '龍' ||
+    charIcon === '🐉' ||
+    charIcon.includes('龍');
+
   const sizeClasses = {
     xs: 'w-4 h-4',
     sm: 'w-5 h-5',
@@ -54,6 +61,17 @@ export const CharacterAvatarIcon: React.FC<CharacterAvatarIconProps> = ({
         title="木柴・平淡無奇"
       >
         <FlameKindling className={`${sizeClasses[size]} drop-shadow stroke-[2.2] text-amber-300`} />
+      </span>
+    );
+  }
+
+  if (isDragonChar) {
+    return (
+      <span
+        className={`inline-flex items-center justify-center select-none filter drop-shadow-[0_0_12px_rgba(245,158,11,0.8)] text-amber-300 animate-pulse ${textSizes[size]} ${className}`}
+        title="化身為龍・右拳打開了天"
+      >
+        🐉
       </span>
     );
   }

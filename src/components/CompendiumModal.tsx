@@ -63,16 +63,8 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Check if player has ever unlocked Peninsula Iron Box (strictly hide tab if not yet unlocked)
-  const isIronBoxUnlocked = Boolean(
-    meta.ironBoxUnlocked ||
-    meta.unlockedCardIds.includes('C2002-02') ||
-    Boolean(gameState.inventory['半島鐵盒']) ||
-    meta.ironBoxItems.length > 0
-  );
-
   const [activeTab, setActiveTab] = useState<
-    'cards' | 'achievements' | 'diaries' | 'history' | 'ironbox' | 'settlement'
+    'cards' | 'achievements' | 'diaries' | 'history' | 'settlement'
   >('cards');
   const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
@@ -150,20 +142,6 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
           >
             歷代冒險日誌 ({histories.length})
           </button>
-
-          {/* 半島鐵盒：取得前絕對隱藏，取得後才顯現 */}
-          {isIronBoxUnlocked && (
-            <button
-              onClick={() => setActiveTab('ironbox')}
-              className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
-                activeTab === 'ironbox'
-                  ? 'bg-purple-700 text-white font-black shadow-md'
-                  : 'text-purple-300 hover:text-white bg-purple-950/40 border border-purple-900/60'
-              }`}
-            >
-              半島鐵盒 ({meta.ironBoxItems.length}/3)
-            </button>
-          )}
 
           {/* 通關結算 */}
           <button
@@ -434,7 +412,7 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
                             }`}
                           >
                             <span className="text-stone-500 font-mono text-[10px] shrink-0 pt-0.5">
-                              [R{log.round}]
+                              {log.round > 0 ? `第${log.round}回合` : '序章'}
                             </span>
                             <span className="flex-1">{log.text}</span>
                           </div>
@@ -444,61 +422,6 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
                   )}
                 </>
               )}
-            </div>
-          )}
-
-          {/* TAB 4: 半島鐵盒 (僅在取得後可見) */}
-          {activeTab === 'ironbox' && isIronBoxUnlocked && (
-            <div className="flex flex-col gap-4 max-w-3xl mx-auto">
-              <div className="text-xs text-purple-200 bg-purple-950/40 p-3.5 rounded-xl border border-purple-900/60 leading-relaxed">
-                【半島鐵盒跨局保險箱】：放入此鐵盒的物品，在局數重開或結算時絕不遺失，將在下一局開局時直接放入行囊繼承（最多封存 3 件）。
-              </div>
-
-              {/* Stored Items in Iron Box */}
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-stone-300">鐵盒已存放物品（{meta.ironBoxItems.length} / 3）：</span>
-                {meta.ironBoxItems.length === 0 ? (
-                  <div className="text-xs text-stone-600 italic p-4 border border-dashed border-stone-800 rounded-lg">
-                    鐵盒內尚無封存物品，可從當前行囊放入。
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {meta.ironBoxItems.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-purple-950/60 border border-purple-700/80 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs text-purple-100 font-bold"
-                      >
-                        <span>📦 {item}</span>
-                        <button
-                          onClick={() => onTakeFromIronBox?.(item)}
-                          className="text-[10px] text-stone-400 hover:text-red-400 cursor-pointer ml-1"
-                        >
-                          取出
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Store from current inventory */}
-              <div className="mt-3 flex flex-col gap-2 border-t border-stone-800 pt-3">
-                <span className="text-xs font-bold text-stone-300">從當前行囊放入鐵盒：</span>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(gameState.inventory)
-                    .filter(([_, count]) => Number(count) > 0)
-                    .map(([name]) => (
-                      <button
-                        key={name}
-                        disabled={meta.ironBoxItems.length >= 3}
-                        onClick={() => onStoreInIronBox?.(name)}
-                        className="text-xs bg-stone-900 hover:bg-purple-900 text-stone-300 hover:text-white border border-stone-800 hover:border-purple-600 px-3 py-1.5 rounded-lg transition-all cursor-pointer disabled:opacity-40"
-                      >
-                        + 放入【{name}】
-                      </button>
-                    ))}
-                </div>
-              </div>
             </div>
           )}
 
@@ -517,7 +440,7 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-stone-300 font-sans leading-relaxed max-w-2xl">
-                    在隨機抽卡與多周目輪迴中，<span className="text-amber-300 font-bold">「所花費的局數與回合」</span>是最終的核心成績依據！局數越少代表成績越好。請盡量避免體力歸 0 導致失敗重生增加局數，在有限的歲月裡貫通所有樂章！
+                    在隨機抽卡與多周目輪迴中，<span className="text-amber-300 font-bold">「所花費的局數與回合」</span>是最終的核心成績依據！局數越少代表成績越好。請盡量避免行動力歸 0 導致失敗重生增加局數，在有限的歲月裡貫通所有樂章！
                   </p>
                 </div>
 
@@ -754,7 +677,7 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
                       </div>
                     ) : (
                       <div className="text-xs text-stone-400 bg-black/40 border border-stone-800 p-3.5 rounded-xl leading-relaxed">
-                        <div>💡 提示：本遊戲設定為隨機抽卡探索，難以單局一次完成所有主線。請善用<span className="text-amber-300 font-bold">"道具"</span>封存關鍵物品、並利用<span className="text-amber-300 font-bold">成就能力</span>，在每局中維持體力、慎選卡牌。</div>
+                        <div>💡 提示：本遊戲設定為隨機抽卡探索，難以單局一次完成所有主線。請善用<span className="text-amber-300 font-bold">"道具"</span>封存關鍵物品、並利用<span className="text-amber-300 font-bold">成就能力</span>，在每局中維持行動力、慎選卡牌。</div>
                         <div className="mt-1 text-stone-400">
                           <span className="text-amber-300 font-bold">
                             【全路線綜合評級門檻：S 級（≤ 6 局）、A 級（7~10 局）、B 級（11~15 局）、C 級（16~20 局）、D 級（≥ 21 局）】

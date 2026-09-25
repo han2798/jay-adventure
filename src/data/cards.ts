@@ -158,23 +158,32 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2000-08',
+    id: 'C2000-08', //已完成
     name: '印地安老斑鳩',
     album: 'Jay',
     year: 2000,
     track: 8,
     type: '遭遇',
-    maxDraws: 30,
-    weight: 30, // 遭遇機率設定為 30% 相對權重
+    maxDraws: 5,
+    weight: 20, // 機率 20%
     route: '太陽之子',
-    flavorText: '「印地安老斑鳩，腿短毛長，在仙人掌中飛揚跋扈地擋住去路，眼神桀驁不馴。」',
+    flavorText: '「在一處被廢棄的白蟻丘，站著一隻餓昏的老斑鳩。」',
     options: [
       {
-        text: '揮舞拳腳或兵器逼退老斑鳩',
-        resultText: '老斑鳩怪叫數聲，撲騰著翅膀敗退！你獲得了印地安老斑鳩的認可標記。',
+        text: '趕走老斑鳩',
+        resultText: '老斑鳩怪叫撲騰，趁亂偷走了行囊中的一個物品後跑走了！',
         effect: {
+          removeRandomItem: true,
+        },
+      },
+      {
+        text: '餵食老斑鳩',
+        require: { item: '麥芽糖', unavailableReason: '缺少可餵食的東西' },
+        resultText: '老斑鳩吃飽離開了，留下了認可的羽毛！獲得【印地安老斑鳩】卡片！',
+        effect: {
+          removeItem: '麥芽糖',
           addItem: '印地安老斑鳩',
-          setFlag: { defeated_spotted_dove: true },
+          setFlag: { defeated_spotted_dove: true, defeat_印地安老斑鳩: true },
         },
       },
     ],
@@ -199,7 +208,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2000-10',
+    id: 'C2000-10', //已完成
     name: '反方向的鐘',
     album: 'Jay',
     year: 2000,
@@ -208,16 +217,13 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 1,
     weight: 0, // 只能從威廉古堡威廉二世處獲得
     route: '太陽之子',
-    flavorText: '「穿梭時間的畫面的鐘，從反方向開始移動……」秒針逆轉，能抵禦一次死劫。',
-    options: [
-      {
-        text: '慎重收下反方向的鐘',
-        resultText: '獲得【反方向的鐘】！若不幸在決戰將軍時惜敗，可藉由此鐘回到第 29 回合重整旗鼓（最多 3 次機會）！',
-        effect: {
-          addItem: '反方向的鐘',
-        },
-      },
-    ],
+    isSynthesizedOnly: true,
+    acquisitionSource: '從威廉二世身邊盜取',
+    hintText: '獲得【反方向的鐘】，若不幸在決戰時戰敗，可藉由此鐘倒流至前一回合重整旗鼓（最多 3 次機會）！',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。已從威廉古堡寢殿成功獲得，並永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「穿梭時間的畫面的鐘，從反方向開始移動……」',
+    options: [],
   },
   {
     id: 'C2000-SS',
@@ -243,7 +249,7 @@ export const CARD_DATABASE: CardDefinition[] = [
   // 【2001 年・第二張專輯《范特西》】
   // =========================================================================
   {
-    id: 'C2001-01',
+    id: 'C2001-01', //已完成
     name: '愛在西元前',
     album: '范特西',
     year: 2001,
@@ -266,7 +272,7 @@ export const CARD_DATABASE: CardDefinition[] = [
       {
         text: '啟動【時光機】維持當前時空',
         require: { item: '時光機' },
-        resultText: '你啟動了【時光機】護盾，抵抗住時空狂瀾，選擇不進行時光逆流，平穩繼續當前的冒險。',
+        resultText: '你啟動了【時光機】，抵抗住時空狂瀾，選擇不進行時光逆流，平穩繼續當前的冒險。',
         effect: {},
       },
     ],
@@ -304,23 +310,43 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2001-04',
+    id: 'C2001-04', //已完成
     name: '忍者',
     album: '范特西',
     year: 2001,
     track: 4,
     type: '遭遇',
     maxDraws: 1,
-    weight: 15, // 遭遇機率設定為 15% 相對權重
+    weight: 15, // 上限1，抽卡機率15%
     route: '太陽之子',
-    flavorText: '「居合斬！身穿黑衣的忍者無聲無息自陰影中掠出，手握手裏劍，眼神冷冽如冰。」',
+    hasEnvironmentEffect: true, // 具備環境變化效果（追逐忍者狀態）
+    environmentEffectName: '追逐忍者',
+    flavorText: '「隱身要徹底 要忘記 什麼是自己！」你正想攻擊忍者，他身法詭譎迅捷避開！',
     options: [
       {
-        text: '正面迎擊忍者的暗器與影刀',
-        resultText: '你識破了忍者的替身之術，雙方刀光交錯！忍者收刀鞠躬，化作一陣青煙散去，留下忍道信物。',
+        text: '使用雙截棍攻擊，攔截飛躍的忍者',
+        require: { item: '雙截棍', flag: 'ninja_confrontation', hideWhenUnavailable: true },
+        resultText: '快使用雙截棍！呼呼哈兮！乾淨俐落地擊中空中的黑影！忍者心悅誠服奉上忍道信物，獲得【忍者】卡牌，解除【追逐忍者】狀態！',
         effect: {
+          removeItem: '雙截棍',
           addItem: '忍者',
-          setFlag: { defeated_ninja: true },
+          setFlag: { defeated_ninja: true, defeat_忍者: true, ninja_confrontation: false, ninja_chasing: false },
+        },
+      },
+      {
+        text: '未持有雙截棍，眼看忍者施展遁術逃離',
+        require: { notItem: '雙截棍', flag: 'ninja_confrontation', hideWhenUnavailable: true },
+        resultText: '未能在第一時間以雙截棍制伏，忍者冷笑一聲投擲煙霧彈遁入暗夜！日後若再次抽到將重新展開追逐。',
+        effect: {
+          setFlag: { ninja_confrontation: false, ninja_chasing: false },
+        },
+      },
+      {
+        text: '目睹忍者在瓦頂飛躍逃竄，立刻展開追逐！',
+        require: { notFlag: 'ninja_confrontation', hideWhenUnavailable: true },
+        resultText: '進入【追逐忍者】環境狀態！忍者正朝著第 30 回合飛速狂奔，請在忍者抵達終點前追上他！',
+        effect: {
+          setFlag: { ninja_chasing: true },
         },
       },
     ],
@@ -377,7 +403,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [{ text: '收入行囊保存', resultText: '獲得【對不起】。', effect: { addItem: '對不起' } }],
   },
   {
-    id: 'C2001-08',
+    id: 'C2001-08', //已完成
     name: '威廉古堡',
     album: '范特西',
     year: 2001,
@@ -386,7 +412,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 2,
     weight: 0, // 抽卡機率 0%，只有跨時代選項正確才會觸發
     route: '最偉大的作品',
-    flavorText: '「眼前的藤蔓爬滿了伯爵的墳墓，眼前一片荒蕪，而你進入古堡裡......」',
+    flavorText: '「藤蔓爬滿了伯爵的墳墓，眼前一片荒蕪，而你進入古堡裡......」',
     options: [
       {
         text: '偷偷進入威廉二世房間',
@@ -411,21 +437,21 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2001-09',
+    id: 'C2001-09', //已完成
     name: '雙截棍',
     album: '范特西',
     year: 2001,
     track: 9,
     type: '物品',
-    maxDraws: 3,
+    maxDraws: 6,
     weight: 12,
     route: '通用',
-    flavorText: '「哼哼哈兮！東亞病夫的招牌已被我一腳踢開，帶著陽光般的炙熱剛猛。」',
+    flavorText: '「他們兒子我習慣....。」',
     options: [
       {
-        text: '拾起雙截棍掛在腰間',
-        resultText: '獲得武器【雙截棍】！行動力+2。',
-        effect: { addItem: '雙截棍', apChange: 2 },
+        text: '快使用雙節棍！哼哼哈兮！',
+        resultText: '獲得武器【雙截棍】！。',
+        effect: { addItem: '雙截棍'},
       },
     ],
   },
@@ -466,29 +492,26 @@ export const CARD_DATABASE: CardDefinition[] = [
   // 【2002 年・第三張專輯《八度空間》】
   // =========================================================================
   {
-    id: 'C2002-01',
+    id: 'C2002-01', //已完成
     name: '半獸人',
     album: '八度空間',
     year: 2002,
     track: 1,
     type: '遭遇',
-    maxDraws: 1,
-    weight: 10, // 遭遇機率設定為 10% 相對權重
+    maxDraws: 5,
+    weight: 0, // 抽卡機率0%是因為已經可以透過"C2010-01跨時代"觸發
     route: '太陽之子',
-    flavorText: '「昏暗的石窟深處，粗重的咆哮迴盪，嗜血的半獸人正揮舞著沉重的石斧怒目而視！」',
+    flavorText: '「你跨越了時代，但半獸人正揮舞著雙拳利爪怒目而視！」',
     options: [
       {
-        text: '以強悍戰意強行正面擊倒半獸人',
-        resultText: '你以驚人的毅力壓制住半獸人的狂暴衝擊，重創巨獸！半獸人嘶吼倒地，你奪得戰魂印記。',
-        effect: {
-          addItem: '半獸人',
-          setFlag: { defeated_orc: true },
-        },
+        text: '攻擊',
+        resultText: '你對半獸人發動攻擊！',
+        effect: {},
       },
     ],
   },
   {
-    id: 'C2002-02',
+    id: 'C2002-02', //已完成
     name: '半島鐵盒',
     album: '八度空間',
     year: 2002,
@@ -497,7 +520,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 1,
     weight: 3,
     route: '最偉大的作品',
-    flavorText: '「這是一種可以把你的秘密都裝進去的盒子，永遠不會隨時光的流逝而丟失……」',
+    flavorText: '「這是可以把你的珍寶都裝進去的空間，永遠不會隨時光的流逝而丟失……」',
     options: [
       {
         text: '拾起半島鐵盒放入行囊',
@@ -533,7 +556,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2002-04',
+    id: 'C2002-04', //已完成
     name: '龍拳',
     album: '八度空間',
     year: 2002,
@@ -542,9 +565,25 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 3,
     weight: 5,
     route: '太陽之子',
-    condition: (state) => !state.inventory['龍戰騎士'],
-    flavorText: '「以敦煌為圓心的東北東，這民族的海岸線像一隻弓，渴望著飛騰的宿命之龍！」',
+    condition: (state) => !state.inventory['龍戰騎士的遺言'] && !state.flags['defeat_龍戰騎士'],
+    flavorText: '「以敦煌為圓心的東北東，這民族的海岸線像一隻弓，那長城 像五千年來待射的夢！」',
     options: [
+      {
+        text: '我把天地拆封將長江水掏空',
+        require: { notCharacter: '英雄' },
+        resultText: '長江之水奔湧而盡，你身心俱疲，在乾涸的河灘上動彈不得……',
+        effect: {
+          forceNextCardId: 'C2004-06', // 強制遭遇 擱淺
+        },
+      },
+      {
+        text: '將 東方 的日出調整了時空',
+        require: { notCharacter: '英雄' },
+        resultText: '時空指針發生偏轉，東方的日出逆流而動，周遭景致倒退，你被捲入時光長河！',
+        effect: {
+          forceNextCardId: 'C2002-08', // 強制遭遇 回到過去
+        },
+      },
       {
         text: '等待英雄 我就是那條龍',
         require: { character: '英雄' },
@@ -561,22 +600,6 @@ export const CARD_DATABASE: CardDefinition[] = [
         effect: {
           setFlag: { dragon_awakened: true },
           forceNextCardId: 'C2008-01', // 強制下一回合遭遇龍戰騎士
-        },
-      },
-      {
-        text: '將 東方 的日出調整了時空',
-        require: { notCharacter: '英雄' },
-        resultText: '時空指針發生偏轉，東方的日出逆流而動，周遭景致倒退，你被捲入時光長河！',
-        effect: {
-          forceNextCardId: 'C2002-08', // 強制遭遇 回到過去
-        },
-      },
-      {
-        text: '我把天地拆封將長江水掏空',
-        require: { notCharacter: '英雄' },
-        resultText: '長江之水奔湧而盡，你身心俱疲，在乾涸的河灘上動彈不得……',
-        effect: {
-          forceNextCardId: 'C2004-06', // 強制遭遇 擱淺
         },
       },
     ],
@@ -651,7 +674,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2002-08',
+    id: 'C2002-08', //已完成
     name: '回到過去',
     album: '八度空間',
     year: 2002,
@@ -678,7 +701,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2002-09',
+    id: 'C2002-09', //已完成
     name: '米蘭的小鐵匠',
     album: '八度空間',
     year: 2002,
@@ -687,17 +710,59 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 3,
     weight: 6,
     route: '通用',
-    flavorText: '「米蘭的小鐵匠，為了買一把吉他，每天在鐵砧上揮汗如雨……」',
+    flavorText: '米蘭的小鐵匠，為了買一把吉他，每天工作辛苦奔波……，今天遇到你：「說吧，要我幫你做什麼呢？」',
     options: [
       {
-        text: '協助小鐵匠拉風箱打鐵，淬鍊兵器',
-        resultText: '鐵匠感激你的幫忙，贈予特製活力補給，行動力+4！',
-        effect: { apChange: 4 },
+        text: '改造武器',
+        resultText: '小鐵匠接過兵刃開始敲打鍛造……',
+        effect: {},
+      },
+      {
+        text: '製作食物',
+        resultText: '小鐵匠在爐火前為你調配慢熬……',
+        effect: {},
+      },
+      {
+        text: '你好像有小鐵匠想要的東西',
+        require: {
+          item: '烏克麗麗',
+          hideWhenUnavailable: true,
+        },
+        resultText: '小鐵匠激動的說：「這正是我一心想買的吉他！」\n小鐵匠收下吉他隨興彈唱，無以回報，只能將旅行存糧的肉粽相贈給你',
+        effect: {},
+      },
+      {
+        text: '有用不到的東西嗎？',
+        require: {
+          item: '反方向的鐘',
+          hideWhenUnavailable: true,
+        },
+        resultText: '小鐵匠以純熟工藝將【反方向的鐘】重鑄為【大笨鐘】！',
+        effect: {},
+      },
+      {
+        text: '強化時光機',
+        require: {
+          items: ['時光機', '愛的飛行日記'],
+          hideWhenUnavailable: true,
+        },
+        resultText: '透過愛的飛行日記，小鐵匠將時光機強化為能在時空中自由穿梭的【飛行時光機】！',
+        effect: {},
+      },
+      {
+        text: '指引小鐵匠',
+        resultText: '你出示【鄉間的路】，為米蘭的小鐵匠指引方向……',
+        require: {
+          item: '鄉間的路',
+          hideWhenUnavailable: true,
+          notFlag: 'blacksmith_unlocked',
+        },
+        effect: {},
       },
     ],
   },
   {
-    id: 'C2002-10',
+    id: 'C2002-10', //已完成
     name: '最後的戰役',
     album: '八度空間',
     year: 2002,
@@ -706,9 +771,10 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 1,
     weight: 0, // 本身機率 0%，只有進入亂舞春秋時代後連動機率 100%
     route: '太陽之子',
-    condition: (state, meta) =>
+    isPeninsulaRestricted: true,
+    condition: (state) =>
       Boolean(
-        (state.flags['chaos_era_active'] || meta.nextGameFlags['next_game_chaos_era']) &&
+        state.flags['chaos_era_active'] &&
         !state.inventory['最後的戰役'] &&
         state.round !== 30
       ),
@@ -716,10 +782,18 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '拆開決戰信函，應戰將軍！',
-        resultText: '決戰號角吹響！已鎖定第 30 回合終局對決，統帥【將軍】將在第 30 回合親自下場與你一局定乾坤！',
+        resultText: '決戰號角吹響！已鎖定第 30 回合終局對決，統帥【將軍】將在第 30 回合親自下場與你一決勝負！',
         effect: {
           addItem: '最後的戰役',
           setFlag: { ready_for_general: true },
+        },
+      },
+      {
+        text: '置之不理，拒拆信函',
+        resultText: '將軍得知你拒絕拆閱戰書，大為震怒，親身突襲！下回合將軍將提前來與你決戰！',
+        effect: {
+          addItem: '最後的戰役',
+          setFlag: { general_immediate_next_round: true },
         },
       },
     ],
@@ -974,7 +1048,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2003-11',
+    id: 'C2003-11', //已完成
     name: '雙刀',
     album: '葉惠美',
     year: 2003,
@@ -983,12 +1057,12 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 3,
     weight: 10,
     route: '通用',
-    flavorText: '「刀光閃爍，正義在此刻出鞘！快意恩仇的利刃。」',
+    flavorText: '「雙刀的正前方 我殺氣不轉彎 背對我的力量 它自己卻受傷。」',
     options: [
       {
-        text: '拔起雙刀收入刀鞘',
-        resultText: '獲得利刃【雙刀】！鋒芒畢露，行動力+3。',
-        effect: { addItem: '雙刀', apChange: 3 },
+        text: '雙刀的右下方 我揮刀去了斷 將恩怨全看穿 丹鳳眼的目光',
+        resultText: '獲得利刃【雙刀】！鋒芒畢露。',
+        effect: { addItem: '雙刀' },
       },
     ],
   },
@@ -1094,7 +1168,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2004-05',
+    id: 'C2004-05', //已完成
     name: '將軍',
     album: '七里香',
     year: 2004,
@@ -1104,11 +1178,11 @@ export const CARD_DATABASE: CardDefinition[] = [
     weight: 0, // 只能在第30回合強制遭遇
     route: '太陽之子',
     condition: (state) => state.round === 30 && Boolean(state.flags['ready_for_general']),
-    flavorText: '「看我把客廳變成戰場！殘局楚河漢界，將軍端坐棋局對面，殺氣貫穿天地九重！」',
+    flavorText: '「看我 我手指放鬆 我目光如龍 當敵人是空！」',
     options: [
       {
         text: '擺開陣勢，正式進入決戰棋局！',
-        resultText: '將軍冷笑：「知道這局棋，你怎麼下才對？」進入八回合棋道死鬥！',
+        resultText: '將軍冷笑：「我猜他想的應該和我一樣？」進入八回合死鬥！',
         effect: {
           setFlag: { in_boss_battle: true, boss_hp: 100, boss_step: 1 },
         },
@@ -1140,7 +1214,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2004-07',
+    id: 'C2004-07', //已完成
     name: '亂舞春秋',
     album: '七里香',
     year: 2004,
@@ -1149,22 +1223,24 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 1,
     weight: 100, // 滿足條件後必定進入抽卡池
     route: '太陽之子',
+    hasEnvironmentEffect: true,
+    environmentEffectName: '亂舞春秋時代',
     condition: (state) =>
       Boolean(
         state.inventory['忍者'] &&
         state.inventory['印地安老斑鳩'] &&
         state.inventory['半獸人'] &&
-        state.inventory['龍戰騎士'] &&
+        state.inventory['龍戰騎士的遺言'] &&
+        state.inventory['本草綱目'] &&
         !state.flags['chaos_era_obtained']
       ),
-    flavorText: '「那場景千軍萬馬，刀光劍影，歷史的齒輪在此刻劇烈顛簸，戰國烽火跨越時空席捲而來！」',
+    flavorText: '「人魔開始重出地獄，叛軍如野火般攻擊，時代劇烈顛簸，戰國烽火席捲而來！」',
     options: [
       {
-        text: '踏入烽火長卷，啟動時代變革',
-        resultText: '烽煙四起！天地時空在此定格，戰國烽火跨越時空席捲而來！',
+        text: '踏入亂舞春秋，啟動時代變換',
+        resultText: '進入亂舞春秋時代，尋找那最後一戰！',
         effect: {
           setFlag: { chaos_era_obtained: true },
-          setMetaFlag: { next_game_chaos_era: true },
         },
       },
     ],
@@ -1331,21 +1407,21 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2005-04',
+    id: 'C2005-04', //已完成
     name: '黑色毛衣',
     album: '11月的蕭邦',
     year: 2005,
     track: 4,
     type: '物品',
-    maxDraws: 2,
-    weight: 8,
+    maxDraws: 5,
+    weight: 20,
     route: '通用',
-    flavorText: '「一件黑色毛衣，兩個人的回憶……厚實的針織帶來了抵禦寒風的溫暖。」',
+    flavorText: '「一件黑色毛衣，兩個人的回憶……厚實的針織給予抵禦的力量。」',
     options: [
       {
         text: '穿上黑色毛衣',
-        resultText: '穿上【黑色毛衣】！抵禦寒意，行動力+5。',
-        effect: { addItem: '黑色毛衣', apChange: 5 },
+        resultText: '穿上【黑色毛衣】！抵禦敵意。',
+        effect: { addItem: '黑色毛衣'},
       },
     ],
   },
@@ -1445,24 +1521,22 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2005-09] 麥芽糖
   // ==========================================
   {
-    id: 'C2005-09',
+    id: 'C2005-09', //已完成
     name: '麥芽糖',
     album: '11月的蕭邦',
     year: 2005,
     track: 9,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「麥芽糖甜甜的味道，黏住你我微笑的嘴角……」滿街瀰漫著香甜的麥芽糖氣息。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    weight: 0,
+    route: '太陽之子',
+    isSynthesizedOnly: true,
+    acquisitionSource: '米蘭的小鐵匠慢火熬製',
+    hintText: '獲得【麥芽糖】，有人要吃嗎？。',
+    specialAcquisitionNote:
+      '此卡牌為專屬合成/特殊機制道具，在常規抽卡池中無法抽卡獲得。透過小鐵匠的手藝熬製成功，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「開心的 被黏手 我滿嘴 都是糖果。」',
+    options: [],
   },
   // ==========================================
   // [C2005-10] 珊瑚海
@@ -1629,22 +1703,23 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2006-04] 本草綱目
   // ==========================================
   {
-    id: 'C2006-04',
+    id: 'C2006-04', //已完成
     name: '本草綱目',
     album: '依然范特西',
     year: 2006,
     track: 4,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 20, // 上限1，抽卡機率10%
     route: '通用',
-    flavorText: '「如果華陀再世 崇洋都被醫治，外邦來學漢字 激發我民族意識……」中藥鋪裡飄來當歸與黃耆的清香，草本綱目洗滌百病。',
-    // TODO: 第二階段效果、機制、選項實裝
+    flavorText: '「如果華陀再世 崇洋都被醫治，外邦來學漢字 激發我民族意識……」既然來學漢字了，你也能看懂些什麼了。',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '收存【本草綱目】入行囊',
+        resultText: '獲得了【本草綱目】！精華融入行囊，開啟進階鑑識視窗，並能施展行囊道具的特殊功能！',
+        effect: {
+          addItem: '本草綱目',
+        },
       },
     ],
   },
@@ -1911,7 +1986,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2007-06',
+    id: 'C2007-06', //已完成
     name: '無雙',
     album: '我很忙',
     year: 2007,
@@ -1920,12 +1995,12 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 1,
     weight: 4,
     route: '太陽之子',
-    flavorText: '「命格無雙，一騎當千！長戟劃破晚霞，唯我獨尊。」',
+    flavorText: '「命格無雙 一統江山 破城之後 我卻微笑絕不戀戰」',
     options: [
       {
         text: '握住無雙戰意',
-        resultText: '獲得神級兵魄【無雙】！行動力+5，若化身為英雄，將在最終將軍棋局爆發毀天滅地的終結技！',
-        effect: { addItem: '無雙', apChange: 5 },
+        resultText: '獲得【無雙】！行動力+1，周身湧現唯我獨尊的無雙霸氣！',
+        effect: { addItem: '無雙', apChange: 1 },
       },
     ],
   },
@@ -1975,22 +2050,23 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2007-09] 甜甜的
   // ==========================================
   {
-    id: 'C2007-09',
+    id: 'C2007-09', //已完成
     name: '甜甜的',
     album: '我很忙',
     year: 2007,
     track: 9,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 10, // 抽卡機率 10%
     route: '通用',
-    flavorText: '「我輕輕的嚐一口 妳說的愛我，還在回味妳給過的溫柔……」草莓蛋糕上點綴的奶油，滿溢著初戀的甜美。',
-    // TODO: 第二階段效果、機制、選項實裝
+    flavorText: '「我輕輕的嚐一口 妳說的愛我，還在回味妳給過的溫柔……」蜂蜜口味的生活，滿溢著初戀的甜美。',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '這香濃的誘惑，收入行囊',
+        resultText: '我輕輕的嚐一口！獲得【甜甜的】甜點信物！',
+        effect: {
+          addItem: '甜甜的',
+        },
       },
     ],
   },
@@ -2045,7 +2121,7 @@ export const CARD_DATABASE: CardDefinition[] = [
   // 【2008 年・第九張專輯《魔杰座》】
   // =========================================================================
   {
-    id: 'C2008-01',
+    id: 'C2008-01', //已完成
     name: '龍戰騎士',
     album: '魔杰座',
     year: 2008,
@@ -2054,67 +2130,67 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 2,
     weight: 2, // 遭遇機率設定為 2% 相對權重
     route: '太陽之子',
-    condition: (state) => !state.inventory['龍戰騎士'],
-    flavorText: '「末日遠方戰火燃燒，龍戰騎士跨坐在機械巨龍之上，熾熱的龍息封鎖了一切退路。」',
+    condition: (state) => !state.inventory['龍戰騎士'] && !state.inventory['龍戰騎士的遺言'],
+    flavorText: '「守門之獸展翼將飛，龍戰騎士跨衝破這一場浩劫，這世界誰被狩獵！」',
     options: [
+      // (1) 直接抽卡出現
       {
-        text: '用【雙刀】攻擊（消耗雙刀）',
-        require: { flag: 'dragon_awakened', flagValue: true, item: '雙刀' },
-        resultText: '雙刀流星般劈開重重龍息！龍戰騎士震顫收劍：「我認可你了，但你終會被將一軍」你成功獲得了【龍戰騎士】！',
+        text: '迎戰',
+        require: { notFlag: 'dragon_awakened' },
+        resultText: '迎向龍戰騎士嘗試交手，被火燄吞噬無名碑！行動力 -8。',
+        effect: { apChange: -8 },
+      },
+      {
+        text: '用黑色毛衣抵擋攻擊',
+        require: { notFlag: 'dragon_awakened', item: '黑色毛衣', hideWhenUnavailable: true },
+        resultText: '黑色毛衣成功抵擋攻擊，行動力不減！',
+        effect: { removeItem: '黑色毛衣' },
+      },
+      // (2) 龍拳觸發或決戰
+      {
+        text: '雙刀與雙截棍齊出，以溫柔削鐵！',
+        require: { flag: 'dragon_awakened', items: ['雙刀', '雙截棍'], hideWhenUnavailable: true },
+        resultText: '龍戰騎士：「你終於擊敗了我，當四個對手你都遭遇，戰亂時代才正要開始！」',
+        effect: {
+          removeItems: ['雙刀', '雙截棍'],
+          addItem: '龍戰騎士的遺言',
+          setFlag: { defeated_dragon_knight: true, defeat_龍戰騎士: true, dragon_awakened: false },
+        },
+      },
+      {
+        text: '使用雙刀攻擊',
+        require: { flag: 'dragon_awakened' },
+        resultText: '單憑這點攻擊是對我沒用的，損耗雙刀，被打敗，行動力 -8',
         effect: {
           removeItem: '雙刀',
-          addItem: '龍戰騎士',
-          setFlag: { defeated_dragon_knight: true },
+          apChange: -8,
         },
       },
       {
-        text: '用兩副【雙截棍】連續攻擊兩次（消耗兩副雙截棍）',
-        require: { flag: 'dragon_awakened', flagValue: true, item: '雙截棍', itemCount: 2 },
-        resultText: '雙截棍呼嘯連續重擊破開厚重龍甲！龍戰騎士單膝跪地：「我認可你了，但你終會被將一軍」你成功獲得了【龍戰騎士】！',
+        text: '使用雙截棍攻擊',
+        require: { flag: 'dragon_awakened' },
+        resultText: '單憑這點攻擊是對我沒用的，損耗雙截棍，被打敗，行動力 -8',
         effect: {
           removeItem: '雙截棍',
-          removeItems: ['雙截棍'],
-          addItem: '龍戰騎士',
-          setFlag: { defeated_dragon_knight: true },
+          apChange: -8,
         },
       },
       {
-        text: '用第二副【雙截棍】發動第二次終結攻擊（消耗雙截棍）',
-        require: { flag: 'dragon_awakened', flagValue: true, item: '雙截棍', flag2: 'nunchaku_hit_once' },
-        resultText: '第二副雙截棍狂暴砸落！龍戰騎士佩劍落地：「我認可你了，但你終會被將一軍」你成功獲得了【龍戰騎士】！',
-        effect: {
-          removeItem: '雙截棍',
-          addItem: '龍戰騎士',
-          setFlag: { defeated_dragon_knight: true },
-        },
-      },
-      {
-        text: '用【雙截棍】發動第一次攻擊（消耗雙截棍）',
-        require: { flag: 'dragon_awakened', flagValue: true, item: '雙截棍', notFlag: 'nunchaku_hit_once' },
-        resultText: '雙截棍擊碎了第一道外層龍鱗，但武器亦隨之損毀！尚需用雙截棍再攻擊一次方能制敵！',
-        effect: {
-          removeItem: '雙截棍',
-          setFlag: { nunchaku_hit_once: true },
-        },
-      },
-      {
-        text: '穿上【黑色毛衣】擋下龍戰騎士的一次致命攻擊（消耗黑色毛衣）',
-        require: { item: '黑色毛衣' },
-        resultText: '黑色毛衣替你承受了熾烈狂暴的龍息，化作漫天飛灰！你安然無恙，但若想獲得認可奪取卡片，仍需以神兵（雙刀或雙截棍）正面破陣！',
+        text: '用黑色毛衣抵擋攻擊',
+        require: { flag: 'dragon_awakened', item: '黑色毛衣', hideWhenUnavailable: true },
+        resultText: '黑色毛衣成功抵擋攻擊，回合結束，行動力不減！',
         effect: {
           removeItem: '黑色毛衣',
         },
       },
       {
-        text: '迎向機械巨龍嘗試交手',
-        require: { notFlag: 'dragon_awakened' },
-        resultText: '龍戰騎士居高臨下冷冷凝視你：「你還不是宿命之人！」強大的龍息將你逼退，即使交手也無法獲得此卡。',
-        effect: {},
-      },
-      {
-        text: '未備齊神兵武器，暫避其鋒芒',
-        resultText: '熾熱龍息遮天蔽日，在尚未備齊雙刀或雙截棍前，你決定暫且撤離。',
-        effect: {},
+        text: '英雄催動無雙一擊，擊敗龍戰騎士',
+        require: { flag: 'dragon_awakened', character: '英雄', item: '無雙', hideWhenUnavailable: true },
+        resultText: '龍戰騎士：「你終於擊敗了我，當四個對手你都遭遇，戰亂時代才正要開始！」',
+        effect: {
+          addItem: '龍戰騎士的遺言',
+          setFlag: { defeated_dragon_knight: true, defeat_龍戰騎士: true, dragon_awakened: false },
+        },
       },
     ],
   },
@@ -2280,7 +2356,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2008-09',
+    id: 'C2008-09', //已完成
     name: '時光機',
     album: '魔杰座',
     year: 2008,
@@ -2293,7 +2369,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '收納至行囊中',
-        resultText: '你獲得了至高神器【時光機】！自此後續若遭遇《回到過去》或《愛在西元前》時，可憑藉時光機自主決定是否時光逆流。',
+        resultText: '你獲得了神器【時光機】！自此後續若遭遇《回到過去》或《愛在西元前》時，可憑藉時光機自主決定是否時光逆流。',
         effect: {
           addItem: '時光機',
           setFlag: { hasTimeMachine: true },
@@ -2328,21 +2404,29 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2008-11] 稻香
   // ==========================================
   {
-    id: 'C2008-11',
+    id: 'C2008-11', //已完成
     name: '稻香',
     album: '魔杰座',
     year: 2008,
     track: 11,
-    type: '事件',
-    maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「還記得你說家是唯一的城堡，隨著稻香河流繼續奔跑……」金黃色的稻浪在陽光下起伏，蟋蟀在田埂間鳴唱著歸鄉的安寧。',
-    // TODO: 第二階段效果、機制、選項實裝
+    type: '物品',
+    maxDraws: 3,
+    weight: 15,
+    route: '太陽之子',
+    flavorText: '「還記得你說家是唯一的城堡，隨著稻香河流繼續奔跑……」金黃色的稻浪在陽光下起伏，是否願意花費 5 點體力來收割稻麥？',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
+        text: '願意（花費 5 點體力收割稻麥）',
+        require: { minAp: 6, unavailableReason: '體力不足' },
+        resultText: '「隨著稻香河流繼續奔跑……」你辛勤收割金黃的稻穗，體力 -5，獲得【稻香】卡片！',
+        effect: {
+          apChange: -5,
+          addItem: '稻香',
+        },
+      },
+      {
+        text: '不願意，結束這回合',
+        resultText: '珍惜一切 就算沒有擁有，結束了這回合。',
         effect: {},
       },
     ],
@@ -2375,7 +2459,7 @@ export const CARD_DATABASE: CardDefinition[] = [
   // 【2010 年・第十張專輯《跨時代》】
   // =========================================================================
   {
-    id: 'C2010-01',
+    id: 'C2010-01', //已完成
     name: '跨時代',
     album: '跨時代',
     year: 2010,
@@ -2388,7 +2472,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '「我謙卑安靜的於城堡下的晚禱」',
-        resultText: '迷霧漸散，巍峨肅穆的哥德式黑色城堡巍然矗立在眼前！威廉古堡大門為你敞開！',
+        resultText: '迷霧漸散，巍峨肅穆的黑色城堡巍然矗立在眼前！威廉古堡大門為你敞開！',
         effect: {
           setFlag: { castle_unlocked: true },
           forceNextCardId: 'C2001-08',
@@ -2437,27 +2521,38 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2010-03] 煙花易冷
   // ==========================================
   {
-    id: 'C2010-03',
+    id: 'C2010-03', //已完成
     name: '煙花易冷',
     album: '跨時代',
     year: 2010,
     track: 3,
-    type: '事件',
-    maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    type: '物品',
+    maxDraws: 1, // 上限1
+    weight: 15, // 抽卡機率 15%
     route: '通用',
     flavorText: '「雨紛紛 舊故里草木深，我聽聞 妳始終一個人……」洛陽城殘破的城門下，石碑上青苔斑駁，等不回歸人。',
-    // TODO: 第二階段效果、機制、選項實裝
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '引洛陽舊城淒美冷雨澆滅烈火，解除【煙火燃燒】狀態',
+        require: { flag: 'fireworks_burning', hideWhenUnavailable: true },
+        resultText: '「雨紛紛 舊故里草木深……」洛陽舊城的冷雨傾瀉，澆滅了四周竄起的花火！成功解除【煙火燃燒】環境狀態，不再每三回合燒毀物品！獲得道具【煙花易冷】。',
+        effect: {
+          addItem: '煙花易冷',
+          setFlag: { fireworks_burning: false },
+        },
+      },
+      {
+        text: '感受舊故里飄散的氣息，化作信物入行囊',
+        require: { notFlag: 'fireworks_burning', hideWhenUnavailable: true },
+        resultText: '洛陽城外的寒雨透著微涼，石碑的苔痕宛若故人淚。獲得了【煙花易冷】信物！',
+        effect: {
+          addItem: '煙花易冷',
+        },
       },
     ],
   },
   {
-    id: 'C2010-04',
+    id: 'C2010-04', //已完成
     name: '免費教學錄影帶',
     album: '跨時代',
     year: 2010,
@@ -2466,11 +2561,11 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 1,
     weight: 50,
     route: '通用',
-    flavorText: '「要不要我用吉他教你點特別的？聽我的副歌，不用錢隨便學！」錄影帶在播放機中旋轉，浮現神祕技巧。',
+    flavorText: '「你是不是 啊哈感覺到了」錄影帶在播放機中旋轉，浮現神祕技巧。',
     options: [
       {
-        text: '按下播放鍵，觀看錄影帶的特別指導',
-        resultText: '你掌握了周董獨門指法！角色欄位即刻顯現當前化身的特殊能力與隱藏特質！',
+        text: '舉起你的單手給他個啵!',
+        resultText: 'ohoh 還沒 不急我先教你彈！角色欄位顯現當前化身的特殊能力與隱藏特質！',
         effect: { addItem: '免費教學錄影帶' },
       },
     ],
@@ -2525,7 +2620,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 7,
     type: '遭遇',
     maxDraws: 2,
-    weight: 7,
+    weight: 0, // 暫不啟用
     route: '通用',
     flavorText: '「頭等艙內的優雅問候，嘻哈空姐遞來一杯香檳，微笑道出高空中的秘密。」',
     options: [
@@ -2568,19 +2663,41 @@ export const CARD_DATABASE: CardDefinition[] = [
     album: '跨時代',
     year: 2010,
     track: 9,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 2, // 上限1張，抽卡機率2%
     route: '通用',
-    flavorText: '「用愛寫下飛行日記，穿越雲層抵達你的身旁……」引擎噴射出炫目的光尾，向著浩瀚星空疾馳！',
-    // TODO: 第二階段效果、機制、選項實裝
+    flavorText: '「為愛飛行 脫離地心引力的熱情 我在宇宙無重力的環境 為妳降臨」',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '收入行囊',
+        resultText: '獲得了【愛的飛行日記】！',
+        effect: {
+          addItem: '愛的飛行日記',
+        },
       },
     ],
+  },
+  // ==========================================
+  // [C2010-09-EX] 飛行時光機
+  // ==========================================
+  {
+    id: 'C2010-09-EX',
+    name: '飛行時光機',
+    album: '跨時代',
+    year: 2010,
+    track: 'EX',
+    type: '物品',
+    maxDraws: 1,
+    weight: 0, // 僅能透過小鐵匠強化獲得
+    route: '通用',
+    isSynthesizedOnly: true,
+    acquisitionSource: '米蘭的小鐵匠巧手強化',
+    hintText: '獲得【飛行時光機】，似乎是更多功能的時光機！',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊強化道具，在常規抽卡池中無法抽卡獲得。透過小鐵匠將時光機與愛的飛行日記強化結合，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「升空對抗 重力反應！」',
+    options: [],
   },
   // ==========================================
   // [C2010-10] 自導自演
@@ -2717,7 +2834,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2011-04',
+    id: 'C2011-04', //已完成
     name: '公主病',
     album: '驚嘆號',
     year: 2011,
@@ -2726,11 +2843,11 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 1,
     weight: 6,
     route: '周杰倫家庭',
-    flavorText: '「說我愛你，要天天說；說我不美，你就死定了……」帶著嬌蠻與純真的魔法氣息。',
+    flavorText: '「哎呦哥哥 嗨 你好！」',
     options: [
       {
         text: '收藏這枚粉色任性信物',
-        resultText: '獲得【公主病】！若是陽光宅男持有，血脈將受到純真共鳴，迎來終極進化！',
+        resultText: '獲得【公主病】！若是純真男孩持有，血脈將受到共鳴，迎來終極進化！',
         effect: { addItem: '公主病' },
       },
     ],
@@ -2759,42 +2876,40 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2011-06',
+    id: 'C2011-06', //已完成
     name: '療傷燒肉粽',
     album: '驚嘆號',
     year: 2011,
     track: 6,
     type: '物品',
     maxDraws: 2,
-    weight: 7,
+    weight: 0,
     route: '最偉大的作品',
-    flavorText: '「香氣撲鼻的古早味燒肉粽，一口咬下，能撫慰受傷的心靈。」',
-    options: [
-      {
-        text: '買下熱氣騰騰的燒肉粽',
-        resultText: '獲得【療傷燒肉粽】！可用來餵食威廉古堡那位常常思鄉哀傷的豬管家。',
-        effect: { addItem: '療傷燒肉粽' },
-      },
-    ],
+    isSynthesizedOnly: true,
+    acquisitionSource: '小鐵匠跟你交換',
+    hintText: '獲得【療傷燒肉粽】，這東西還有比吃飽更重要的事！',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。透過跟小鐵匠交換獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「燒~肉~粽~ 酸甜苦辣的愛情請把它忘記。」',
+    options: [],
   },
   {
-    id: 'C2011-07',
+    id: 'C2011-07', //已完成
     name: '琴傷',
     album: '驚嘆號',
     year: 2011,
     track: 7,
     type: '日記',
     maxDraws: 1,
-    weight: 4,
+    weight: 0, // 唯一取得方式只能透過威廉古堡的豬管家，無法直接抽到
     route: '通用',
-    flavorText: '「海風把記憶吹得好遠，琴聲在波浪中漸漸哀愁……記錄著古堡管家前世秘密的樂譜日記。」',
-    options: [
-      {
-        text: '將琴傷日記收納入劇情本中',
-        resultText: '全域日記已解鎖篇章【琴傷】！局外劇情深度推進。',
-        effect: { addItem: '琴傷' },
-      },
-    ],
+    isSynthesizedOnly: true,
+    acquisitionSource: '安撫了豬管家的哀傷',
+    hintText: '獲得日記《琴傷》！全域日記已解鎖篇章【琴傷】，局外劇情推進。',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。以【療傷燒肉粽】安撫了威廉古堡豬管家，他傾訴情傷後獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「我不忍為難 問誰在等你靠岸。一圈戒痕 在你指上 目送你 越走越遠的 悲傷」豬管家憶起了過往',
+    options: [],
   },
   // ==========================================
   // [C2011-08] 水手怕水
@@ -2866,21 +2981,21 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2011-11',
+    id: 'C2011-11', //已完成
     name: '超跑女神',
     album: '驚嘆號',
     year: 2011,
     track: 11,
     type: '遭遇',
-    maxDraws: 2,
-    weight: 7,
-    route: '通用',
-    flavorText: '「引擎咆哮，敞篷跑車疾馳而至，超跑女神摘下墨鏡，給予你銳利的審視。」',
+    maxDraws: 1,
+    weight: 20, // 上限1，抽卡機率7%
+    route: '太陽之子',
+    flavorText: '「你專心在畫睫毛 我專心在等你笑。」',
     options: [
       {
-        text: '向超跑女神請教終局決戰的秘辛',
-        resultText: '女神微揚嘴角，引擎轟鳴中拋下一句判詞：「四方烽火盡平息，方迎帥旗降臨；棋盤上第六步的靜默勝過萬鈞雷霆，面對滔天大浪，唯有直攖其鋒者方能破繭生還。」',
-        effect: { addItem: '超跑女神的偈語' },
+        text: '聆聽超跑女神指引的賽道',
+        resultText: '真的嗎真的嗎 我竟在結巴 老半天嘴裡蹦不出一句話！手握方向盤跟著你髮香～',
+        effect: { addItem: '超跑女神指引的賽道' },
       },
     ],
   },
@@ -3027,23 +3142,22 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2012-06',
+    id: 'C2012-06', //已完成
     name: '比較大的大提琴',
     album: '12新作',
     year: 2012,
     track: 6,
     type: '物品',
     maxDraws: 1,
-    weight: 0, // 由《跨時代》選項C獲得，或特殊事件觸發
+    weight: 0, // 由《跨時代》選項獲得，或特殊事件觸發
     route: '最偉大的作品',
-    flavorText: '「小提琴在泰晤士河畔悲鳴，而這把龐大的低音大提琴，沉穩而霸氣地主宰了整座時代的旋律。」',
-    options: [
-      {
-        text: '扛起巨型大提琴彈撥厚重的低音線',
-        resultText: '低沉渾厚的共鳴震懾四方，行動力大幅充盈！',
-        effect: { addItem: '比較大的大提琴', apChange: 10 },
-      },
-    ],
+    isSynthesizedOnly: true,
+    acquisitionSource: '《跨時代》樂器環繞霸氣皇朝',
+    hintText: '獲得【比較大的大提琴】，話說這可以拿來表演嗎？',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。於《跨時代》中選擇獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「小傻瓜這不是大提琴！」',
+    options: [],
   },
   // ==========================================
   // [C2012-07] 愛你沒差
@@ -3124,24 +3238,22 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2012-10] 大笨鐘
   // ==========================================
   {
-    id: 'C2012-10',
+    id: 'C2012-10', //已完成
     name: '大笨鐘',
     album: '12新作',
     year: 2012,
     track: 10,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 0, // 上限1張，抽卡機率0%(只能改造)
     route: '通用',
-    flavorText: '「大笨鐘敲響了十二下，英國街頭落葉紛飛……」泰晤士河畔的大笨鐘發出沉厚莊嚴的鐘鳴。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    isSynthesizedOnly: true,
+    acquisitionSource: '米蘭的小鐵匠巧手改造',
+    hintText: '獲得【大笨鐘】，鐘聲響亮，是否能傳到情人耳裡？現在又是幾點鐘呢.....',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。透過跟小鐵匠改造獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「你說我比大笨鐘還笨 要怎麼比……」',
+    options: [],
   },
   // ==========================================
   // [C2012-11] 哪裡都是你
@@ -3170,22 +3282,23 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2012-12] 烏克麗麗
   // ==========================================
   {
-    id: 'C2012-12',
+    id: 'C2012-12', //已完成
     name: '烏克麗麗',
     album: '12新作',
     year: 2012,
     track: 12,
-    type: '事件',
-    maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    type: '物品',
+    maxDraws: 2,
+    weight: 20, // 抽卡機率 20%
     route: '通用',
-    flavorText: '「烏克麗麗輕巧撥弦，夏威夷海灘的椰林樹影……」熱情的尤克里里歡快奏響，海浪輕拂沙灘。',
-    // TODO: 第二階段效果、機制、選項實裝
+    flavorText: '「烏克麗麗在你身上就像一把放大的Guitar」一把夏威夷風情的烏克麗麗。',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '撥動琴弦，將烏克麗麗收入行囊',
+        resultText: '獲得【烏克麗麗】！有沒有人需要這把琴呢？',
+        effect: {
+          addItem: '烏克麗麗',
+        },
       },
     ],
   },
@@ -3440,7 +3553,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 11,
     type: '遭遇',
     maxDraws: 2,
-    weight: 7,
+    weight: 0, // 暫不啟用
     route: '通用',
     flavorText: '「蔚藍深海中游動著美麗的倩影，美人魚浮出水面，歌聲如天籟般動聽。」',
     options: [
@@ -3498,7 +3611,7 @@ export const CARD_DATABASE: CardDefinition[] = [
   // 【2016 年・第十四張專輯《周杰倫的床邊故事》】
   // =========================================================================
   {
-    id: 'C2016-01',
+    id: 'C2016-01', //已完成
     name: '床邊故事',
     album: '周杰倫的床邊故事',
     year: 2016,
@@ -3507,11 +3620,11 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 2,
     weight: 7,
     route: '最偉大的作品',
-    flavorText: '「從前從前，有座古堡，睡美人在等待輕柔的晚安吻……」',
+    flavorText: '「乖乖睡啊 不要害怕」',
     options: [
       {
-        text: '收錄童話書卷',
-        resultText: '獲得【床邊故事】！可使威廉二世入眠，盜取其守護的神器。',
+        text: '收下床邊故事',
+        resultText: '獲得【床邊故事】！這故事非常容易讓人入睡，尤其是會一直打呼的人。',
         effect: { addItem: '床邊故事' },
       },
     ],
@@ -3520,22 +3633,24 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2016-02] 說走就走
   // ==========================================
   {
-    id: 'C2016-02',
+    id: 'C2016-02', //已完成
     name: '說走就走',
     album: '周杰倫的床邊故事',
     year: 2016,
     track: 2,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 10, // 上限1張，抽卡機率10%
     route: '通用',
-    flavorText: '「說走就走，背起行囊去遠方追尋自由……」吉普車揚起滾滾塵土，奔向沒有邊際的地平線。',
-    // TODO: 第二階段效果、機制、選項實裝
+    condition: (state) => Boolean((state.blacksmithUnlocked || state.flags['blacksmith_unlocked']) && !state.inventory['說走就走']),
+    flavorText: '「路兩旁是單調的顏色 卻有種遼闊的快樂 我還記得。」',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '這就是年輕，該瀟灑一次的決定',
+        resultText: '【說走就走】這就是年輕，該瀟灑一次的決定！',
+        effect: {
+          addItem: '說走就走',
+        },
       },
     ],
   },
@@ -3706,7 +3821,7 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2016-10] 愛情廢柴
   // ==========================================
   {
-    id: 'C2016-10',
+    id: 'C2016-10', 
     name: '愛情廢柴',
     album: '周杰倫的床邊故事',
     year: 2016,
@@ -3812,7 +3927,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '在夜色中的異國街巷沈澱過度一回合',
-        resultText: '靜謐的夜色洗去了塵囂。若是【流浪詩人】化身，將在下一回合直接遭遇強者！',
+        resultText: '靜謐的夜色洗去了塵囂。',
         effect: {},
       },
     ],
@@ -3913,22 +4028,26 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2022-08] 錯過的煙火
   // ==========================================
   {
-    id: 'C2022-08',
+    id: 'C2022-08', //已完成
     name: '錯過的煙火',
     album: '最偉大的作品',
     year: 2022,
     track: 8,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 15, // 上限1，抽卡機率15%
     route: '最偉大的作品',
-    flavorText: '「錯過的煙火在夜空中綻放，璀璨卻又短暫……」海濱長堤上的夜空炸開漫天花火，照亮了孤獨的身影。',
-    // TODO: 第二階段效果、機制、選項實裝
+    hasEnvironmentEffect: true, // 具備環境變化效果（煙火燃燒狀態）
+    environmentEffectName: '煙火燃燒',
+    flavorText: '「煙火美得稍縱即逝，但錯過的煙火依然在你左右……」',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '收下錯過的煙火',
+        resultText: '煙火飄散在你四週，每回合燃燒著你……',
+        effect: {
+          addItem: '錯過的煙火',
+          setFlag: { fireworks_burning: true },
+        },
       },
     ],
   },
@@ -4308,22 +4427,24 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2026-12] 鄉間的路
   // ==========================================
   {
-    id: 'C2026-12',
+    id: 'C2026-12', //已完成
     name: '鄉間的路',
     album: '太陽之子',
     year: 2026,
     track: 12,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 10, // 抽卡機率 10%
     route: '太陽之子',
-    flavorText: '「鄉間的路延伸向遠方，微風帶來泥土與野花的芬芳……」踩著木輪車穿過麥浪，回歸最質樸的平靜。',
-    // TODO: 第二階段效果、機制、選項實裝
+    condition: (state) => !state.blacksmithUnlocked && !state.flags['blacksmith_unlocked'] && !(state.inventory['鄉間的路'] > 0),
+    flavorText: '「鄉間的路延伸向遠方，這趟旅途 開著車 經過了 兒時那棵樹」似乎能幫誰指引方向....。',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '鄉間的路 熟悉的 小木屋 在那轉彎處',
+        resultText: '你一步 我一步 走到了幸福，獲得【鄉間的路】！',
+        effect: {
+          addItem: '鄉間的路',
+        },
       },
     ],
   },

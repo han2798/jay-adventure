@@ -27,10 +27,9 @@ export const BossBattleView: React.FC<BossBattleViewProps> = ({
     narrative: string;
   } | null>(null);
   const [battleMessage, setBattleMessage] = useState<string>(
-    '看我把客廳變成戰場！殘局楚河漢界，將軍端坐棋局對面，殺氣如霜。'
+    '看我把此地變成戰場！將軍立身於你的對面，殺氣如霜！'
   );
 
-  const hasWushuang = Boolean(gameState.inventory['無雙']);
   const isHero = gameState.character?.name === '英雄';
   const hasClock = Boolean(
     gameState.inventory['反方向的鐘'] && gameState.reversedClockUsesRemaining > 0
@@ -79,26 +78,15 @@ export const BossBattleView: React.FC<BossBattleViewProps> = ({
         onAddLog('【一擊制勝】你趁將軍大招力竭虛弱之際發動終結一擊，徹底擊潰將軍！', 'milestone');
         triggerVictoryModal(
           '✦ 擊敗將軍・棋局定乾坤 ✦',
-          '「看我把客廳變成戰場，棋盤裡，車馬炮短兵相接，終成定局！」',
-          '你以沉著冷靜看穿了將軍的千層殺陣，在兵臨城下的漫天烽火中屹立不搖，最終一擊逆轉乾坤，徹底擊敗統帥將軍！'
+          '「車無輪，馬無韁，叫聲將軍提防提防。烽火之後，終成定局！」',
+          '你的沉著冷靜看穿了將軍的致命傷，在兵臨城下的炮火中屹立不搖，最終一擊逆轉，徹底擊敗統帥將軍！'
         );
         return;
       }
     }
 
-    // 2. Step 6 Special Winning Routes
+    // 2. Step 6 Special Winning Route
     if (step === 6) {
-      // Winning Route 2: Hero + Wushuang with ANY attack (except idle/horse)
-      if ((action === 'attack' || action === 'cannon') && isHero && hasWushuang) {
-        onAddLog('【無雙秒殺】英雄催動無雙神威，第六回合直接終結將軍！', 'milestone');
-        triggerVictoryModal(
-          '✦ 擊敗將軍・唯我無雙 ✦',
-          '「我仰望著夕陽 你低頭黯然離場 聽我說勝敗是兵家之常 你不用放在心上 是因為我只適合無雙」',
-          '天地歸於一片死寂，狂暴的無雙霸氣自英雄周身震盪而開，將軍長戟折斷，俯首認輸。'
-        );
-        return;
-      }
-
       // Winning Route 1: Idle in Step 6
       if (action === 'idle') {
         setBossStunned(true);

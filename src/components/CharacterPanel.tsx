@@ -7,6 +7,8 @@ interface CharacterPanelProps {
   stats?: { ap: number };
   jokerSlots?: JokerEquipment;
   inventory?: Record<string, number>;
+  blacksmithUnlocked?: boolean;
+  onOpenBlacksmith?: () => void;
   onEquipJokerSlot?: (slot: keyof JokerEquipment, itemName: string) => void;
   onUnequipJokerSlot?: (slot: keyof JokerEquipment) => void;
 }
@@ -86,6 +88,8 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
   stats,
   jokerSlots,
   inventory = {},
+  blacksmithUnlocked = false,
+  onOpenBlacksmith,
   onEquipJokerSlot,
   onUnequipJokerSlot,
 }) => {
@@ -100,17 +104,17 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
     <div className="w-full bg-[#141417] border border-stone-800 rounded-xl p-4 flex flex-col gap-3 shadow-lg">
       {/* Title - strictly Chinese */}
       <div className="flex items-center justify-between border-b border-stone-800 pb-2">
-        <span className="text-xs font-bold text-stone-400 tracking-wider">
+        <span className="text-sm font-bold text-stone-300 tracking-wider">
           當前化身
         </span>
-        <div className="flex items-center gap-2 text-xs font-mono">
+        <div className="flex items-center gap-2 text-xs sm:text-sm font-mono">
           {stats?.ap === 1 ? (
-            <span className="text-red-300 font-bold bg-red-950/90 px-2 py-0.5 rounded border border-red-600 animate-pulse flex items-center gap-1">
+            <span className="text-red-300 font-bold bg-red-950/90 px-2.5 py-1 rounded border border-red-600 animate-pulse flex items-center gap-1">
               <span>⚠️</span>
               <span>⚡ 行動力 1（瀕危）</span>
             </span>
           ) : (
-            <span className="text-amber-300 font-bold bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/60">
+            <span className="text-amber-300 font-bold bg-amber-950/40 px-2.5 py-1 rounded border border-amber-800/60">
               ⚡ 行動力 {stats?.ap ?? '--'}
             </span>
           )}
@@ -122,8 +126,8 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
         <div className="bg-red-950/60 border border-red-600/80 rounded-lg p-2.5 text-xs text-red-200 flex items-start gap-2 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.25)]">
           <span className="text-base shrink-0 mt-0.5">⚠️</span>
           <div className="font-sans leading-tight space-y-0.5">
-            <span className="font-bold text-red-100 block">體力瀕危警告</span>
-            <span>體力僅剩 1 點！下一回合體力將歸 0 進入下一局（若未獲體力補充）。</span>
+            <span className="font-bold text-red-100 block">行動力瀕危警告</span>
+            <span>行動力僅剩 1 點！下一回合行動力將歸 0 進入下一局（若未獲行動力補充）。</span>
           </div>
         </div>
       )}
@@ -131,29 +135,44 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
       {character ? (
         <>
           {/* Character Identity */}
-          <div className="flex items-center gap-3.5">
-            <div
-              className={`w-12 h-12 rounded-xl bg-gradient-to-br ${character.avatarColor} flex items-center justify-center shadow-md border border-white/10 shrink-0`}
-            >
-              <div className="filter drop-shadow select-none">
-                <CharacterAvatarIcon character={character} size="lg" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3.5 overflow-hidden">
+              <div
+                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${character.avatarColor} flex items-center justify-center shadow-md border border-white/10 shrink-0`}
+              >
+                <div className="filter drop-shadow select-none">
+                  <CharacterAvatarIcon character={character} size="lg" />
+                </div>
               </div>
-            </div>
-            <div className="flex flex-col overflow-hidden">
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-black text-stone-100 font-serif truncate">
-                  {character.name}
-                </span>
-                {character.isSecret && (
-                  <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded font-mono">
-                    SS傳奇
+              <div className="flex flex-col overflow-hidden">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-lg font-black text-stone-100 font-serif truncate">
+                    {character.name}
                   </span>
-                )}
+                  {character.isSecret && (
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded font-mono">
+                      SS傳奇
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-[#d4af37] truncate font-sans">
+                  {character.title}
+                </span>
               </div>
-              <span className="text-xs text-[#d4af37] truncate font-sans">
-                {character.title}
-              </span>
             </div>
+
+            {/* 常駐小鐵鋪按鈕 (持有鄉間的路後解鎖) */}
+            {blacksmithUnlocked && (
+              <button
+                id="btn-open-blacksmith"
+                onClick={onOpenBlacksmith}
+                title="隨時拜訪小鐵鋪改造物品"
+                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-600/80 text-amber-200 text-xs font-bold transition-all shadow-[0_0_10px_rgba(217,119,6,0.25)] hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <span>⚒️</span>
+                <span>小鐵鋪</span>
+              </button>
+            )}
           </div>
 
           {/* Trait Description */}

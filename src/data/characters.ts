@@ -5,10 +5,10 @@ export const ALL_CHARACTERS: CharacterDefinition[] = [
     id: 'char_hero',
     name: '英雄',
     title: '擊殺 雙殺 三殺！',
-    description: '英雄必勝，赤手空拳也能擊退敵人。',
+    description: '強大的角色。',
     avatarColor: 'from-amber-600 to-red-800',
     avatarIcon: '🗡️',
-    specialTrait: '對手遭遇戰中毋需消耗武器亦可突圍；天下無雙之人，能在關鍵決戰中展現一擊必殺。',
+    specialTrait: '對手遭遇戰中毋需消耗武器亦可突圍；具備無雙之人，能與騎士決戰中展現一擊必殺。',
   },
   {
     id: 'char_joker',
@@ -44,7 +44,7 @@ export const ALL_CHARACTERS: CharacterDefinition[] = [
     description: '平日窩在角落沉浸音樂，一旦遭遇命運重擊或洗禮，將迎來不可思議的血脈覺醒。',
     avatarColor: 'from-yellow-500 to-orange-700',
     avatarIcon: '🧑‍💻',
-    specialTrait: '抽中《公主病》時，能突破極限血脈覺醒，進化為神話級化身【女兒殿下】。',
+    specialTrait: '當宅男碰上公主，宅男的真愛將立刻覺醒，突破血脈進化！',
   },
   {
     id: 'char_loser',
@@ -53,7 +53,7 @@ export const ALL_CHARACTERS: CharacterDefinition[] = [
     description: '無任何特異功能，全憑純粹的造化在世間闖蕩。',
     avatarColor: 'from-amber-900 to-stone-900',
     avatarIcon: '🪵',
-    specialTrait: '身無長物，不被任何光環眷顧，唯有憑藉堅毅的決策摸索生存之道。',
+    specialTrait: '身無長處，不被任何光環眷顧，唯有自力更生摸索生存之道。',
   },
   {
     id: 'char_chopin',
@@ -69,11 +69,11 @@ export const ALL_CHARACTERS: CharacterDefinition[] = [
     id: 'char_daughter',
     name: '女兒殿下',
     title: '前世情人・至尊守護',
-    description: '無暇純淨的掌上明珠，擁有世間至深真摯情感的庇護，無法直接抽取。',
+    description: '無暇純淨的掌上明珠，擁有世間至深真摯情感的庇護。',
     avatarColor: 'from-pink-500 to-rose-800',
     avatarIcon: '👑',
     isSecret: true,
-    specialTrait: '極度稀有進化體：全家族主題歌曲親和力滿點，能輕易感應並串聯深刻的親情羈絆。',
+    specialTrait: '「我美嗎？」少了女兒殿下，家庭怎麼能完整呢？。',
   },
 ];
 

@@ -679,7 +679,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     badgeTitle: '✦ 經典茗香・親情傳承 ✦',
     hintText: '回憶起那些年 爺爺的手繭 泡在水裡會有茶色蔓延\n行動力恢復 +5！ \n獲得關鍵卡牌【爺爺泡的茶】！',
     specialAcquisitionNote:
-      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n經由外婆悉心沏泡茶葉獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。   \n經由外婆悉心沏泡茶葉獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
     flavorText: '「爺爺泡的茶 有一種味道叫做家」（沒法挑剔它 口感味覺還不差）',
     options: [],
   },
@@ -2020,7 +2020,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 4,
     type: '事件',
     maxDraws: 1,
-    weight: 5,
+    weight: 0,
     route: '通用',
     flavorText: '「鑰匙別在腰帶皮夾插在屁股口袋，陽光宅男也能煥發帥氣神采……」拉開緊閉的窗簾，迎向燦爛陽光！',
     options: [
@@ -2031,8 +2031,8 @@ export const CARD_DATABASE: CardDefinition[] = [
       },
       {
         text: '尋找真愛，追逐心目中的公主殿下',
-        resultText: '宅男上吧！去尋找真愛！你獲得了象徵浪漫誓約的【陽光宅男】卡牌入囊，行動力 +2！',
-        effect: { addItem: '陽光宅男', apChange: 2 },
+        resultText: '宅男上吧！去尋找真愛！你內心燃起熾熱的勇氣，行動力 +3！',
+        effect: { apChange: 3 },
       },
     ],
   },
@@ -2346,7 +2346,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 5,
     type: '事件',
     maxDraws: 1,
-    weight: 5,
+    weight: 0,
     route: '通用',
     flavorText: '「手中握著神奇的撲克牌，見證奇蹟的發生……」魔術師在聚光燈下一揮手，白鴿自禮帽中翩然飛出！',
     options: [
@@ -2357,8 +2357,8 @@ export const CARD_DATABASE: CardDefinition[] = [
       },
       {
         text: '手法俐落的撲克牌魔術，洞悉牌局',
-        resultText: '你靈活地切牌洗牌，洞悉了命運牌堆的微妙奧妙。獲得【魔術先生】卡牌，行動力 +2！',
-        effect: { addItem: '魔術先生', apChange: 2 },
+        resultText: '你靈活地切牌洗牌，洞悉了命運牌堆的微妙奧妙！行動力 +3！',
+        effect: { apChange: 3 },
       },
     ],
   },
@@ -2418,7 +2418,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 8,
     type: '事件',
     maxDraws: 1,
-    weight: 5,
+    weight: 0,
     route: '通用',
     flavorText: '「流浪的詩人在街頭彈唱，訴說著遠方的冒險……」背著吉他的浪人穿梭在石板路上，留下不羈的歌聲。',
     options: [
@@ -2429,8 +2429,8 @@ export const CARD_DATABASE: CardDefinition[] = [
       },
       {
         text: '浪跡天涯，結交志同道合的音樂知音',
-        resultText: '海闊天空，你結識了多位熱愛音樂的流浪過客。獲得【流浪詩人】卡牌，行動力 +2！',
-        effect: { addItem: '流浪詩人', apChange: 2 },
+        resultText: '海闊天空，你結識了多位熱愛音樂的流浪過客！行動力 +3！',
+        effect: { apChange: 3 },
       },
     ],
   },
@@ -2467,7 +2467,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 10,
     type: '事件',
     maxDraws: 1,
-    weight: 5,
+    weight: 0,
     route: '通用',
     flavorText: '「小丑在舞台上面帶微笑，背後卻藏著落寞的淚水……」馬戲團華麗的大帳篷下，喬克叔叔表演著滑稽的把戲。',
     options: [
@@ -2478,8 +2478,8 @@ export const CARD_DATABASE: CardDefinition[] = [
       },
       {
         text: '卸下油彩，體會孤獨把戲大師的堅韌',
-        resultText: '即使身處孤獨的幕後，依然保持著最真摯純粹的表演初心。獲得【喬克叔叔】卡牌，行動力 +2！',
-        effect: { addItem: '喬克叔叔', apChange: 2 },
+        resultText: '即使身處孤獨的幕後，依然保持著最真摯純粹的表演初心！行動力 +3！',
+        effect: { apChange: 3 },
       },
     ],
   },
@@ -3795,7 +3795,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 5,
     type: '事件',
     maxDraws: 1,
-    weight: 5,
+    weight: 0,
     route: '通用',
     flavorText: '「英雄出少年，披荊斬棘守護最後的希望……」激昂的戰歌擂響戰鼓，熱血在胸膛中奔湧！',
     options: [
@@ -3806,8 +3806,8 @@ export const CARD_DATABASE: CardDefinition[] = [
       },
       {
         text: '披荊斬棘守護最後的希望',
-        resultText: '你在戰火中堅守信念，立下不朽英雄誓約！獲得【英雄】卡牌，行動力 +2！',
-        effect: { addItem: '英雄', apChange: 2 },
+        resultText: '你在戰火中堅守信念，立下不朽英雄誓約！行動力 +3！',
+        effect: { apChange: 3 },
       },
     ],
   },
@@ -3908,14 +3908,14 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2016-10] 愛情廢柴
   // ==========================================
   {
-    id: 'C2016-10', 
+    id: 'C2016-10',
     name: '愛情廢柴',
     album: '周杰倫的床邊故事',
     year: 2016,
     track: 10,
     type: '事件',
     maxDraws: 1,
-    weight: 5,
+    weight: 0,
     route: '通用',
     flavorText: '「愛情廢柴也能在雪地裡堆出最真的雪人……」寒冬的巴黎街頭，圍著厚厚的毛巾對著雙手哈氣。',
     options: [
@@ -3926,8 +3926,8 @@ export const CARD_DATABASE: CardDefinition[] = [
       },
       {
         text: '承認自己是愛情的廢柴，淡然自嘲',
-        resultText: '「我為你哈氣，手套丟一邊……」雖然平淡無奇，卻逍遙自在。獲得【愛情廢柴】卡牌，行動力 +2！',
-        effect: { addItem: '愛情廢柴', apChange: 2 },
+        resultText: '「我為你哈氣，手套丟一邊……」雖然平淡無奇，卻逍遙自在！行動力 +3！',
+        effect: { apChange: 3 },
       },
     ],
   },

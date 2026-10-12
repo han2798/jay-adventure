@@ -793,10 +793,10 @@ export const DevModal: React.FC<DevModalProps> = ({
                     <button
                       onClick={() => {
                         onFastForwardRainRounds();
-                        showFeedback('已設定下雨天歷經滿 5 回合！下一回合將觸發居中《聽見下雨的聲音》！');
+                        showFeedback('已連動觸發下雨天滿 5 回合！立即觸發居中《聽見下雨的聲音》！');
                       }}
                       className="w-full text-[10px] py-1 rounded bg-sky-900/60 hover:bg-sky-800 text-sky-200 border border-sky-600 font-bold cursor-pointer transition-colors"
-                      title="快進下雨經歷滿 5 回合以觸發聽見下雨的聲音連動"
+                      title="快進下雨經歷滿 5 回合以觸發聽見下雨的聲音連動（支援重複使用測試）"
                     >
                       ⚡ 歷經滿5回合 (觸發聽雨)
                     </button>

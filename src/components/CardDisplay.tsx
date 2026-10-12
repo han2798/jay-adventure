@@ -11,6 +11,23 @@ interface CardDisplayProps {
   isPreview?: boolean;
 }
 
+// Helper to reliably read environment & story flags without duplication
+const getEnvFlagState = (gameState: GameState, flagName: string): boolean | string | number | undefined => {
+  if (flagName === 'rainy_weather_active') {
+    return Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']);
+  }
+  if (flagName === 'fireworks_burning') {
+    return Boolean(gameState.fireworksBurning || gameState.flags['fireworks_burning']);
+  }
+  if (flagName === 'headache_active') {
+    return Boolean(gameState.headacheActive || gameState.flags['headache_active']);
+  }
+  if (flagName === 'ninja_chasing') {
+    return Boolean(gameState.ninjaChasing || gameState.flags['ninja_chasing']);
+  }
+  return gameState.flags[flagName];
+};
+
 export const CardDisplay: React.FC<CardDisplayProps> = ({
   card,
   gameState,
@@ -88,34 +105,20 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
       }
     }
     if (r.flag) {
-      let flagVal = gameState.flags[r.flag];
-      if (r.flag === 'rainy_weather_active') {
-        flagVal = Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']);
-      } else if (r.flag === 'fireworks_burning') {
-        flagVal = Boolean(gameState.fireworksBurning || gameState.flags['fireworks_burning']);
-      } else if (r.flag === 'headache_active') {
-        flagVal = Boolean(gameState.headacheActive || gameState.flags['headache_active']);
-      }
+      const flagVal = getEnvFlagState(gameState, r.flag);
       const requiredVal = r.flagValue !== undefined ? r.flagValue : true;
       if (flagVal !== requiredVal) {
         return { available: false, reason: r.unavailableReason || '未滿足特定前置劇情條件' };
       }
     }
     if (r.notFlag) {
-      let isNotFlagActive = Boolean(gameState.flags[r.notFlag]);
-      if (r.notFlag === 'rainy_weather_active') {
-        isNotFlagActive = Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']);
-      } else if (r.notFlag === 'fireworks_burning') {
-        isNotFlagActive = Boolean(gameState.fireworksBurning || gameState.flags['fireworks_burning']);
-      } else if (r.notFlag === 'headache_active') {
-        isNotFlagActive = Boolean(gameState.headacheActive || gameState.flags['headache_active']);
-      }
+      const isNotFlagActive = Boolean(getEnvFlagState(gameState, r.notFlag));
       if (isNotFlagActive) {
         return { available: false, reason: r.unavailableReason || '已觸發互斥劇情條件' };
       }
     }
     if (r.flag2) {
-      const flagVal = gameState.flags[r.flag2];
+      const flagVal = getEnvFlagState(gameState, r.flag2);
       const requiredVal = r.flag2Value !== undefined ? r.flag2Value : true;
       if (flagVal !== requiredVal) {
         return { available: false, reason: r.unavailableReason || '未滿足第二階段前置條件' };
@@ -379,27 +382,13 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
 
               // Mutually exclusive story branches
               if (req.flag) {
-                let currentVal = gameState.flags[req.flag];
-                if (req.flag === 'rainy_weather_active') {
-                  currentVal = Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']);
-                } else if (req.flag === 'fireworks_burning') {
-                  currentVal = Boolean(gameState.fireworksBurning || gameState.flags['fireworks_burning']);
-                } else if (req.flag === 'headache_active') {
-                  currentVal = Boolean(gameState.headacheActive || gameState.flags['headache_active']);
-                }
+                const currentVal = getEnvFlagState(gameState, req.flag);
                 if (currentVal !== (req.flagValue ?? true)) {
                   return false;
                 }
               }
               if (req.notFlag) {
-                let isNotActive = Boolean(gameState.flags[req.notFlag]);
-                if (req.notFlag === 'rainy_weather_active') {
-                  isNotActive = Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']);
-                } else if (req.notFlag === 'fireworks_burning') {
-                  isNotActive = Boolean(gameState.fireworksBurning || gameState.flags['fireworks_burning']);
-                } else if (req.notFlag === 'headache_active') {
-                  isNotActive = Boolean(gameState.headacheActive || gameState.flags['headache_active']);
-                }
+                const isNotActive = Boolean(getEnvFlagState(gameState, req.notFlag));
                 if (isNotActive) {
                   return false;
                 }

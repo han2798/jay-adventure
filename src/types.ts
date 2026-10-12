@@ -232,3 +232,5 @@ export interface GameState {
   victoryNarrative?: string;
   defeatReason?: string;
 }
+
+export type PlayerStats = GameState['stats'];

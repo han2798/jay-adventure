@@ -1,8 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { MetaProgress, GameState, RouteVictoryRecord } from '../types';
+import { CardDefinition, MetaProgress, GameState, RouteVictoryRecord } from '../types';
 import { CARD_DATABASE } from '../data/cards';
 import { ALL_ACHIEVEMENTS } from '../data/achievements';
 import { ALBUM_LIST } from '../data/albums';
+import { ALL_CHARACTERS } from '../data/characters';
+import { CharacterAvatarIcon } from './CharacterAvatarIcon';
+import { CardDisplay } from './CardDisplay';
 import {
   downloadSettlementImage,
   copySettlementToClipboard,
@@ -14,17 +17,25 @@ interface CompendiumModalProps {
   meta: MetaProgress;
   gameState: GameState;
   onClose: () => void;
-  onStoreInIronBox?: (itemName: string) => void;
-  onTakeFromIronBox?: (itemName: string) => void;
   onToggleSkill?: (skillId: string) => void;
 }
+
+// 角色與對應周杰倫歌曲卡牌的雙向連動映射（兩圖鑑並存互相點亮）
+export const CHARACTER_SONG_MAPPING: Record<string, string> = {
+  char_hero: 'C2016-05', // 英雄
+  char_sunshine: 'C2007-04', // 陽光宅男
+  char_magic: 'C2008-05', // 魔術先生
+  char_loser: 'C2016-10', // 愛情廢柴
+  char_joker: 'C2008-10', // 喬克叔叔
+  char_poet: 'C2008-08', // 流浪詩人
+  char_chopin: 'C2005-SS', // 《11月的蕭邦》
+  char_daughter: 'C2026-10', // 女兒殿下
+};
 
 export const CompendiumModal: React.FC<CompendiumModalProps> = ({
   meta,
   gameState,
   onClose,
-  onStoreInIronBox,
-  onTakeFromIronBox,
   onToggleSkill,
 }) => {
   // Sort songs strictly by Album chronological release year and Track number
@@ -52,25 +63,53 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
     });
   }, [albumOrderMap]);
 
+  const [previewCard, setPreviewCard] = useState<CardDefinition | null>(null);
+
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        if (previewCard) {
+          setPreviewCard(null);
+        } else {
+          onClose();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [previewCard, onClose]);
 
   const [activeTab, setActiveTab] = useState<
-    'cards' | 'achievements' | 'diaries' | 'history' | 'settlement'
+    'cards' | 'characters' | 'achievements' | 'diaries' | 'history' | 'settlement'
   >('cards');
   const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
 
   const activeSkills = meta.activeSkills || [];
   const histories = meta.gameHistories || [];
+  const unlockedCharacterIds = useMemo(() => {
+    const list = new Set(meta.unlockedCharacterIds || []);
+    // 預設可抽取的初始角色化身只要抽到過或有遊玩過均記錄
+    if (gameState.character?.id) list.add(gameState.character.id);
+    // 同步：若歌曲圖鑑已點亮對應角色卡牌，角色圖鑑亦同步點亮
+    Object.entries(CHARACTER_SONG_MAPPING).forEach(([charId, cardId]) => {
+      if (meta.unlockedCardIds && meta.unlockedCardIds.includes(cardId)) {
+        list.add(charId);
+      }
+    });
+    return Array.from(list);
+  }, [meta.unlockedCharacterIds, meta.unlockedCardIds, gameState.character?.id]);
+
+  // 歌曲圖鑑同步：只要角色曾抽過/解鎖過，其專屬歌曲卡牌在歌曲圖鑑亦同步點亮
+  const effectiveUnlockedCardIds = useMemo(() => {
+    const set = new Set(meta.unlockedCardIds || []);
+    unlockedCharacterIds.forEach((charId) => {
+      const cardId = CHARACTER_SONG_MAPPING[charId];
+      if (cardId) set.add(cardId);
+    });
+    return Array.from(set);
+  }, [meta.unlockedCardIds, unlockedCharacterIds]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 lg:p-6 animate-in fade-in duration-200">
@@ -107,7 +146,18 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
                 : 'text-stone-400 hover:text-stone-200 bg-stone-900/80 border border-stone-800'
             }`}
           >
-            歌曲圖鑑 ({meta.unlockedCardIds.length}/{CARD_DATABASE.length})
+            歌曲圖鑑 ({effectiveUnlockedCardIds.length}/{CARD_DATABASE.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('characters')}
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'characters'
+                ? 'bg-[#d4af37] text-black font-black shadow-md'
+                : 'text-stone-400 hover:text-stone-200 bg-stone-900/80 border border-stone-800'
+            }`}
+          >
+            角色化身 ({unlockedCharacterIds.length}/{ALL_CHARACTERS.length})
           </button>
 
           <button
@@ -118,7 +168,7 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
                 : 'text-stone-400 hover:text-stone-200 bg-stone-900/80 border border-stone-800'
             }`}
           >
-            傳奇成就與技能 ({meta.unlockedAchievements.length}/{ALL_ACHIEVEMENTS.length})
+            成就技能 ({meta.unlockedAchievements.length}/{ALL_ACHIEVEMENTS.length})
           </button>
 
           <button
@@ -165,121 +215,244 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
         <div className="flex-1 overflow-y-auto mt-4 pr-1">
           {/* TAB 1: 歌曲圖鑑 (嚴格依照專輯發行順序與曲目順序排列，加大欄位為 6~7 欄) */}
           {activeTab === 'cards' && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-2.5">
-              {sortedCards.map((card) => {
-                const unlocked = meta.unlockedCardIds.includes(card.id);
-                return (
-                  <div
-                    key={card.id}
-                    className={`p-3 rounded-xl border flex flex-col justify-between min-h-[100px] transition-all ${
-                      unlocked
-                        ? 'bg-[#18171d] border-amber-900/60 text-stone-200 shadow-sm'
-                        : 'bg-[#0d0d10] border-stone-900/90 text-stone-600'
-                    }`}
-                  >
-                    {/* Top: Card Name (full width, prominent) */}
-                    <div className="w-full">
-                      <span
-                        className={`text-xs font-bold font-serif leading-snug block truncate ${
-                          unlocked ? 'text-amber-100' : 'text-stone-600'
-                        }`}
-                        title={unlocked ? card.name : undefined}
-                      >
-                        {unlocked ? card.name : '？？？？'}
-                      </span>
-                      {/* Album Name moved below card name so it never squeezes or truncates the title */}
-                      <span className="text-[10px] text-stone-400 font-sans block truncate mt-1">
-                        {card.album}
-                      </span>
-                    </div>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between text-xs font-mono bg-amber-950/20 border border-amber-800/40 rounded-lg px-3.5 py-2">
+                <span className="text-amber-300 font-serif flex items-center gap-1.5">
+                  <span>💡</span>
+                  <span>已點亮卡牌可直接【點擊】進入黑膠唱片全貌鑑賞，重溫經典歌詞與音樂典藏！</span>
+                </span>
+                <span className="text-stone-400 font-mono hidden sm:inline">
+                  已點亮 {sortedCards.filter((c) => effectiveUnlockedCardIds.includes(c.id)).length} / {sortedCards.length} 首
+                </span>
+              </div>
 
-                    {/* Bottom: Card ID & Track Number */}
-                    <div className="flex justify-between items-end text-[10px] text-stone-500 font-mono pt-1.5 border-t border-stone-800/50 mt-1">
-                      <span>{card.id}</span>
-                      <span className={unlocked ? 'text-amber-400/90 font-bold' : 'text-stone-600'}>
-                        {unlocked ? `第${card.track}首` : '未解鎖'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* TAB 2: 傳奇成就與技能 (未解鎖前完全顯示為 "???" 保留解謎探索感，可做為技能啟動) */}
-          {activeTab === 'achievements' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {ALL_ACHIEVEMENTS.map((ach) => {
-                const isUnlocked = meta.unlockedAchievements.includes(ach.id);
-                const isSkillActive = activeSkills.includes(ach.id);
-
-                return (
-                  <div
-                    key={ach.id}
-                    className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
-                      isUnlocked
-                        ? 'bg-[#1a1713] border-[#d4af37]/60 shadow-[0_0_15px_rgba(212,175,55,0.1)]'
-                        : 'bg-[#0f0f12] border-stone-900 text-stone-600'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={`text-sm font-bold font-serif ${
-                            isUnlocked ? 'text-[#d4af37]' : 'text-stone-500'
-                          }`}
-                        >
-                          {isUnlocked ? `【${ach.title}】` : '【？？？？？】'}
-                        </span>
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${
-                            isUnlocked
-                              ? 'bg-amber-950 text-amber-300 border border-amber-800'
-                              : 'bg-stone-900 text-stone-600'
-                          }`}
-                        >
-                          {isUnlocked ? '已解鎖' : '未解鎖'}
-                        </span>
-                      </div>
-
-                      {/* Description / Condition: Unrevealed before unlocked */}
-                      <p className="text-xs text-stone-300 mt-2 leading-relaxed font-sans">
-                        {isUnlocked ? ach.description : '解鎖條件：？？？？？？？？？？'}
-                      </p>
-
-                      {/* Reward / Skill Effect: Unrevealed before unlocked */}
-                      <div className="mt-2.5 text-xs text-amber-300/90 bg-black/40 p-2.5 rounded-lg border border-stone-800/80">
-                        <span className="font-bold text-amber-400 mr-1">技能效果：</span>
-                        {isUnlocked ? ach.rewardDescription : '？？？？？？？？'}
-                      </div>
-                    </div>
-
-                    {/* Skill Activation Toggle (成就可作為技能選擇是否啟動) */}
-                    {isUnlocked && (
-                      <div className="mt-3 pt-2.5 border-t border-stone-800/80 flex items-center justify-between">
-                        <span className="text-[11px] text-stone-400 font-sans">
-                          當前技能狀態：
-                          <span className={isSkillActive ? 'text-emerald-400 font-bold ml-1' : 'text-stone-500 ml-1'}>
-                            {isSkillActive ? '生效中' : '未啟動'}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-2.5">
+                {sortedCards.map((card) => {
+                  const unlocked = effectiveUnlockedCardIds.includes(card.id);
+                  return (
+                    <div
+                      key={card.id}
+                      onClick={() => unlocked && setPreviewCard(card)}
+                      className={`p-3 rounded-xl border flex flex-col justify-between min-h-[100px] transition-all select-none ${
+                        unlocked
+                          ? 'bg-[#18171d] border-amber-900/60 text-stone-200 shadow-sm cursor-pointer hover:border-amber-400 hover:bg-[#23202c] hover:scale-[1.03] active:scale-[0.98]'
+                          : 'bg-[#0d0d10] border-stone-900/90 text-stone-600 cursor-not-allowed'
+                      }`}
+                      title={unlocked ? `點擊鑑賞《${card.name}》卡牌全貌與經典旋律` : '未解鎖歌曲'}
+                    >
+                      {/* Top: Card Name (full width, prominent) */}
+                      <div className="w-full">
+                        <div className="flex items-center justify-between gap-1">
+                          <span
+                            className={`text-xs font-bold font-serif leading-snug block truncate ${
+                              unlocked ? 'text-amber-100' : 'text-stone-600'
+                            }`}
+                          >
+                            {unlocked ? card.name : '？？？？'}
                           </span>
+                          {unlocked && (
+                            <span className="text-[10px] text-amber-400/80 shrink-0 font-sans" title="點擊預覽全貌">
+                              🔍
+                            </span>
+                          )}
+                        </div>
+                        {/* Album Name moved below card name so it never squeezes or truncates the title */}
+                        <span className="text-[10px] text-stone-400 font-sans block truncate mt-1">
+                          {card.album}
                         </span>
-                        <button
-                          onClick={() => onToggleSkill?.(ach.id)}
-                          className={`text-xs px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                            isSkillActive
-                              ? 'bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 border border-emerald-700'
-                              : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-700'
-                          }`}
-                        >
-                          {isSkillActive ? '關閉技能' : '啟動技能'}
-                        </button>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+
+                      {/* Bottom: Card ID & Track Number */}
+                      <div className="flex justify-between items-end text-[10px] text-stone-500 font-mono pt-1.5 border-t border-stone-800/50 mt-1">
+                        <span>{card.id}</span>
+                        <span className={unlocked ? 'text-amber-400/90 font-bold' : 'text-stone-600'}>
+                          {unlocked ? `第${card.track}首` : '未解鎖'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
+
+          {/* TAB: 角色化身圖鑑 */}
+          {activeTab === 'characters' && (
+            <div className="flex flex-col gap-4">
+              <div className="text-xs text-stone-400 bg-stone-900/70 p-3 rounded-xl border border-stone-800 leading-relaxed flex items-center justify-between">
+                <span>✦ 記錄你在音樂時空中覺醒並抽取過的所有命運角色化身，檢視角色基本資訊與收藏狀態。</span>
+                <span className="text-amber-400 font-mono font-bold">
+                  解鎖進度：{unlockedCharacterIds.length} / {ALL_CHARACTERS.length}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {ALL_CHARACTERS.map((char) => {
+                  const isUnlocked = unlockedCharacterIds.includes(char.id);
+                  return (
+                    <div
+                      key={char.id}
+                      className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                        isUnlocked
+                          ? 'bg-[#18171d] border-amber-500/50 shadow-md hover:border-amber-400'
+                          : 'bg-[#101014] border-stone-800 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 border ${
+                            isUnlocked
+                              ? `bg-gradient-to-br ${char.avatarColor} border-white/20 shadow-md`
+                              : 'bg-stone-900 border-stone-700 text-stone-600'
+                          }`}
+                        >
+                          {isUnlocked ? (
+                            <CharacterAvatarIcon character={char} size="lg" />
+                          ) : (
+                            <span className="text-xl font-bold font-serif text-stone-600">？</span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-base font-black text-stone-100 font-serif">
+                              {isUnlocked ? char.name : '未知化身'}
+                            </span>
+                            {char.isSecret && (
+                              <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded font-mono">
+                                傳奇
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-[#d4af37] font-sans truncate">
+                            {isUnlocked ? char.title : '？？？？？？'}
+                          </span>
+                          <span className="text-[10px] text-stone-500 font-mono mt-0.5">
+                            初始 AP：{isUnlocked ? char.startingAp : '??'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-2.5 border-t border-stone-800/80 flex flex-col gap-2">
+                        <p className="text-xs text-stone-300 leading-relaxed font-sans min-h-[38px]">
+                          {isUnlocked
+                            ? char.description
+                            : '於開局命運召喚、冒險事件共鳴或傳奇進化中解鎖此角色。'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: 成就技能 */}
+          {activeTab === 'achievements' && (() => {
+            const hasVideoTape = Boolean(
+              (gameState.inventory && (gameState.inventory['免費教學錄影帶'] || 0) > 0) ||
+              (meta.unlockedCardIds && meta.unlockedCardIds.includes('C2010-04'))
+            );
+
+            return (
+              <div className="flex flex-col gap-3">
+                {hasVideoTape && (
+                  <div className="px-3.5 py-2 rounded-xl bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs flex items-center justify-between shadow-sm">
+                    <span className="flex items-center gap-2">
+                      <span className="text-base">📼</span>
+                      <span>
+                        【免費教學錄影帶】成就名稱已完全揭示！
+                      </span>
+                    </span>
+                    <span className="text-[10px] font-mono text-amber-400 bg-amber-900/50 px-2 py-0.5 rounded border border-amber-700/50">
+                      成就名稱已公開
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {ALL_ACHIEVEMENTS.map((ach) => {
+                    const isUnlocked = meta.unlockedAchievements.includes(ach.id);
+                    const isSkillActive = activeSkills.includes(ach.id);
+                    // 1. 成就名稱：預設隱藏(【？？？？？】)，獲得「免費教學錄影帶」或成就已達成解鎖後顯示
+                    const showTitle = isUnlocked || hasVideoTape;
+                    // 2. 達成條件：預設隱藏(？？？？？？？？？？)，保留此項待未來新增特殊機制；已達成解鎖者正常呈現
+                    const showCondition = isUnlocked;
+
+                    return (
+                      <div
+                        key={ach.id}
+                        className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                          isUnlocked
+                            ? 'bg-[#1a1713] border-[#d4af37]/60 shadow-[0_0_15px_rgba(212,175,55,0.1)]'
+                            : 'bg-[#0f0f12] border-stone-800 text-stone-300'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between">
+                            {/* 1. 成就名稱 */}
+                            <span
+                              className={`text-sm font-bold font-serif ${
+                                isUnlocked
+                                  ? 'text-[#d4af37]'
+                                  : showTitle
+                                  ? 'text-stone-200'
+                                  : 'text-stone-500'
+                              }`}
+                            >
+                              {showTitle ? `【${ach.title}】` : '【？？？？？】'}
+                            </span>
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${
+                                isUnlocked
+                                  ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                  : 'bg-stone-900 text-stone-500'
+                              }`}
+                            >
+                              {isUnlocked ? '已解鎖' : '未解鎖'}
+                            </span>
+                          </div>
+
+                          {/* 2. 成就達成條件：先隱藏(???)，未來新增顯示機制；收集完成(解鎖)後顯示 */}
+                          <p className="text-xs text-stone-300 mt-2 leading-relaxed font-sans">
+                            {showCondition ? ach.description : '？？？？？？？？？？'}
+                          </p>
+
+                          {/* 3. 成就啟用效果：保持隱藏(???)，收集達成後方可顯示 */}
+                          <div className="mt-2.5 text-xs text-amber-300/90 bg-black/40 p-2.5 rounded-lg border border-stone-800/80">
+                            <span className="font-bold text-amber-400 mr-1">成就啟用效果：</span>
+                            {isUnlocked ? ach.rewardDescription : '？？？？？？？？'}
+                          </div>
+                        </div>
+
+                        {/* Skill Activation Toggle (成就可作為技能選擇是否啟動) */}
+                        {isUnlocked && (
+                          <div className="mt-3 pt-2.5 border-t border-stone-800/80 flex items-center justify-between">
+                            <span className="text-[11px] text-stone-400 font-sans">
+                              當前技能狀態：
+                              <span className={isSkillActive ? 'text-emerald-400 font-bold ml-1' : 'text-stone-500 ml-1'}>
+                                {isSkillActive ? '生效中' : '未啟動'}
+                              </span>
+                            </span>
+                            <button
+                              onClick={() => onToggleSkill?.(ach.id)}
+                              className={`text-xs px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer shadow-sm ${
+                                isSkillActive
+                                  ? 'bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-black border border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.4)]'
+                                  : 'bg-cyan-950/80 hover:bg-cyan-900 text-cyan-200 border border-cyan-600/80 shadow-[0_0_8px_rgba(6,182,212,0.25)]'
+                              }`}
+                            >
+                              {isSkillActive ? '✓ 已啟用技能（點擊關閉）' : '啟動技能'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* TAB 3: 劇情日記 */}
           {activeTab === 'diaries' && (
@@ -480,8 +653,8 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
                   {
                     key: '周杰倫家庭',
                     title: '🏠《周杰倫家庭》路線',
-                    desc: '感應深厚的親情羈絆，集齊外婆、媽媽、爸爸、女兒殿下等全家族主題經典樂章。',
-                    conditionHint: '全員親情樂章相聚',
+                    desc: '以愛為名的宿命追尋，集齊父、母、外婆、爺爺、大女兒、兒子、小女兒、娘子等全員親情主題樂章，並於《I Do》神聖誓約下達成圓滿傳奇。',
+                    conditionHint: '集齊全員家庭樂章與《I Do》',
                     badgeColor: 'border-rose-600/70 bg-rose-950/20',
                   },
                 ].map((route) => {
@@ -693,6 +866,28 @@ export const CompendiumModal: React.FC<CompendiumModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* 點擊圖鑑卡牌鑑賞視窗 (Card Preview Modal) */}
+      {previewCard && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setPreviewCard(null);
+            }
+          }}
+        >
+          <div className="relative w-full max-w-lg sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-2xl">
+            <CardDisplay
+              card={previewCard}
+              gameState={gameState}
+              isPreview={true}
+              onSelectOption={() => {}}
+              onClose={() => setPreviewCard(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

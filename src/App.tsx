@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   GameState,
   MetaProgress,
@@ -10,7 +10,7 @@ import {
   SettlementRecord,
   LogEntry,
 } from './types';
-import { CARD_DATABASE } from './data/cards';
+import { CARD_DATABASE, getCardItemNames, getCardIdByItemName } from './data/cards';
 import { INITIAL_SELECTABLE_CHARACTERS, ALL_CHARACTERS } from './data/characters';
 import { ALL_ACHIEVEMENTS } from './data/achievements';
 import { MysteryCard } from './components/MysteryCard';
@@ -19,17 +19,74 @@ import { CharacterPanel } from './components/CharacterPanel';
 import { InventoryGrid } from './components/InventoryGrid';
 import { AdventureLog } from './components/AdventureLog';
 import { BossBattleView } from './components/BossBattleView';
-import { CompendiumModal } from './components/CompendiumModal';
+import { CompendiumModal, CHARACTER_SONG_MAPPING } from './components/CompendiumModal';
 import { DevModal } from './components/DevModal';
 import { GameOverModal } from './components/GameOverModal';
 import { HallOfFameModal } from './components/HallOfFameModal';
 import { CharacterAvatarIcon } from './components/CharacterAvatarIcon';
 import { BlacksmithModal } from './components/BlacksmithModal';
+import { TerraceModal } from './components/TerraceModal';
 import { CardShowcaseModal } from './components/CardShowcaseModal';
 import { RewindNotificationModal } from './components/RewindNotificationModal';
+import { RomanticPhoneModal } from './components/RomanticPhoneModal';
+import { GoldTownDigModal, GoldTownReward } from './components/GoldTownDigModal';
+import { GoldCoinIcon } from './components/GoldCoinIcon';
+import { NinjaIcon } from './components/NinjaIcon';
+import { NunchakuIcon } from './components/NunchakuIcon';
+import { ShovelIcon } from './components/ShovelIcon';
 import { getSettlementGrade } from './utils/exportSettlement';
+import { getCarnivalStageData } from './data/carnival';
 
 const STORAGE_KEY_META = 'jay_chou_rpg_meta_v1';
+
+/**
+ * 依據失去/被偷/燒毀的物品名稱，恢復對應卡牌的當局抽取上限額度
+ */
+export function restoreCardQuotaOnItemLost(
+  itemName: string,
+  drawnCount: Record<string, number>,
+  peninsulaCounts?: Record<string, number>,
+  count: number = 1
+): { nextDrawnCount: Record<string, number>; nextPeninsulaCounts: Record<string, number> } {
+  const cardId = getCardIdByItemName(itemName);
+  const nextDrawn = { ...drawnCount };
+  const nextPen = { ...(peninsulaCounts || {}) };
+  if (!cardId) {
+    return { nextDrawnCount: nextDrawn, nextPeninsulaCounts: nextPen };
+  }
+  let remainingToRestore = count;
+  // 若該物品在開局由半島鐵盒繼承而佔據了名額，先扣除繼承佔額
+  if ((nextPen[cardId] || 0) > 0) {
+    const deduct = Math.min(nextPen[cardId], remainingToRestore);
+    nextPen[cardId] = Math.max(0, nextPen[cardId] - deduct);
+    remainingToRestore -= deduct;
+  }
+  // 若當局曾抽取過，再扣除當局已抽取次數，恢復抽取上限
+  if (remainingToRestore > 0 && (nextDrawn[cardId] || 0) > 0) {
+    const deduct = Math.min(nextDrawn[cardId], remainingToRestore);
+    nextDrawn[cardId] = Math.max(0, nextDrawn[cardId] - deduct);
+  }
+  return { nextDrawnCount: nextDrawn, nextPeninsulaCounts: nextPen };
+}
+
+/**
+ * 判定物品是否為「紙類物品」（在下雨天環境下每回合有機率被雨水淋濕損毀）
+ */
+export function isPaperItem(name: string): boolean {
+  const paperItems = new Set([
+    '蘭亭序', // 晉朝書法紙張墨寶
+    '手寫的從前', // 手寫信紙
+    '超跑女神指引的賽道', // 紙質賽道地圖指引
+    '床邊故事', // 故事書冊
+    '愛的飛行日記', // 日記本
+    '第一頁', // 鐵盒書頁紙張
+    '第六頁', // 鐵盒書頁紙張
+    '第七頁', // 鐵盒書頁紙張
+    '序', // 鐵盒前言書頁
+    '廢紙', // 淘金小鎮廢紙（雨天消耗/替死）
+  ]);
+  return paperItems.has(name);
+}
 
 export default function App() {
   // Load or initialize Meta progress
@@ -37,7 +94,23 @@ export default function App() {
     const saved = localStorage.getItem(STORAGE_KEY_META);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        return {
+          unlockedCardIds: parsed.unlockedCardIds || [],
+          unlockedAchievements: parsed.unlockedAchievements || [],
+          activeSkills: parsed.activeSkills || [],
+          unlockedDiaries: parsed.unlockedDiaries || [],
+          ironBoxItems: parsed.ironBoxItems || [],
+          ironBoxPages: parsed.ironBoxPages || {},
+          ironBoxRetainedCharacter: parsed.ironBoxRetainedCharacter || null,
+          pastGamesCount: parsed.pastGamesCount || 1,
+          totalRoundsPlayed: parsed.totalRoundsPlayed || 0,
+          victories: parsed.victories || [],
+          routeVictoryRecords: parsed.routeVictoryRecords || {},
+          nextGameFlags: parsed.nextGameFlags || {},
+          gameHistories: parsed.gameHistories || [],
+          settlementHistory: parsed.settlementHistory || [],
+        };
       } catch (e) {
         console.error('Failed to parse meta progress', e);
       }
@@ -45,11 +118,18 @@ export default function App() {
     return {
       unlockedCardIds: [],
       unlockedAchievements: [],
+      activeSkills: [],
       unlockedDiaries: [],
       ironBoxItems: [],
+      ironBoxPages: {},
+      ironBoxRetainedCharacter: null,
       pastGamesCount: 1,
+      totalRoundsPlayed: 0,
       victories: [],
+      routeVictoryRecords: {},
       nextGameFlags: {},
+      gameHistories: [],
+      settlementHistory: [],
     };
   });
 
@@ -67,14 +147,22 @@ export default function App() {
       character: null,
       inventory: {},
       drawnCount: {},
+      peninsulaInheritedCounts: {},
       flags: {},
       jokerSlots: { place: null, shoes: null, performance: null },
       reversedClockUsesRemaining: 3,
-      stats: { ap: 15 },
+      stats: { ap: 15, coins: 0 },
       ninjaChasing: false,
       ninjaNextEncounterRound: null,
       fireworksBurning: false,
+      headacheActive: false,
+      rainyWeatherActive: false,
+      drenchedItemNotice: null,
       blacksmithUnlocked: false,
+      goldTownUnlocked: false,
+      terraceUnlocked: false,
+      romanticPhoneUnlocked: false,
+      terracePlot: { targetCrop: null, step: 'idle' },
       logs: [
         {
           round: 0,
@@ -91,10 +179,17 @@ export default function App() {
   // Modals state
   const [showCompendium, setShowCompendium] = useState<boolean>(false);
   const [showBlacksmithModal, setShowBlacksmithModal] = useState<boolean>(false);
+  const [showTerraceModal, setShowTerraceModal] = useState<boolean>(false);
+  const [showRomanticPhoneModal, setShowRomanticPhoneModal] = useState<boolean>(false);
+  const [showGoldTownDigModal, setShowGoldTownDigModal] = useState<boolean>(false);
+  const [showGoldTownConfirmModal, setShowGoldTownConfirmModal] = useState<boolean>(false);
+  const [isGoldTownFromRevealedCard, setIsGoldTownFromRevealedCard] = useState<boolean>(false);
   const [showGuideBlacksmithModal, setShowGuideBlacksmithModal] = useState<boolean>(false);
   const [showExchangeInstrumentModal, setShowExchangeInstrumentModal] = useState<boolean>(false);
   const [showUpgradeClockModal, setShowUpgradeClockModal] = useState<boolean>(false);
   const [showUpgradeTimeMachineModal, setShowUpgradeTimeMachineModal] = useState<boolean>(false);
+  const [showUpgradeShovelModal, setShowUpgradeShovelModal] = useState<boolean>(false);
+  const [showExpandIronBoxModal, setShowExpandIronBoxModal] = useState<boolean>(false);
   const [showFlightTimeMachineModal, setShowFlightTimeMachineModal] = useState<boolean>(false);
   const [selectedFlightRound, setSelectedFlightRound] = useState<number>(1);
   const [showWeaponChoiceModal, setShowWeaponChoiceModal] = useState<boolean>(false);
@@ -103,6 +198,7 @@ export default function App() {
   const [showDevModal, setShowDevModal] = useState<boolean>(false);
   const [showcaseCard, setShowcaseCard] = useState<CardDefinition | null>(null);
   const [showcaseSource, setShowcaseSource] = useState<string>('米蘭小鐵鋪慢火熬製');
+  const [showcaseBadgeTitle, setShowcaseBadgeTitle] = useState<string | undefined>(undefined);
   const [showcaseOnClose, setShowcaseOnClose] = useState<(() => void) | null>(null);
   const [showDevPasswordModal, setShowDevPasswordModal] = useState<boolean>(false);
   const [isDevAuthenticated, setIsDevAuthenticated] = useState<boolean>(() => {
@@ -114,9 +210,10 @@ export default function App() {
   });
   const [devPasswordInput, setDevPasswordInput] = useState<string>('');
   const [devPasswordError, setDevPasswordError] = useState<string>('');
-  const [showWipeMemoryModal, setShowWipeMemoryModal] = useState<boolean>(false);
   const [pendingCharacter, setPendingCharacter] = useState<CharacterDefinition | null>(null);
+  const [isDrawingCharacterAnimation, setIsDrawingCharacterAnimation] = useState<boolean>(false);
   const [showCharConfirmModal, setShowCharConfirmModal] = useState<boolean>(false);
+  const [showHeardRainNoticeModal, setShowHeardRainNoticeModal] = useState<boolean>(false);
   const [showApExhaustedModal, setShowApExhaustedModal] = useState<boolean>(false);
   const [showGeneralEncounterModal, setShowGeneralEncounterModal] = useState<boolean>(false);
   const [showUnopenedLetterAmbushModal, setShowUnopenedLetterAmbushModal] = useState<boolean>(false);
@@ -155,10 +252,27 @@ export default function App() {
     isAmbushBattle: boolean;
   } | null>(null);
 
-  // 半島鐵盒：當局回合耗盡時詢問繼承 5 樣卡牌至下一局 (NG)
+  const BASE_IRON_BOX_CAPACITY = 5;
+
+  const getIronBoxCapacity = useCallback(
+    (pages?: MetaProgress['ironBoxPages']) => {
+      const p = pages || meta.ironBoxPages || {};
+      let cap = BASE_IRON_BOX_CAPACITY;
+      if (p.firstPage) cap += 1;
+      if (p.sixthPage) cap += 6;
+      if (p.seventhPage) cap += 7;
+      return cap;
+    },
+    [meta.ironBoxPages]
+  );
+
+  // 半島鐵盒：當局結束時詢問挑選卡牌道具封存跨局繼承
   const [showIronBoxInheritModal, setShowIronBoxInheritModal] = useState<boolean>(false);
   const [selectedIronBoxItems, setSelectedIronBoxItems] = useState<string[]>([]);
-  const [pendingNextGameCallback, setPendingNextGameCallback] = useState<(() => void) | null>(null);
+  const [retainCharacterInNextGame, setRetainCharacterInNextGame] = useState<boolean>(false);
+  const [pendingNextGameCallback, setPendingNextGameCallback] = useState<
+    ((inherited?: string[], retainChar?: boolean) => void) | null
+  >(null);
 
   // 周董經典口頭禪彩蛋狀態
   const [jayQuote, setJayQuote] = useState<string | null>(null);
@@ -217,11 +331,6 @@ export default function App() {
     []
   );
 
-  // 煙火燃燒通知訊息設定函式
-  const setBurntItemNotice = useCallback((notice: string | null) => {
-    setGameState((prev) => ({ ...prev, burntItemNotice: notice }));
-  }, []);
-
   // 煙火燃燒通知訊息自動倒數關閉
   // 【修改秒數位置】：底下的 2000 代表 2 秒（毫秒制，1000 = 1 秒），若要改為 3 秒改為 3000，以此類推
   useEffect(() => {
@@ -232,6 +341,49 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [gameState.burntItemNotice]);
+
+  // 雨水淋濕通知訊息自動倒數關閉（3 秒）
+  useEffect(() => {
+    if (gameState.drenchedItemNotice) {
+      const timer = setTimeout(() => {
+        setGameState((prev) => (prev.drenchedItemNotice ? { ...prev, drenchedItemNotice: null } : prev));
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState.drenchedItemNotice]);
+
+  // 聽見下雨的聲音過場提醒視窗：抽卡階段且達成下雨滿 5 回合連動準備就緒時，跳出提醒視窗
+  useEffect(() => {
+    if (
+      gameState.phase === 'DRAW_THREE' &&
+      gameState.flags['rain_heard_sound_ready'] &&
+      !gameState.flags['rain_heard_sound_notified']
+    ) {
+      setGameState((prev) => ({
+        ...prev,
+        flags: {
+          ...prev.flags,
+          rain_heard_sound_notified: true,
+        },
+      }));
+      setShowHeardRainNoticeModal(true);
+    }
+  }, [gameState.phase, gameState.flags]);
+
+  // 公公偏頭痛不存於行囊：清理任何歷史殘留的「公公偏頭痛」行囊道具
+  useEffect(() => {
+    if (gameState.inventory['公公偏頭痛']) {
+      setGameState((prev) => {
+        const nextInv = { ...prev.inventory };
+        delete nextInv['公公偏頭痛'];
+        return {
+          ...prev,
+          inventory: nextInv,
+          itemAcquisitionOrder: (prev.itemAcquisitionOrder || []).filter((k) => k !== '公公偏頭痛'),
+        };
+      });
+    }
+  }, [gameState.inventory]);
 
   // 追逐忍者獨立計時器：以 0.5~1.5 秒隨機速度推進忍者回合數
   // 【修改秒數位置】：若要調整忍者前進秒數，可修改底下的 randomDelay 計算方式
@@ -291,7 +443,12 @@ export default function App() {
       const newlyUnlocked: string[] = [];
       ALL_ACHIEVEMENTS.forEach((ach) => {
         if (!prevMeta.unlockedAchievements.includes(ach.id)) {
-          const hasAll = ach.requiredCards.every((cardName) => (inventory[cardName] || 0) > 0);
+          const hasAll = ach.requiredCards.every((cardName) => {
+            if ((inventory[cardName] || 0) > 0) return true;
+            const cardDef = CARD_DATABASE.find((c) => c.name === cardName || c.id === cardName);
+            if (cardDef && prevMeta.unlockedCardIds.includes(cardDef.id)) return true;
+            return false;
+          });
           if (hasAll) {
             newlyUnlocked.push(ach.id);
           }
@@ -311,6 +468,29 @@ export default function App() {
         };
       }
       return prevMeta;
+    });
+  }, [addLog]);
+
+  // Toggle achievement skill active state (在全域圖鑑中自由開關)
+  const handleToggleSkill = useCallback((skillId: string) => {
+    setMeta((prev) => {
+      const currentActive = prev.activeSkills || [];
+      const isCurrentlyActive = currentActive.includes(skillId);
+      const nextActive = isCurrentlyActive
+        ? currentActive.filter((id) => id !== skillId)
+        : [...currentActive, skillId];
+      const ach = ALL_ACHIEVEMENTS.find((a) => a.id === skillId);
+      if (ach) {
+        if (!isCurrentlyActive) {
+          addLog(`✦ 已啟用成就技能【${ach.title}】！效果：${ach.rewardDescription}`, 'milestone');
+        } else {
+          addLog(`✦ 已停用成就技能【${ach.title}】。`, 'action');
+        }
+      }
+      return {
+        ...prev,
+        activeSkills: nextActive,
+      };
     });
   }, [addLog]);
 
@@ -334,6 +514,16 @@ export default function App() {
         if (card.id === 'C2002-09' && (state.blacksmithUnlocked || state.flags['blacksmith_unlocked'])) {
           return false;
         }
+        // 淘金小鎮 (C2026-11) 特殊規則：
+        // 若淘金小鎮已常駐開放，在路上絕不再重複遭遇淘金小鎮
+        if (card.id === 'C2026-11' && (state.goldTownUnlocked || state.flags['gold_town_unlocked'])) {
+          return false;
+        }
+        // 梯田 (C2003-10) 特殊規則：
+        // 若梯田已解鎖為常駐環境，在路上絕不再重複抽到
+        if (card.id === 'C2003-10' && (state.terraceUnlocked || state.flags['terrace_unlocked'])) {
+          return false;
+        }
         // 鄉間的路 (C2026-12) 特殊規則：
         // 若小鐵鋪已開立定居，或者行囊已有【鄉間的路】，在路上絕不再重複抽到
         if (card.id === 'C2026-12' && (state.blacksmithUnlocked || state.flags['blacksmith_unlocked'] || (state.inventory['鄉間的路'] || 0) > 0)) {
@@ -344,9 +534,27 @@ export default function App() {
         if (card.id === 'C2016-02' && (!(state.blacksmithUnlocked || state.flags['blacksmith_unlocked']) || (state.inventory['說走就走'] || 0) > 0)) {
           return false;
         }
-        // 2. Max draws check
-        const alreadyDrawn = state.drawnCount[card.id] || 0;
-        if (alreadyDrawn >= card.maxDraws) {
+        // 2. Max draws check & 半島鐵盒繼承 / 行囊持有上限檢查
+        // 計算該卡牌關聯物品在當前行囊中的持有數量
+        const itemNames = getCardItemNames(card);
+        const heldCount = itemNames.reduce(
+          (sum, name) => sum + (state.inventory[name] || 0),
+          0
+        );
+
+        // A. 若行囊中持有的數量已達該卡牌上限（例如由半島鐵盒帶入、或當局已取得並保留），卡池絕不再出現
+        if (heldCount >= card.maxDraws) {
+          return false;
+        }
+
+        // B. 計算半島鐵盒在開局佔據的名額
+        const peninsulaInherited = (state.peninsulaInheritedCounts && state.peninsulaInheritedCounts[card.id]) || 0;
+        const allowedDrawsThisRun = Math.max(0, card.maxDraws - peninsulaInherited);
+        const alreadyDrawnThisRun = state.drawnCount[card.id] || 0;
+
+        // 若當局抽取次數已達「扣除半島鐵盒後」的剩餘上限，不再出現
+        // 例如：上限 2 張，半島鐵盒帶 1 張，當局已抽 1 次，則不再出現
+        if (alreadyDrawnThisRun >= allowedDrawsThisRun) {
           return false;
         }
         // 3. Weight check (weight <= 0 cannot be drawn normally, unless specifically triggered like 最後的戰役 in 亂舞春秋)
@@ -461,6 +669,22 @@ export default function App() {
           burntItemNotice: null,
         };
 
+        // 梯田環境生長累積制（經歷滿 5 回合成熟）
+        // 若時間往前推進 (targetRound > prev.round)，累計經過的回合差 (delta)；
+        // 若時空倒流（反方向的鐘或跳轉更早回合），作物已生長之進度保留不回退！
+        if (nextState.terracePlot && nextState.terracePlot.step === 'watered') {
+          const delta = targetRound > prev.round ? targetRound - prev.round : 0;
+          if (delta > 0) {
+            const currentGrowth = Number(nextState.terracePlot.growthRounds || 0);
+            const nextGrowth = Math.min(5, currentGrowth + delta);
+            nextState.terracePlot = {
+              ...nextState.terracePlot,
+              growthRounds: nextGrowth,
+              requiredRounds: 5,
+            };
+          }
+        }
+
         // 煙火燃燒環境效果：每過三回合，於回合開始時會隨機燒掉行囊中一個東西(移除該物品)，並跳出燒毀通知
         if (nextState.fireworksBurning && nextState.inventory) {
           const currentTicks = Number(prev.flags['fireworks_burn_ticks'] || 0) + 1;
@@ -490,6 +714,15 @@ export default function App() {
               if (updatedInv[burnedItem] === 0) {
                 delete updatedInv[burnedItem];
               }
+              // 恢復被煙火燒毀物品的卡牌抽取上限額度
+              const quota = restoreCardQuotaOnItemLost(
+                burnedItem,
+                nextState.drawnCount,
+                nextState.peninsulaInheritedCounts,
+                1
+              );
+              nextState.drawnCount = quota.nextDrawnCount;
+              nextState.peninsulaInheritedCounts = quota.nextPeninsulaCounts;
               nextState.inventory = updatedInv;
               nextState.itemAcquisitionOrder = (nextState.itemAcquisitionOrder || Object.keys(updatedInv)).filter((k) => (updatedInv[k] || 0) > 0);
               pushRoundLog(`🔥【煙火燃燒通知】炙熱煙花已燃燒三回合，無情燒毀了行囊中的【${burnedItem}】！`, 'warning');
@@ -504,6 +737,66 @@ export default function App() {
           } else {
             pushRoundLog(`🔥【煙火燃燒】四周火星翻騰蔓延（每過三回合將燒毀一件行囊物品，目前已燃燒 ${currentTicks % 3}/3 回合）。`, 'action');
           }
+        }
+
+        // 偏頭痛環境提醒：偏頭痛發作中，每次抽卡行動力消耗 -2
+        const isHeadache = Boolean(nextState.headacheActive || nextState.flags['headache_active']);
+        if (isHeadache && targetRound > 1) {
+          pushRoundLog(`🤕【偏頭痛狀態】「公公他偏頭痛，說銀子不夠用……」魔性旋律在腦海迴盪，本回合抽卡行動力消耗加倍（-2 行動力）！`, 'warning');
+        }
+
+        // 下雨天環境效果：只要行囊中有紙類物品，每一回合隨機被淋濕損毀一個
+        const isRainy = Boolean(nextState.rainyWeatherActive || nextState.flags['rainy_weather_active']);
+        let triggerHeardRainThisRound = false;
+
+        if (isRainy) {
+          const alreadyHasHeardRain = Boolean(
+            (nextState.inventory && (nextState.inventory['聽見下雨的聲音'] || 0) > 0) ||
+            (nextState.drawnCount && (nextState.drawnCount['C2014-12'] || 0) > 0) ||
+            nextState.flags['heard_rain_triggered']
+          );
+
+          if (
+            !alreadyHasHeardRain &&
+            (Boolean(nextState.flags['pending_heard_rain_trigger']) ||
+             Boolean(nextState.flags['rain_heard_sound_ready']) ||
+             Number(nextState.flags['rain_completed_rounds'] || 0) >= 5 ||
+             Number(nextState.flags['rainy_rounds_count'] || 0) >= 5)
+          ) {
+            triggerHeardRainThisRound = true;
+          }
+
+          if (nextState.inventory) {
+            const paperKeys = Object.keys(nextState.inventory).filter(
+              (k) => (nextState.inventory[k] || 0) > 0 && isPaperItem(k)
+            );
+            if (paperKeys.length > 0) {
+              const drenchedItem = paperKeys[Math.floor(Math.random() * paperKeys.length)];
+              const updatedInv = { ...nextState.inventory };
+              updatedInv[drenchedItem] = Math.max(0, updatedInv[drenchedItem] - 1);
+              if (updatedInv[drenchedItem] === 0) {
+                delete updatedInv[drenchedItem];
+              }
+              const quota = restoreCardQuotaOnItemLost(
+                drenchedItem,
+                nextState.drawnCount,
+                nextState.peninsulaInheritedCounts,
+                1
+              );
+              nextState.drawnCount = quota.nextDrawnCount;
+              nextState.peninsulaInheritedCounts = quota.nextPeninsulaCounts;
+              nextState.inventory = updatedInv;
+              nextState.itemAcquisitionOrder = (nextState.itemAcquisitionOrder || Object.keys(updatedInv)).filter(
+                (k) => (updatedInv[k] || 0) > 0
+              );
+              pushRoundLog(`🌧️【雨水淋濕損毀】下雨天把行囊中的紙類物品【${drenchedItem}】淋濕損毀了！`, 'warning');
+              nextState.drenchedItemNotice = `下雨天，行囊中的紙類物品【${drenchedItem}】已被雨水淋濕損毀！`;
+            } else {
+              pushRoundLog('🌧️【下雨天狀態】陰雨綿綿，所幸行囊中沒有會淋濕損毀的紙類物品。', 'action');
+            }
+          }
+        } else {
+          nextState.flags['rainy_rounds_count'] = 0;
         }
 
         // 追逐忍者環境判定：如果玩家回合數追上忍者(相等即可)，觸發追上忍者特殊事件
@@ -535,18 +828,27 @@ export default function App() {
           pushRoundLog(`【追逐忍者】忍者正在前路狂奔（目前在第 ${currentNinjaTarget} 回合），請把握時間追上他！`, 'action');
         }
 
-        // 說走就走 (C2016-02) 回合開始提醒機制 (R+5 機制，R=抽到當回合，於 R+5 回合結束前觸發)：
-        const leaveRound = Number(nextState.flags['blacksmith_leave_round'] || 0);
-        if (nextState.blacksmithUnlocked && leaveRound > 0 && (nextState.inventory['說走就走'] || 0) > 0) {
-          if (targetRound < leaveRound) {
-            const remaining = leaveRound - targetRound;
+        // 說走就走 (C2016-02) 回合開始提醒機制 (累積經歷滿 5 個探索回合離開)：
+        const hasLeavePlan =
+          nextState.flags['blacksmith_leave_countdown'] !== undefined ||
+          nextState.flags['blacksmith_leave_elapsed'] !== undefined ||
+          Number(nextState.flags['blacksmith_leave_round'] || 0) > 0;
+        if (nextState.blacksmithUnlocked && hasLeavePlan && (nextState.inventory['說走就走'] || 0) > 0) {
+          const elapsed = Number(
+            nextState.flags['blacksmith_leave_elapsed'] ??
+            (nextState.flags['blacksmith_leave_round']
+              ? Math.max(0, 5 - Math.max(0, Number(nextState.flags['blacksmith_leave_round']) - targetRound))
+              : 0)
+          );
+          const remaining = Math.max(0, 5 - elapsed);
+          if (remaining > 1) {
             pushRoundLog(
-              `【說走就走】小鐵匠正收拾行囊，準備追尋遠方的自由……還有 ${remaining} 回合即將離開村莊！（或許在第 ${leaveRound} 回合結束前可以打消小鐵匠離開的念頭）`,
+              `【說走就走】小鐵匠正收拾行囊，準備追尋遠方的自由……還需經歷 ${remaining} 個探索回合即將離開村莊！（若要挽留，可將【說走就走】投入煙火焚毀）`,
               'warning'
             );
-          } else if (targetRound === leaveRound) {
+          } else if (remaining === 1) {
             pushRoundLog(
-              `【說走就走】第 ${leaveRound} 回合已至！小鐵匠已打包好行囊，本回合探索結束後即將動身啟程……（若要挽留，這是最後的機會！）`,
+              `【說走就走】小鐵匠已打包好行囊，這是留在村莊的最後 1 個探索回合！本回合探索結束後即將動身啟程……（若要挽留，這是最後的機會！）`,
               'warning'
             );
           }
@@ -582,6 +884,24 @@ export default function App() {
           };
         }
 
+        // 聽見下雨的聲音：下雨天持續 5 回合後，下一回合抽卡畫面只會有一張卡，100%是《聽見下雨的聲音》
+        if (triggerHeardRainThisRound) {
+          const heardRainCard = CARD_DATABASE.find((c) => c.id === 'C2014-12');
+          if (heardRainCard) {
+            pushRoundLog('🌧️【聽見下雨的聲音】在下雨天許久，你聽見了下雨的聲音……命運之牌已在雨幕中浮現！', 'milestone');
+            return {
+              ...nextState,
+              flags: {
+                ...nextState.flags,
+                pending_heard_rain_trigger: false,
+                rain_heard_sound_ready: true,
+              },
+              phase: 'DRAW_THREE',
+              currentDrawChoices: [heardRainCard],
+            };
+          }
+        }
+
         // Otherwise, prepare 3 mystery cards
         const choices = rollThreeCards(nextState, meta);
         return {
@@ -598,45 +918,42 @@ export default function App() {
   const handleSelectCharacter = (char: typeof INITIAL_SELECTABLE_CHARACTERS[0]) => {
     if (!char) return;
 
-    // Inherit iron box items from meta
-    const initialInventory: Record<string, number> = {};
-    const initialItemOrder: string[] = [];
-    if (meta.ironBoxItems && meta.ironBoxItems.length > 0) {
-      meta.ironBoxItems.forEach((item) => {
-        const actualItem = item === '飛行時光機' ? '時光機' : item;
-        initialInventory[actualItem] = (initialInventory[actualItem] || 0) + 1;
-        if (!initialItemOrder.includes(actualItem)) {
-          initialItemOrder.push(actualItem);
-        }
-      });
-      const displayNames = meta.ironBoxItems.map((it) =>
-        it === '飛行時光機' ? '時光機（由飛行時光機復原）' : it
-      );
-      addLog(`【半島鐵盒】跨局傳承生效，繼承了上一局封存的 ${displayNames.join('、')}！`, 'milestone');
-    }
-    // 繼承進行囊後清空暫存，每局 R30 結束時由當局持有狀態重新確認是否封存
-    setMeta((prev) => ({
-      ...prev,
-      ironBoxItems: [],
-    }));
+    // 記錄至角色化身圖鑑，並同步點亮周杰倫歌曲卡牌圖鑑（兩圖鑑並存雙向點亮）
+    const cardId = CHARACTER_SONG_MAPPING[char.id];
+    setMeta((prev) => {
+      const currentList = prev.unlockedCharacterIds || [];
+      const currentCards = prev.unlockedCardIds || [];
+      const nextCharList = currentList.includes(char.id) ? currentList : [...currentList, char.id];
+      const nextCardList = cardId && !currentCards.includes(cardId) ? [...currentCards, cardId] : currentCards;
+      return {
+        ...prev,
+        unlockedCharacterIds: nextCharList,
+        unlockedCardIds: nextCardList,
+      };
+    });
 
     // Next game flags inheritance
     const initialFlags: Record<string, boolean | string | number> = { ...meta.nextGameFlags };
 
+    const startingAp = char.startingAp ?? (char.name === '魔術先生' ? 10 : char.name === '流浪詩人' ? 20 : 15);
+
     setGameState((prev) => ({
       ...prev,
       character: char,
-      inventory: initialInventory,
-      itemAcquisitionOrder: initialItemOrder,
-      flags: initialFlags,
+      stats: { ...prev.stats, ap: startingAp },
+      // 行囊、道具順序與跨局額度已於進入當局/選角前由半島鐵盒直接置入行囊中，此處完整沿用
+      flags: { ...prev.flags, ...initialFlags },
       round: 1,
+      headacheActive: false,
+      fireworksBurning: false,
+      ninjaChasing: false,
+      ninjaNextEncounterRound: null,
       phase: 'DRAW_THREE',
       currentDrawChoices: rollThreeCards(
         {
           ...prev,
           character: char,
-          inventory: initialInventory,
-          flags: initialFlags,
+          flags: { ...prev.flags, ...initialFlags },
         },
         meta
       ),
@@ -656,12 +973,14 @@ export default function App() {
   const triggerCardShowcase = (
     cardId: string,
     sourceText?: string,
-    onCloseCallback?: () => void
+    onCloseCallback?: () => void,
+    customBadgeTitle?: string
   ) => {
     const card = CARD_DATABASE.find((c) => c.id === cardId);
     if (card) {
       setShowcaseCard(card);
       setShowcaseSource(sourceText || card.acquisitionSource || '特殊機制獲得');
+      setShowcaseBadgeTitle(customBadgeTitle || card.badgeTitle || undefined);
       setShowcaseOnClose(onCloseCallback ? () => onCloseCallback : null);
       // 同步解鎖圖鑑
       setMeta((prev) => {
@@ -676,6 +995,7 @@ export default function App() {
 
   const handleCloseShowcase = useCallback(() => {
     setShowcaseCard(null);
+    setShowcaseBadgeTitle(undefined);
     if (showcaseOnClose) {
       const cb = showcaseOnClose;
       setShowcaseOnClose(null);
@@ -701,16 +1021,30 @@ export default function App() {
 
     // 2. Add to meta unlocked cards
     setMeta((prev) => {
-      if (!prev.unlockedCardIds.includes(card.id)) {
-        return {
-          ...prev,
-          unlockedCardIds: [...prev.unlockedCardIds, card.id],
-        };
+      // 追逐忍者特殊規則：抽到"忍者"後展開追逐，只有追上且擊敗"忍者"後存於行囊也才會記錄於圖鑑
+      if (card.id === 'C2001-04') {
+        return prev;
       }
-      return prev;
+      // 外婆特殊機制：現階段無論選擇哪個選項都無法獲得此卡牌，不存於行囊、不開啟圖鑑
+      if (card.id === 'C2004-04') {
+        return prev;
+      }
+      const curCards = prev.unlockedCardIds || [];
+      const nextCards = curCards.includes(card.id) ? curCards : [...curCards, card.id];
+      const curChars = prev.unlockedCharacterIds || [];
+      let nextChars = curChars;
+      const matchingChar = Object.entries(CHARACTER_SONG_MAPPING).find(([, cId]) => cId === card.id);
+      if (matchingChar && !curChars.includes(matchingChar[0])) {
+        nextChars = [...curChars, matchingChar[0]];
+      }
+      return {
+        ...prev,
+        unlockedCardIds: nextCards,
+        unlockedCharacterIds: nextChars,
+      };
     });
 
-    // 專屬合成卡牌（如 C2005-09 麥芽糖）：統一展示新卡牌全貌畫面 (CardShowcaseModal)，永不進入舊卡翻牌畫面
+    // 專屬特殊/合成卡牌（如 聽見下雨的聲音、麥芽糖、療傷燒肉粽、大笨鐘、青花瓷、蘭亭序等）：統一展示新卡牌全貌畫面 (CardShowcaseModal)
     if (card.isSynthesizedOnly) {
       setGameState((prev) => {
         const nextInv = { ...prev.inventory };
@@ -719,16 +1053,26 @@ export default function App() {
         const nextOrder = currentOrder.includes(card.name)
           ? currentOrder
           : [...currentOrder, card.name];
+        const nextFlags = { ...prev.flags };
+        if (card.id === 'C2014-12') {
+          nextFlags['heard_rain_triggered'] = true;
+          nextFlags['pending_heard_rain_trigger'] = false;
+          nextFlags['rain_heard_sound_ready'] = false;
+        }
         return {
           ...prev,
+          flags: nextFlags,
           drawnCount: nextDrawnCount,
           inventory: nextInv,
           itemAcquisitionOrder: nextOrder,
         };
       });
 
-      addLog(`【專屬合成獲得】獲得卡牌【${card.name}】！已直接收入行囊。`, 'milestone');
-      triggerCardShowcase(card.id, card.acquisitionSource || '米蘭的小鐵匠慢火熬製');
+      addLog(`【特殊卡牌獲得】獲得卡牌【${card.name}】！已直接收入行囊並點亮音樂圖鑑。`, 'milestone');
+      triggerCardShowcase(card.id, card.acquisitionSource || '特殊機制獲得', () => {
+        // 點擊確認收入行囊後，順暢邁入下一回合抽卡！
+        startNewRound(gameState.round + 1);
+      });
       return;
     }
 
@@ -740,12 +1084,22 @@ export default function App() {
       triggerJayQuote();
     }
 
+    const initialRevealedCard =
+      card.id === 'C2004-09'
+        ? {
+            ...card,
+            flavorText: getCarnivalStageData('carnival_layer_1', gameState.flags).flavorText,
+            options: getCarnivalStageData('carnival_layer_1', gameState.flags).options,
+          }
+        : card;
+
     // 3. Reveal this card ONLY (the other 2 remain mystery cards, never spoiled!)
     setGameState((prev) => ({
       ...prev,
       drawnCount: nextDrawnCount,
-      revealedCard: card,
+      revealedCard: initialRevealedCard,
       phase: 'REVEAL_CARD',
+      flags: card.id === 'C2004-09' ? { ...prev.flags, carnival_layer: 'carnival_layer_1' } : prev.flags,
     }));
   };
 
@@ -755,6 +1109,12 @@ export default function App() {
 
     const card = gameState.revealedCard;
     let option = card.options && card.options[optionIndex];
+
+    if (card.id === 'C2004-09') {
+      const currentLayer = (gameState.flags['carnival_layer'] as string) || 'carnival_layer_1';
+      const stageData = getCarnivalStageData(currentLayer, gameState.flags);
+      option = stageData.options[optionIndex] || stageData.options[0];
+    }
 
     // 針對龍戰騎士 (C2008-01) 無道具可選時的正面受擊選項 (-2)
     if (optionIndex === -2 && card.id === 'C2008-01') {
@@ -792,15 +1152,33 @@ export default function App() {
     let optionResultText = option.resultText;
     let effectiveForceNextCardId = eff?.forceNextCardId;
     const badges: { label: string; value: string; color: string }[] = [];
-    let specialCardToShowcase: { cardId: string; sourceText: string } | null = null;
+    let specialCardToShowcase: { cardId: string; sourceText: string; badgeTitle?: string } | null = null;
 
     // 特殊邏輯：龍戰騎士 (C2008-01) 判定
     if (card.id === 'C2008-01') {
+      const isHero = gameState.character?.name === '英雄';
       const isDragonDefeated =
+        isHero ||
         option.text.includes('雙刀與雙截棍齊出') ||
         option.text.includes('無雙一擊');
 
-      if (!isDragonDefeated && !option.text.includes('黑色毛衣')) {
+      if (isHero) {
+        // 英雄初始能力：赤手空拳打敗敵人（半獸人、忍者、龍戰騎士），毋需武器
+        optionResultText =
+          '英雄身手撼動乾坤！拳風破開浩劫烈焰，不需兵刃便擊退龍戰騎士！獲得【龍戰騎士的遺言】！';
+        addLog('【英雄身手】毋需兵刃，赤手空拳正面擊敗強敵【龍戰騎士】！獲得【龍戰騎士的遺言】！', 'milestone');
+        nextInventory['龍戰騎士的遺言'] = (nextInventory['龍戰騎士的遺言'] || 0) + 1;
+        recordItemAcquired('龍戰騎士的遺言');
+        nextFlags['defeated_dragon_knight'] = true;
+        nextFlags['defeat_龍戰騎士'] = true;
+        nextFlags['dragon_awakened'] = false;
+        badges.push({ label: '英雄身手', value: '赤手空拳破龍威', color: 'text-amber-300' });
+        badges.push({ label: '擊敗強敵', value: '龍戰騎士敗退', color: 'text-emerald-400' });
+        badges.push({ label: '獲得物品', value: '【龍戰騎士的遺言】', color: 'text-amber-300' });
+        if (eff && eff.apChange) {
+          eff.apChange = 0;
+        }
+      } else if (!isDragonDefeated && !option.text.includes('黑色毛衣')) {
         const hasSweater = (gameState.inventory['黑色毛衣'] || 0) > 0;
         if (hasSweater) {
           // 自動抵銷一次攻擊，不會扣行動力（消耗一件行囊中的黑色毛衣）
@@ -829,17 +1207,15 @@ export default function App() {
       }
     }
 
-    // 忍者 (C2001-04) 英雄持有【免費教學錄影帶】激活天賦專屬結算文本
+    // 忍者 (C2001-04) 英雄不需兵刃空手制伏專屬結算文本
     if (card.id === 'C2001-04') {
-      const isHeroWithTape =
-        gameState.character?.name === '英雄' &&
-        Boolean(gameState.inventory['免費教學錄影帶']);
+      const isHero = gameState.character?.name === '英雄';
       if (
-        isHeroWithTape &&
-        (option.text.includes('英雄天賦') || option.text.includes('赤手空拳') || option.text.includes('攔截') || option.text.includes('雙截棍'))
+        isHero &&
+        (option.text.includes('英雄天賦') || option.text.includes('赤手空拳') || option.text.includes('攔截') || option.text.includes('雙截棍') || option.text.includes('忍術') || option.text.includes('遁術') || option.text.includes('交鋒'))
       ) {
         optionResultText =
-          '英雄天賦身手，不需兵刃就空手制伏忍者！忍者心悅誠服奉上忍道信物，獲得【忍者】卡牌，解除【追逐忍者】狀態！';
+          '英雄身手矯健，不需兵刃就空手制伏忍者！忍者心悅誠服奉上忍道信物，獲得【忍者】卡牌，解除【追逐忍者】狀態！';
       }
     }
 
@@ -858,27 +1234,24 @@ export default function App() {
     // 已完成
     let orcDefeated = false;
     let orcWeaponUsed: '雙刀' | '雙截棍' | null = null;
-    let orcMissingInfo = '';
     let orcBlockedBySweater = false;
 
     if (card.id === 'C2002-01') {
-      const isHeroWithTape =
-        gameState.character?.name === '英雄' &&
-        Boolean(gameState.inventory['免費教學錄影帶']);
+      const isHero = gameState.character?.name === '英雄';
 
       const twinBladesCount = gameState.inventory['雙刀'] || 0;
       const nunchakuCount = gameState.inventory['雙截棍'] || 0;
       const canDefeatWithBlades = twinBladesCount >= 1;
       const canDefeatWithNunchaku = nunchakuCount >= 2;
 
-      if (isHeroWithTape || canDefeatWithBlades || canDefeatWithNunchaku) {
+      if (isHero || canDefeatWithBlades || canDefeatWithNunchaku) {
         orcDefeated = true;
-        if (isHeroWithTape) {
-          // 英雄且持有【免費教學錄影帶】啟動天賦：毋需任何武器即可赤手空拳突圍，且不消耗任何武器
+        if (isHero) {
+          // 英雄初始能力：毋需任何武器即可赤手空拳突圍，且不消耗任何武器
           orcWeaponUsed = null;
           optionResultText =
-            '你施展英雄天賦赤手空拳突圍，連貫的拳風成功擊倒嗜血的半獸人！獲得【半獸人】卡牌！';
-          addLog('【英雄天賦】憑藉《免費教學錄影帶》掌握獨門訣竅，毋需消耗武器成功擊倒半獸人！獲得【半獸人】卡牌！', 'milestone');
+            '你施展英雄身手赤手空拳突圍，連貫的拳風成功擊倒嗜血的半獸人！獲得【半獸人】卡牌！';
+          addLog('【英雄身手】身手不凡，毋需消耗武器成功擊倒半獸人！獲得【半獸人】卡牌！', 'milestone');
         } else if (canDefeatWithBlades) {
           orcWeaponUsed = '雙刀';
           nextInventory['雙刀'] = (nextInventory['雙刀'] || 1) - 1;
@@ -929,7 +1302,283 @@ export default function App() {
     let nextNinjaNextEncounterRound = gameState.ninjaNextEncounterRound;
     let nextNinjaRound = gameState.ninjaRound;
     let nextBlacksmithUnlocked = gameState.blacksmithUnlocked;
+    let nextGoldTownUnlocked = gameState.goldTownUnlocked;
+    let nextTerraceUnlocked = gameState.terraceUnlocked;
+    let nextRomanticPhoneUnlocked = gameState.romanticPhoneUnlocked;
+    let nextHeadacheActive = gameState.headacheActive;
+    let nextRainyWeatherActive = gameState.rainyWeatherActive;
+    if (eff?.setFlag?.romantic_phone_unlocked !== undefined) {
+      nextRomanticPhoneUnlocked = Boolean(eff.setFlag.romantic_phone_unlocked);
+    } else if (card.id === 'C2005-07') {
+      nextRomanticPhoneUnlocked = true;
+    }
+    if (eff?.setFlag?.terrace_unlocked !== undefined) {
+      nextTerraceUnlocked = Boolean(eff.setFlag.terrace_unlocked);
+    } else if (card.id === 'C2003-10') {
+      nextTerraceUnlocked = true;
+    }
+    if (eff?.setFlag?.headache_active !== undefined) {
+      nextHeadacheActive = Boolean(eff.setFlag.headache_active);
+    } else if (card.id === 'C2012-03') {
+      nextHeadacheActive = true;
+    }
+    if (eff?.setFlag?.rainy_weather_active !== undefined) {
+      nextRainyWeatherActive = Boolean(eff.setFlag.rainy_weather_active);
+    } else if (card.id === 'C2026-03') {
+      nextRainyWeatherActive = true;
+    }
     const nextDrawnCount = { ...gameState.drawnCount };
+    const nextPeninsulaCounts = { ...(gameState.peninsulaInheritedCounts || {}) };
+
+    // 特殊邏輯：淘金小鎮 (C2026-11) 挖寶選項
+    if (card.id === 'C2026-11' && optionIndex === 0) {
+      if (gameState.stats.ap < 5) {
+        addLog(`【行動力不足】進入淘金小鎮需消耗 5 點行動力，當前僅剩 ${gameState.stats.ap} 點！`, 'warning');
+        return;
+      }
+      setIsGoldTownFromRevealedCard(true);
+      setShowGoldTownConfirmModal(true);
+      return;
+    }
+
+    // 特殊邏輯：園遊會 (C2004-09) 多層分支狀態機
+    if (card.id === 'C2004-09') {
+      const currentLayer = (gameState.flags['carnival_layer'] as string) || 'carnival_layer_1';
+      const stageData = getCarnivalStageData(currentLayer, gameState.flags);
+      const chosenOption = stageData.options[optionIndex] || stageData.options[0];
+      const optText = chosenOption.text;
+
+      // 1. 離開園遊會
+      if (optText === '離開園遊會') {
+        nextFlags['carnival_layer'] = 'carnival_layer_1';
+        option = chosenOption;
+        optionResultText = chosenOption.resultText || '你望著遠處的摩天輪，決定暫且轉身離開園遊會。';
+      }
+      // 2. 繼續逛園遊會
+      else if (optText === '繼續逛園遊會' || optText === '繼續逛') {
+        let nextLayer = 'carnival_layer_2';
+        if (currentLayer === 'carnival_layer_1') nextLayer = 'carnival_layer_2';
+        else if (currentLayer === 'carnival_layer_2') nextLayer = 'carnival_layer_3';
+        else if (currentLayer === 'carnival_layer_3') nextLayer = 'carnival_layer_4';
+        else if (currentLayer === 'carnival_layer_4') nextLayer = 'carnival_layer_5';
+        else if (currentLayer === 'carnival_layer_5') nextLayer = 'carnival_layer_1';
+
+        nextFlags['carnival_layer'] = nextLayer;
+        const nextStageData = getCarnivalStageData(nextLayer, nextFlags);
+
+        if (nextLayer === 'carnival_layer_1') {
+          addLog('【園遊會】你不知不覺繞了一大圈，又回到了園遊會熱鬧的入口處！', 'action');
+        } else if (nextLayer === 'carnival_layer_3') {
+          addLog('【園遊會】你繼續逛著，前方的攤位傳來陣陣清涼香氣……', 'action');
+        } else if (nextLayer === 'carnival_layer_4') {
+          addLog('【園遊會】你穿過冰品攤位，朝著五顏色六的玩具區走去……', 'action');
+        } else if (nextLayer === 'carnival_layer_5') {
+          addLog('【園遊會】你告別玩具攤位，走向傳來琴聲的深處……', 'action');
+        } else {
+          addLog('【園遊會】你踏著輕快的腳步走進熱鬧的園遊會……', 'action');
+        }
+
+        setGameState((prev) => ({
+          ...prev,
+          flags: nextFlags,
+          revealedCard: {
+            ...prev.revealedCard!,
+            flavorText: nextStageData.flavorText,
+            options: nextStageData.options,
+          },
+        }));
+        return;
+      }
+      // 3. 遇到小男孩，追上他
+      else if (optText === '遇到小男孩，追上他') {
+        let nextLayer = 'carnival_boy_ice';
+        if (currentLayer === 'carnival_layer_4') {
+          if (gameState.flags['boy_has_ice_cream']) {
+            if (gameState.flags['boy_has_pinwheel']) {
+              nextLayer = 'carnival_boy_mv';
+            } else {
+              nextLayer = 'carnival_boy_toy';
+            }
+          } else {
+            nextLayer = 'carnival_boy_chase_fail';
+          }
+        } else {
+          // 第三層初遇
+          if (gameState.flags['boy_has_ice_cream']) {
+            if (gameState.flags['boy_has_pinwheel']) {
+              nextLayer = 'carnival_boy_mv';
+            } else {
+              nextLayer = 'carnival_boy_toy';
+            }
+          } else {
+            nextLayer = 'carnival_boy_ice';
+          }
+        }
+
+        nextFlags['carnival_layer'] = nextLayer;
+        const nextStageData = getCarnivalStageData(nextLayer, nextFlags);
+        addLog('【園遊會】你快步追上前去，追上了在人群中穿梭的小男孩！', 'action');
+
+        setGameState((prev) => ({
+          ...prev,
+          flags: nextFlags,
+          revealedCard: {
+            ...prev.revealedCard!,
+            flavorText: nextStageData.flavorText,
+            options: nextStageData.options,
+          },
+        }));
+        return;
+      }
+      // 4. 給他冰
+      else if (optText === '給他冰') {
+        const iceCount = nextInventory['土耳其冰淇淋'] || 0;
+        if (iceCount < 1) {
+          addLog('【道具不足】未持有【土耳其冰淇淋】！', 'warning');
+          return;
+        }
+        nextInventory['土耳其冰淇淋'] = Math.max(0, iceCount - 1);
+        if (nextInventory['土耳其冰淇淋'] === 0) delete nextInventory['土耳其冰淇淋'];
+        const quota = restoreCardQuotaOnItemLost('土耳其冰淇淋', nextDrawnCount, nextPeninsulaCounts, 1);
+        Object.assign(nextDrawnCount, quota.nextDrawnCount);
+        Object.assign(nextPeninsulaCounts, quota.nextPeninsulaCounts);
+
+        nextFlags['boy_has_ice_cream'] = true;
+        nextFlags['carnival_layer'] = 'carnival_boy_toy';
+
+        const nextStageData = getCarnivalStageData('carnival_boy_toy', nextFlags);
+        addLog('【小男孩的心願】你將土耳其冰淇淋給了小男孩，小男孩吃得津津有味，開心極了！', 'milestone');
+
+        setGameState((prev) => ({
+          ...prev,
+          flags: nextFlags,
+          inventory: nextInventory,
+          drawnCount: nextDrawnCount,
+          peninsulaInheritedCounts: nextPeninsulaCounts,
+          revealedCard: {
+            ...prev.revealedCard!,
+            flavorText: nextStageData.flavorText,
+            options: nextStageData.options,
+          },
+        }));
+        return;
+      }
+      // 5. 沒有冰，回去買冰
+      else if (optText === '沒有冰，回去買冰') {
+        nextFlags['carnival_layer'] = 'carnival_layer_3';
+        const nextStageData = getCarnivalStageData('carnival_layer_3', nextFlags);
+        addLog('【園遊會】身上沒有冰淇淋，你轉身返回冰品攤位。', 'action');
+
+        setGameState((prev) => ({
+          ...prev,
+          flags: nextFlags,
+          revealedCard: {
+            ...prev.revealedCard!,
+            flavorText: nextStageData.flavorText,
+            options: nextStageData.options,
+          },
+        }));
+        return;
+      }
+      // 6. 給他玩具
+      else if (optText === '給他玩具') {
+        const pinwheelCount = nextInventory['白色風車'] || 0;
+        if (pinwheelCount < 1) {
+          addLog('【道具不足】未持有【白色風車】！', 'warning');
+          return;
+        }
+        nextInventory['白色風車'] = Math.max(0, pinwheelCount - 1);
+        if (nextInventory['白色風車'] === 0) delete nextInventory['白色風車'];
+        const quota = restoreCardQuotaOnItemLost('白色風車', nextDrawnCount, nextPeninsulaCounts, 1);
+        Object.assign(nextDrawnCount, quota.nextDrawnCount);
+        Object.assign(nextPeninsulaCounts, quota.nextPeninsulaCounts);
+
+        nextFlags['boy_has_pinwheel'] = true;
+        nextFlags['carnival_layer'] = 'carnival_boy_mv';
+
+        const nextStageData = getCarnivalStageData('carnival_boy_mv', nextFlags);
+        addLog('【小男孩的心願】你將白色風車送給了小男孩，小男孩開心地拿著風車迎風奔跑！', 'milestone');
+
+        setGameState((prev) => ({
+          ...prev,
+          flags: nextFlags,
+          inventory: nextInventory,
+          drawnCount: nextDrawnCount,
+          peninsulaInheritedCounts: nextPeninsulaCounts,
+          revealedCard: {
+            ...prev.revealedCard!,
+            flavorText: nextStageData.flavorText,
+            options: nextStageData.options,
+          },
+        }));
+        return;
+      }
+      // 7. 沒有玩具，回去買玩具
+      else if (optText === '沒有玩具，回去買玩具') {
+        nextFlags['carnival_layer'] = 'carnival_layer_4';
+        const nextStageData = getCarnivalStageData('carnival_layer_4', nextFlags);
+        addLog('【園遊會】身上沒有玩具，你轉往玩具攤位！', 'action');
+
+        setGameState((prev) => ({
+          ...prev,
+          flags: nextFlags,
+          revealedCard: {
+            ...prev.revealedCard!,
+            flavorText: nextStageData.flavorText,
+            options: nextStageData.options,
+          },
+        }));
+        return;
+      }
+      // 8. 不追了，返回玩具攤位
+      else if (optText === '不追了，返回玩具攤位') {
+        nextFlags['carnival_layer'] = 'carnival_layer_4';
+        const nextStageData = getCarnivalStageData('carnival_layer_4', nextFlags);
+        addLog('【園遊會】小男孩跑得太快，你決定暫且返回攤位繼續逛。', 'action');
+
+        setGameState((prev) => ({
+          ...prev,
+          flags: nextFlags,
+          revealedCard: {
+            ...prev.revealedCard!,
+            flavorText: nextStageData.flavorText,
+            options: nextStageData.options,
+          },
+        }));
+        return;
+      }
+      // 9. 購買攤位物品 (土耳其冰淇淋、白色風車、烏克麗麗)
+      else if (optText.includes('購買土耳其冰淇淋') || optText.includes('購買白色風車') || optText.includes('購買烏克麗麗')) {
+        const currentCoins = gameState.stats.coins || 0;
+        if (currentCoins < 3) {
+          addLog('【金幣不足】金幣不足，無法購買攤位物品！', 'warning');
+          return;
+        }
+        nextFlags['carnival_layer'] = 'carnival_layer_1';
+        option = chosenOption;
+        optionResultText = chosenOption.resultText;
+      }
+      // 10. 給他拍攝道具
+      else if (optText === '給他拍攝道具') {
+        const ukuleleCount = nextInventory['烏克麗麗'] || 0;
+        if (ukuleleCount < 1) {
+          addLog('【道具不足】未持有【烏克麗麗】！', 'warning');
+          return;
+        }
+        nextFlags['carnival_layer'] = 'carnival_layer_1';
+        option = chosenOption;
+        optionResultText = chosenOption.resultText;
+      }
+      // 11. 抱怨他一直要東西 / 抱怨他一直跑追不上 / 沒有道具去找找
+      else {
+        nextFlags['carnival_layer'] = 'carnival_layer_1';
+        option = chosenOption;
+        optionResultText = chosenOption.resultText;
+        if (chosenOption.effect?.forceNextCardId) {
+          effectiveForceNextCardId = chosenOption.effect.forceNextCardId;
+        }
+      }
+    }
 
     // 特殊邏輯：威廉古堡 (C2001-08) 四大核心選項
     if (card.id === 'C2001-08') {
@@ -959,28 +1608,35 @@ export default function App() {
         }
       }
 
-      // 2. 胖女巫選項：好奇胖女巫手上的東西
+      // 2. 胖女巫選項：好奇胖女巫手上的東西 //文本已完成
       else if (option.text.includes('胖女巫') || option.text.includes('水晶球')) {
         const hasTimeMachine = (nextInventory['時光機'] || gameState.inventory['時光機'] || nextInventory['飛行時光機'] || gameState.inventory['飛行時光機'] || 0) > 0;
-        const isYongWuUnlocked = Boolean(meta.unlockedAchievements?.includes('ach_yong_wu'));
+        const isYongWuActive = Boolean(meta.activeSkills?.includes('ach_yong_wu'));
 
-        if (hasTimeMachine) {
-          // 持有時光機優先權 > 啟動"詠物調"
-          const apLoss = 3;
-          nextStats.ap = Math.max(0, nextStats.ap - apLoss);
-          optionResultText = '胖女巫手握水晶球冷眼斜睨著你！她尖嘯一聲揮動掃帚施放驅逐咒將你強行送出古堡，行動力 -3！';
-          addLog('【逐出古堡】胖女巫發現你，冷笑施法將你驅逐出古堡，行動力-3！', 'warning');
-        } else if (isYongWuUnlocked) {
-          // 啟動成就"詠物調"：讚美水晶球，開心贈送時光機
+        if (isYongWuActive && !hasTimeMachine) {
+          // ●已啟動【詠物調】且無"時光機"：懂得欣賞，讚賞胖女巫的水晶球，贈送時光機
           nextInventory['時光機'] = (nextInventory['時光機'] || 0) + 1;
           recordItemAcquired('時光機');
-          optionResultText = '你身負【詠物調】之古韻雅意，由衷讚嘆胖女巫手中晶瑩剔透的水晶球。胖女巫聽得心花怒放，欣喜地將失落已久的秘寶【時光機】大方贈予了你！';
-          addLog('【女巫賜寶】讚美胖女巫的水晶球，胖女巫欣喜贈送傳奇秘寶【時光機】！', 'milestone');
-        } else {
-          // 一般情況：胖女巫用水晶球替你占卜得知前世，觸發《愛在西元前》
+          optionResultText = '你身負【詠物調】古韻雅意，讚頌胖女巫手中晶瑩剔透的水晶球。胖女巫聽得心花怒放，欣喜地將失落已久的秘寶【時光機】大方贈予了你！';
+          addLog('【女巫賜寶】身負【詠物調】古韻雅意，胖女巫欣喜贈送傳奇秘寶【時光機】！', 'milestone');
+        } else if (isYongWuActive && hasTimeMachine) {
+          // ●已啟動【詠物調】也有"時光機"：雖然讚賞水晶球，但被懷疑偷走時光機，趕出古堡，AP-2
+          const apLoss = 2;
+          nextStats.ap = Math.max(0, nextStats.ap - apLoss);
+          optionResultText = '胖女巫手握水晶球冷眼睥睨著你！她瞥見你懷中的時光機，驚呼一聲懷疑你偷了古堡秘寶，揮動掃帚將你強行逐出古堡，行動力 -2！';
+          addLog('【逐出古堡】胖女巫發現你持有時光機，懷疑你偷竊，將你逐出古堡，行動力-2！', 'warning');
+        } else if (!isYongWuActive && hasTimeMachine) {
+          // ●未啟動【詠物調】但有"時光機"：不懂得欣賞水晶球，又被懷疑偷走時光機，觸發愛在西元前且AP-2(合併觸發)
+          const apLoss = 2;
+          nextStats.ap = Math.max(0, nextStats.ap - apLoss);
           effectiveForceNextCardId = 'C2001-01';
-          optionResultText = '胖女巫手捧剔透的水晶球替你占卜前世因果。水晶球中波光流轉，浮現出美索不達米亞平原的泥板與漢摩拉比法典……你得知了自己的前世，時空逆流呼嘯而起！';
-          addLog('【水晶占卜】胖女巫用水晶球占卜得知前世，時空共鳴，回合將回到《愛在西元前》！', 'milestone');
+          optionResultText = '當你好奇湊近，胖女巫冷眼看著不懂欣賞水晶球的你，更發現你私藏時光機而震怒！她尖聲厲斥將你驅逐！（行動力 -2，並施咒引發時空逆流將你打回西元前！）';
+          addLog('【時空魔咒】胖女巫生氣你不懂欣賞水晶球又懷疑你盜取時光機，憤怒施咒將你驅逐（行動力 -2，並施咒引發時空逆流將你打回西元前！）', 'warning');
+        } else {
+          // ●未啟動【詠物調】且無"時光機"：胖女巫透過水晶球讓玩家觸發愛在西元前
+          effectiveForceNextCardId = 'C2001-01';
+          optionResultText = '當你好奇湊近，胖女巫手捧水晶球說著：陽光射進教堂的角度，能知道你前世...。忽然！水晶球波光流轉，浮現出美索不達米亞平原……胖女巫施咒引發時空逆流！';
+          addLog('【水晶施咒】胖女巫用水晶球占卜得知前世，時空引發逆流，回合將觸發《愛在西元前》！', 'milestone');
         }
       }
 
@@ -1002,7 +1658,7 @@ export default function App() {
         } else {
           const apLoss = 3;
           nextStats.ap = Math.max(0, nextStats.ap - apLoss);
-          optionResultText = '你偷偷潛入威廉二世的寢殿，木地板的吱嘎聲頓時驚醒了威廉二世！他雷霆大怒將你強行趕出古堡，狼狽逃竄中體力消耗，行動力 -3！';
+          optionResultText = '你偷偷潛入威廉二世的寢殿，木地板的吱嘎聲頓時驚醒了威廉二世！他雷霆大怒將你強行趕出古堡，狼狽逃竄中消耗，行動力 -3！';
           addLog('【驚動二世】潛入威廉二世寢殿卻驚醒威廉二世被趕出古堡，行動力-3！', 'warning');
         }
       }
@@ -1077,7 +1733,7 @@ export default function App() {
           const missing: string[] = [];
           if (sweetCount < 1) missing.push('【甜甜的】');
           if (riceCount < 1) missing.push('【稻香】');
-          optionResultText = `道具不足無法確認！請備齊材料，小鐵匠方可為你熬煮。`;
+          optionResultText = `道具不足無法確認！請備齊材料【原物料】+【調味】，小鐵匠方可為你熬煮。`;
           addLog(`【材料不足】身上未備齊材料，無法製作。`, 'warning');
           badges.push({ label: '製作失敗', value: '材料不足', color: 'text-rose-400' });
         }
@@ -1100,11 +1756,21 @@ export default function App() {
         setShowUpgradeClockModal(true);
         return;
       } else if (
+        option.text.includes('重鑄鐵鏟') ||
+        option.text.includes('改造鐵鏟') ||
+        option.text.includes('鐵鏟')
+      ) {
+        setShowUpgradeShovelModal(true);
+        return;
+      } else if (
         option.text.includes('強化時光機') ||
         option.text.includes('飛行時光機') ||
         (option.require?.items && option.require.items.includes('愛的飛行日記'))
       ) {
         setShowUpgradeTimeMachineModal(true);
+        return;
+      } else if (option.text.includes('擴充鐵盒')) {
+        setShowExpandIronBoxModal(true);
         return;
       } else if (
         option.text.includes('指引小鐵匠') ||
@@ -1119,22 +1785,96 @@ export default function App() {
     if (card.id === 'C2016-02') {
       const hasBlacksmithShop = Boolean(gameState.blacksmithUnlocked || gameState.flags['blacksmith_unlocked']);
       if (hasBlacksmithShop) {
-        // R+5 機制：R=抽到當回合，於第 R+5 回合結束前離開（當回合不計數）
-        const leaveRound = gameState.round + 5;
-        nextFlags['blacksmith_leave_round'] = leaveRound;
-        optionResultText = `小鐵匠心生嚮往，預計於第 ${leaveRound} 回合結束前收拾行囊離開村莊！`;
+        // 累積制（經歷滿 5 個探索回合後離開，同梯田累積機制，防範時空回溯與跳躍誤判）
+        nextFlags['blacksmith_leave_countdown'] = 5;
+        nextFlags['blacksmith_leave_elapsed'] = 0;
+        delete nextFlags['blacksmith_leave_round'];
+        optionResultText = '小鐵匠心生嚮往，預計於經歷 5 個探索回合後收拾工具啟程離開村莊！';
         addLog(
-          `【說走就走】小鐵匠聽到了遠方的呼喚，心生嚮往……預計於第 ${leaveRound} 回合結束前收起行囊離開村莊！（或許在第 ${leaveRound} 回合結束前，小鐵匠有可能打消去意）`,
+          '【說走就走】小鐵匠聽到了遠方的呼喚，心生嚮往……預計於經歷 5 個探索回合後收拾工具啟程離開村莊！（若在 5 回合內將【說走就走】投入煙火焚毀，小鐵匠將打消去意）',
           'warning'
         );
       } else {
         // 確認機制：村莊尚無小鐵鋪時抽到，小鐵匠未開鋪定居，不受影響
+        delete nextFlags['blacksmith_leave_countdown'];
+        delete nextFlags['blacksmith_leave_elapsed'];
         delete nextFlags['blacksmith_leave_round'];
         optionResultText = '背起行囊，瀟灑前行！（目前村莊未開立小鐵鋪，小鐵匠不受影響）';
         addLog(
           '【說走就走】這就是年輕，該瀟灑一次的決定！背起行囊，享受遼闊的自由。（目前村莊也沒有人想走）',
           'action'
         );
+      }
+    }
+
+    // 特殊邏輯：外婆 (C2004-04) 複合式選項處理
+    if (card.id === 'C2004-04') {
+      // 確保外婆不存於行囊、不開啟圖鑑
+      delete nextInventory['外婆'];
+      delete nextInventory['C2004-04'];
+
+      if (option.text.includes('和外公的往事靜靜回憶')) {
+        const hasTeaLeaves = (nextInventory['茶葉'] || 0) > 0;
+        const hasHotWater = (nextInventory['熱水'] || 0) > 0;
+        if (hasTeaLeaves && hasHotWater) {
+          // 消耗茶葉與熱水
+          nextInventory['茶葉'] -= 1;
+          if (nextInventory['茶葉'] <= 0) delete nextInventory['茶葉'];
+          nextInventory['熱水'] -= 1;
+          if (nextInventory['熱水'] <= 0) delete nextInventory['熱水'];
+
+          // 獲得《爺爺泡的茶》卡牌並恢復 5 點行動力
+          nextInventory['爺爺泡的茶'] = (nextInventory['爺爺泡的茶'] || 0) + 1;
+          recordItemAcquired('爺爺泡的茶');
+          newlyAcquiredItemsThisRound.push('爺爺泡的茶');
+          nextStats.ap = Math.max(0, nextStats.ap + 5);
+
+          // 解鎖圖鑑
+          setMeta((prev) => {
+            if (prev.unlockedCardIds.includes('C2002-07')) return prev;
+            return {
+              ...prev,
+              unlockedCardIds: [...prev.unlockedCardIds, 'C2002-07'],
+            };
+          });
+
+          specialCardToShowcase = {
+            cardId: 'C2002-07',
+            sourceText: '外婆悉心沏泡回憶中的茶香  ',
+            badgeTitle: '✦ 經典茗香・親情傳承 ✦',
+          };
+
+          optionResultText = '外婆眼神中透著溫柔，懷念的心情與熟悉的茶香，慢火沏泡出珍貴的《爺爺泡的茶》！行動力恢復 +5！';
+          addLog('🍵【爺爺泡的茶】外婆取過你帶來的茶葉與熱水，為你沏出一壺醇厚甘甜的茶！獲得卡牌《爺爺泡的茶》，行動力恢復 +5！', 'milestone');
+          badges.push({ label: '消耗材料', value: '【茶葉】×1、【熱水】×1', color: 'text-stone-400' });
+          badges.push({ label: '親情滋養', value: '+5 行動力', color: 'text-emerald-400' });
+          badges.push({ label: '獲得卡牌', value: '《爺爺泡的茶》', color: 'text-amber-300' });
+        } else {
+          nextStats.ap = Math.max(0, nextStats.ap + 1);
+          optionResultText = '你與外婆坐在藤椅上，靜靜回憶著外公過去的點點滴滴，心中感到絲絲溫暖與懷念，行動力 +1。';
+          addLog('👵【靜靜回憶】你與外婆一同回憶外公的往事，心中倍感溫暖，行動力 +1。', 'action');
+          badges.push({ label: '親情溫暖', value: '+1 行動力', color: 'text-amber-300' });
+        }
+      } else if (option.text.includes('外婆失落而失落')) {
+        // 判定行囊是否空無一物
+        const totalItems = Object.keys(nextInventory).reduce(
+          (sum, k) => sum + (nextInventory[k] || 0),
+          0
+        );
+        if (totalItems === 0) {
+          nextStats.coins = (nextStats.coins || 0) + 10;
+          optionResultText = '外婆看你兩手空空、行囊空無一物，心疼地掏出零錢塞到你手裡，獲得 10 枚金幣！';
+          addLog('👵💰【外婆的心疼】外婆見你行囊空無一物，心疼地塞了 10 枚金幣給你！', 'milestone');
+          badges.push({ label: '外婆心疼', value: '+10 枚金幣', color: 'text-amber-300' });
+        } else {
+          optionResultText = '「我告訴外婆 我沒輸 不需要改變」，外婆輕撫你的肩膀，彷彿一切壞事也沒有發生。';
+          addLog('👵【外婆的安慰】外婆慈愛地看著你，相伴無言，任何壞事都沒有發生。', 'action');
+          badges.push({ label: '陪伴外婆', value: '相伴無言', color: 'text-stone-400' });
+        }
+      } else if (option.text.includes('而不是六百塊')) {
+        badges.push({ label: '外婆好料', value: '+5 行動力', color: 'text-emerald-400' });
+      } else if (option.text.includes('她以我為榮')) {
+        badges.push({ label: '外婆笑容', value: '+3 行動力', color: 'text-amber-300' });
       }
     }
 
@@ -1150,12 +1890,25 @@ export default function App() {
           nextInventory[eff.addItem] = (nextInventory[eff.addItem] || 0) + 1;
         }
         recordItemAcquired(eff.addItem);
-        // 若獲得的物品為專屬特殊機制卡牌（例如比較大的大提琴 C2012-06），且非當前翻開的卡牌，自動觸發新卡亮相全貌視窗
-        const awardedSpecialCard = CARD_DATABASE.find((c) => c.name === eff.addItem && c.id !== card.id && c.isSynthesizedOnly);
+        // 若獲得的物品為專屬特殊機制卡牌，或是從園遊會購買獲得的卡牌（例如園遊會購買烏克麗麗），且非當前翻開的卡牌，自動觸發新卡亮相全貌視窗
+        const isCarnivalPurchase = card.id === 'C2004-09';
+        const awardedSpecialCard = CARD_DATABASE.find(
+          (c) =>
+            c.name === eff.addItem &&
+            c.id !== card.id &&
+            (c.isSynthesizedOnly || (isCarnivalPurchase && eff.addItem === '烏克麗麗'))
+        );
         if (awardedSpecialCard) {
           specialCardToShowcase = {
             cardId: awardedSpecialCard.id,
-            sourceText: awardedSpecialCard.acquisitionSource || `《${card.name}》選擇獲得`,
+            sourceText:
+              isCarnivalPurchase && eff.addItem === '烏克麗麗'
+                ? '園遊會樂器攤位購買'
+                : awardedSpecialCard.acquisitionSource || `《${card.name}》選擇獲得`,
+            badgeTitle:
+              isCarnivalPurchase && eff.addItem === '烏克麗麗'
+                ? '✦ 園遊會奇遇 ✦'
+                : awardedSpecialCard.badgeTitle,
           };
         }
         // Diary unlock check
@@ -1171,12 +1924,15 @@ export default function App() {
         const isNinjaHeroExempt =
           card.id === 'C2001-04' &&
           eff.removeItem === '雙截棍' &&
-          gameState.character?.name === '英雄' &&
-          Boolean(gameState.inventory['免費教學錄影帶']);
+          gameState.character?.name === '英雄';
 
         if (!isNinjaHeroExempt) {
-          nextInventory[eff.removeItem] = Math.max(0, nextInventory[eff.removeItem] - 1);
-          if (nextInventory[eff.removeItem] === 0) delete nextInventory[eff.removeItem];
+          const removedName = eff.removeItem;
+          nextInventory[removedName] = Math.max(0, nextInventory[removedName] - 1);
+          if (nextInventory[removedName] === 0) delete nextInventory[removedName];
+          const quota = restoreCardQuotaOnItemLost(removedName, nextDrawnCount, nextPeninsulaCounts, 1);
+          Object.assign(nextDrawnCount, quota.nextDrawnCount);
+          Object.assign(nextPeninsulaCounts, quota.nextPeninsulaCounts);
         }
       }
 
@@ -1185,6 +1941,9 @@ export default function App() {
           if (nextInventory[item]) {
             nextInventory[item] = Math.max(0, nextInventory[item] - 1);
             if (nextInventory[item] === 0) delete nextInventory[item];
+            const quota = restoreCardQuotaOnItemLost(item, nextDrawnCount, nextPeninsulaCounts, 1);
+            Object.assign(nextDrawnCount, quota.nextDrawnCount);
+            Object.assign(nextPeninsulaCounts, quota.nextPeninsulaCounts);
           }
         });
       }
@@ -1195,6 +1954,9 @@ export default function App() {
           const randomKey = itemKeys[Math.floor(Math.random() * itemKeys.length)];
           nextInventory[randomKey] = Math.max(0, nextInventory[randomKey] - 1);
           if (nextInventory[randomKey] === 0) delete nextInventory[randomKey];
+          const quota = restoreCardQuotaOnItemLost(randomKey, nextDrawnCount, nextPeninsulaCounts, 1);
+          Object.assign(nextDrawnCount, quota.nextDrawnCount);
+          Object.assign(nextPeninsulaCounts, quota.nextPeninsulaCounts);
           addLog(`【行囊受損】老斑鳩趁亂偷走了【${randomKey}】！`, 'warning');
         } else {
           addLog('【行囊空空】老斑鳩撲騰翻找，見行囊空無一物，悻悻然飛走了。', 'action');
@@ -1207,11 +1969,10 @@ export default function App() {
 
       // 特殊環境變化邏輯 1：忍者 (C2001-04) 追逐狀態
       if (card.id === 'C2001-04') {
-        const isHeroWithTape =
-          gameState.character?.name === '英雄' &&
-          Boolean(gameState.inventory['免費教學錄影帶']);
+        const isHero = gameState.character?.name === '英雄';
 
         if (
+          isHero ||
           eff?.setFlag?.defeat_忍者 ||
           eff?.setFlag?.defeated_ninja ||
           option.text.includes('雙截棍') ||
@@ -1224,11 +1985,23 @@ export default function App() {
           nextNinjaRound = undefined;
           nextFlags['ninja_chasing'] = false;
           nextFlags['ninja_confrontation'] = false;
-          if (isHeroWithTape) {
-            addLog('【英雄天賦】赤手空拳成功制伏忍者！解除【追逐忍者】狀態，獲得【忍者】卡牌！', 'milestone');
+          if (isHero) {
+            addLog('【英雄身手】赤手空拳成功制伏忍者！解除【追逐忍者】狀態，獲得【忍者】卡牌！', 'milestone');
           } else {
             addLog('【降伏忍者】快使用雙截棍！成功制伏忍者並解除【追逐忍者】環境狀態，獲得【忍者】卡牌！', 'milestone');
           }
+          nextInventory['忍者'] = (nextInventory['忍者'] || 0) + 1;
+          recordItemAcquired('忍者');
+          nextFlags['defeat_忍者'] = true;
+          nextFlags['defeated_ninja'] = true;
+          // 擊敗忍者後，存於行囊且正式記錄於圖鑑
+          setMeta((prev) => {
+            if (prev.unlockedCardIds.includes('C2001-04')) return prev;
+            return {
+              ...prev,
+              unlockedCardIds: [...prev.unlockedCardIds, 'C2001-04'],
+            };
+          });
         } else if (option.text.includes('遁術') || option.text.includes('逃離') || option.text.includes('逃遁')) {
           // 如果無法擊敗，忍者逃離(抽卡上限恢復成1)，下次再抽到忍者重新追逐一次
           nextNinjaChasing = false;
@@ -1259,24 +2032,89 @@ export default function App() {
         addLog('【煙火燃燒】「煙火飄散在你四週，每回合燃燒著你……」進入【煙火燃燒】環境狀態！', 'warning');
       }
 
-      // 特殊環境變化邏輯 3：煙花易冷 (C2010-03) 滅火（煙火燃燒解除後，行囊中的錯過的煙火消失，上限恢復）
-      if (card.id === 'C2010-03') {
-        if (eff?.setFlag?.fireworks_burning === false || option.text.includes('冷雨') || option.text.includes('解除')) {
-          nextFireworksBurning = false;
-          nextFlags['fireworks_burning'] = false;
-          nextFlags['fireworks_burn_ticks'] = 0;
-          delete nextInventory['錯過的煙火'];
-          nextDrawnCount['C2022-08'] = 0;
-          addLog('【冷雨滅火】「煙花易冷雨紛紛，行囊遇火不再焚。」洛陽舊城的冷雨驟然傾瀉，冰涼甘霖澆滅了四周花火，成功解除【煙火燃燒】環境狀態！', 'milestone');
-        }
-      }
-
-      if (eff?.setFlag?.fireworks_burning === false) {
+      // 特殊環境變化邏輯 3：煙花易冷 (C2010-03) 或任何解除效果 滅火（煙火燃燒解除後，行囊中的錯過的煙火消失，上限恢復）
+      if (card.id === 'C2010-03' && (eff?.setFlag?.fireworks_burning === false || option.text.includes('冷雨') || option.text.includes('解除'))) {
         nextFireworksBurning = false;
         nextFlags['fireworks_burning'] = false;
         nextFlags['fireworks_burn_ticks'] = 0;
         delete nextInventory['錯過的煙火'];
         nextDrawnCount['C2022-08'] = 0;
+        addLog('【冷雨滅火】「煙花易冷雨紛紛，行囊遇火不再焚。」洛陽舊城的冷雨驟然傾瀉，冰涼甘霖澆滅了四周花火，成功解除【煙火燃燒】環境狀態！', 'milestone');
+      } else if (eff?.setFlag?.fireworks_burning === false) {
+        nextFireworksBurning = false;
+        nextFlags['fireworks_burning'] = false;
+        nextFlags['fireworks_burn_ticks'] = 0;
+        delete nextInventory['錯過的煙火'];
+        nextDrawnCount['C2022-08'] = 0;
+      }
+
+      // 特殊環境變化邏輯 4：公公偏頭痛 (C2012-03)
+      if (card.id === 'C2012-03') {
+        nextHeadacheActive = true;
+        nextFlags['headache_active'] = true;
+        // 修正：公公偏頭痛此卡不存於行囊，但記錄於圖鑑
+        delete nextInventory['公公偏頭痛'];
+        setMeta((prev) => {
+          if (prev.unlockedCardIds.includes('C2012-03')) return prev;
+          return {
+            ...prev,
+            unlockedCardIds: [...prev.unlockedCardIds, 'C2012-03'],
+          };
+        });
+        addLog('【偏頭痛】被小男孩糾纏得難以招架，進入【偏頭痛】環境狀態！每回合行動力額外消耗 -2。', 'warning');
+      }
+
+      // 特殊環境變化邏輯 5：本草綱目 (C2006-04) 獲得時若處於偏頭痛狀態，一併解除
+      if (card.id === 'C2006-04' && (nextHeadacheActive || nextFlags['headache_active'])) {
+        nextHeadacheActive = false;
+        nextFlags['headache_active'] = false;
+        addLog('🌿【藥到病除】獲得《本草綱目》，依循書中所載草本藥理，【偏頭痛】狀態隨之痊癒解除！', 'milestone');
+      }
+
+      // 特殊環境變化邏輯 6：那天下雨了 (C2026-03)
+      if (card.id === 'C2026-03') {
+        nextRainyWeatherActive = true;
+        nextFlags['rainy_weather_active'] = true;
+        nextFlags['rainy_rounds_count'] = 0;
+        nextFlags['rain_completed_rounds'] = 0;
+        nextFlags['pending_heard_rain_trigger'] = false;
+        delete nextInventory['那天下雨了'];
+        setMeta((prev) => {
+          if (prev.unlockedCardIds.includes('C2026-03')) return prev;
+          return {
+            ...prev,
+            unlockedCardIds: [...prev.unlockedCardIds, 'C2026-03'],
+          };
+        });
+        addLog('🌧️【那天下雨了】天降甘霖，滂沱大雨洗滌大地，進入【下雨天】環境狀態！', 'warning');
+      }
+
+      // 特殊環境變化邏輯 7：晴天 (C2003-03) 抽到放晴解除下雨天
+      if (card.id === 'C2003-03' && (nextRainyWeatherActive || nextFlags['rainy_weather_active'])) {
+        nextRainyWeatherActive = false;
+        nextFlags['rainy_weather_active'] = false;
+        nextFlags['rainy_rounds_count'] = 0;
+        nextFlags['rain_completed_rounds'] = 0;
+        nextFlags['pending_heard_rain_trigger'] = false;
+        addLog('☀️【雨後天晴】「等到放晴的那天 也許我會比較好一點」陽光穿透烏雲，大雨驟停，成功解除【下雨天】狀態！', 'milestone');
+      }
+
+      // 下雨天環境經歷回合累積：當處於下雨天環境下實際經歷並完成冒險回合時累積（抽到那天下雨了當回合不計）
+      const isCurrentlyRainy = Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']);
+      if (isCurrentlyRainy && nextRainyWeatherActive && card.id !== 'C2026-03') {
+        const completedRounds = (Number(nextFlags['rain_completed_rounds']) || 0) + 1;
+        nextFlags['rain_completed_rounds'] = completedRounds;
+        nextFlags['rainy_rounds_count'] = completedRounds;
+
+        const alreadyHasHeardRain = Boolean(
+          (nextInventory && nextInventory['聽見下雨的聲音']) ||
+          (nextDrawnCount && (nextDrawnCount['C2014-12'] || 0) > 0) ||
+          nextFlags['heard_rain_triggered']
+        );
+
+        if (completedRounds >= 5 && !alreadyHasHeardRain) {
+          nextFlags['pending_heard_rain_trigger'] = true;
+        }
       }
 
       // 龍戰騎士 C2008-01 遭遇結束後，清除化身為龍狀態
@@ -1296,6 +2134,14 @@ export default function App() {
 
       if (eff.apChange) {
         nextStats.ap = Math.max(0, nextStats.ap + eff.apChange);
+      }
+
+      if (eff.coinChange) {
+        nextStats.coins = Math.max(0, (nextStats.coins || 0) + eff.coinChange);
+      }
+
+      if (eff.setFlag?.['gold_town_unlocked']) {
+        nextGoldTownUnlocked = true;
       }
 
       if (eff.changeCharacter) {
@@ -1321,6 +2167,13 @@ export default function App() {
           // 愛在西元前：只保留角色身份重新回到第 1 回合（道具與當局成就蒐集清除）
           Object.keys(nextInventory).forEach((k) => {
             delete nextInventory[k];
+          });
+          // 愛在西元前清除所有物品，所有物品卡牌抽取上限額度全數恢復
+          Object.keys(nextPeninsulaCounts).forEach((id) => delete nextPeninsulaCounts[id]);
+          CARD_DATABASE.forEach((c) => {
+            if (getCardItemNames(c).length > 0) {
+              delete nextDrawnCount[c.id];
+            }
           });
           if (eff.clearProgress) {
             Object.keys(nextFlags).forEach((k) => {
@@ -1364,23 +2217,50 @@ export default function App() {
         addLog('【登峰造極】四大神卡《杰倫》《范特西》《葉惠美》《跨時代》齊聚！達成《最偉大的作品》傳奇結局！', 'milestone');
       }
 
-      // Check Core Route 3: 《周杰倫家庭》 Victory (Family members and songs collected)
+      // Check Core Route 3: 《周杰倫家庭》 Victory
+      // 依據原始設定稿：父(以父之名)、母(《葉惠美》)、外婆(外婆)、爺爺(爺爺泡的茶)、大女兒(前世情人)、兒子(粉色海洋)、小女兒(女兒殿下)、老婆(娘子)，最終取得《I Do》完成通關！
+      const hasFather = Boolean(nextInventory['以父之名']);
+      const hasMother = Boolean(nextInventory['《葉惠美》'] || nextInventory['葉惠美']);
+      const hasGrandma = Boolean(nextInventory['外婆']);
+      const hasGrandpa = Boolean(nextInventory['爺爺泡的茶']);
+      const hasEldestDaughter = Boolean(nextInventory['前世情人']);
+      const hasSon = Boolean(nextInventory['粉色海洋']);
+      const hasYoungestDaughter = nextCharacter?.name === '女兒殿下' || Boolean(nextInventory['女兒殿下']);
+      const hasWife = Boolean(nextInventory['娘子']);
+      const hasIDo = Boolean(nextInventory['I Do']);
+
       if (
-        nextInventory['外婆'] &&
-        nextInventory['聽媽媽的話'] &&
-        nextInventory['聽爸爸的話'] &&
-        (nextInventory['女兒殿下'] || nextCharacter?.name === '女兒殿下')
+        hasFather &&
+        hasMother &&
+        hasGrandma &&
+        hasGrandpa &&
+        hasEldestDaughter &&
+        hasSon &&
+        hasYoungestDaughter &&
+        hasWife &&
+        hasIDo
       ) {
         nextVictory = '周杰倫家庭';
-        addLog('【溫馨團聚】外婆、媽媽、爸爸、女兒殿下全員相聚，達成《周杰倫家庭》溫情傳奇結局！', 'milestone');
+        addLog('【家庭圓滿・永恆誓約】父、母、外婆、爺爺、大女兒、兒子、小女兒、娘子全員團聚，在《I Do》神聖誓約下達成《周杰倫家庭》終極傳奇結局！', 'milestone');
       }
 
-      // Sunshine guy evolution check
-      if (nextCharacter?.name === '陽光宅男' && nextInventory['公主病']) {
+      // 陽光宅男天賦：必須已獲得【免費教學錄影帶】啟用天賦，且持有/抽到【公主病】後，奇蹟進化為【女兒殿下】
+      if (nextCharacter?.name === '陽光宅男' && nextInventory['免費教學錄影帶'] && nextInventory['公主病']) {
         const daughterChar = ALL_CHARACTERS.find((c) => c.id === 'char_daughter');
         if (daughterChar) {
           nextCharacter = daughterChar;
-          addLog('【血脈覺醒】陽光宅男感應到了任性的公主病真情，奇蹟進化為神級化身【女兒殿下】！', 'milestone');
+          addLog('【血脈覺醒】陽光宅男啟動天賦真情覺醒，奇蹟進化為神級化身【女兒殿下】！', 'milestone');
+          setMeta((prev) => {
+            const list = prev.unlockedCharacterIds || [];
+            const cards = prev.unlockedCardIds || [];
+            const nextList = list.includes('char_daughter') ? list : [...list, 'char_daughter'];
+            const nextCards = cards.includes('C2026-10') ? cards : [...cards, 'C2026-10'];
+            return {
+              ...prev,
+              unlockedCharacterIds: nextList,
+              unlockedCardIds: nextCards,
+            };
+          });
         }
       }
 
@@ -1435,8 +2315,13 @@ export default function App() {
       }
     }
 
-    // Action consumes 1 AP
-    nextStats.ap = Math.max(0, nextStats.ap - 1);
+    // Action consumes AP: normally 1 AP, but with 偏頭痛 (headache) consumes 2 AP
+    const isHeadacheOnAction = Boolean(gameState.headacheActive || gameState.flags['headache_active']);
+    const actionApCost = isHeadacheOnAction ? 2 : 1;
+    nextStats.ap = Math.max(0, nextStats.ap - actionApCost);
+    if (isHeadacheOnAction) {
+      addLog(`🤕【偏頭痛】受偏頭痛折磨，本回合抽卡行動力消耗 -2！（剩餘行動力：${nextStats.ap}）`, 'warning');
+    }
 
       // Construct outcome modal badges
       if (card.id === 'C2001-08') {
@@ -1454,11 +2339,14 @@ export default function App() {
           }
         } else if (option.text.includes('胖女巫') || option.text.includes('水晶球')) {
           const hasTimeMachine = ((gameState.inventory['時光機'] || 0) + (gameState.inventory['飛行時光機'] || 0)) > 0;
-          const isYongWuUnlocked = Boolean(meta.unlockedAchievements?.includes('ach_yong_wu'));
-          if (hasTimeMachine) {
-            badges.push({ label: '逐出古堡', value: '-3 行動力', color: 'text-red-400' });
-          } else if (isYongWuUnlocked) {
-            badges.push({ label: '女巫賜寶', value: '【時光機】', color: 'text-amber-300' });
+          const isYongWuActive = Boolean(meta.activeSkills?.includes('ach_yong_wu'));
+          if (isYongWuActive && !hasTimeMachine) {
+            badges.push({ label: '詠物調賜寶', value: '【時光機】', color: 'text-amber-300' });
+          } else if (isYongWuActive && hasTimeMachine) {
+            badges.push({ label: '逐出古堡', value: '-2 行動力', color: 'text-red-400' });
+          } else if (!isYongWuActive && hasTimeMachine) {
+            badges.push({ label: '偷竊震怒', value: '-2 行動力', color: 'text-red-400' });
+            badges.push({ label: '占卜前世', value: '觸發《愛在西元前》', color: 'text-cyan-300' });
           } else {
             badges.push({ label: '占卜前世', value: '觸發《愛在西元前》', color: 'text-cyan-300' });
           }
@@ -1510,12 +2398,11 @@ export default function App() {
           const isNinjaHeroExempt =
             card.id === 'C2001-04' &&
             eff.removeItem === '雙截棍' &&
-            gameState.character?.name === '英雄' &&
-            Boolean(gameState.inventory['免費教學錄影帶']);
+            gameState.character?.name === '英雄';
           if (!isNinjaHeroExempt) {
             badges.push({ label: '消耗物品', value: `【${eff.removeItem}】`, color: 'text-stone-400' });
           } else {
-            badges.push({ label: '英雄天賦', value: '赤手空拳突圍', color: 'text-amber-300' });
+            badges.push({ label: '英雄身手', value: '赤手空拳突圍', color: 'text-amber-300' });
           }
         }
         if (eff?.removeItems && eff.removeItems.length > 0) {
@@ -1531,6 +2418,23 @@ export default function App() {
             value: `${eff.apChange > 0 ? '+' : ''}${eff.apChange} 行動力`,
             color: eff.apChange > 0 ? 'text-emerald-400' : 'text-red-400',
           });
+        }
+        if (eff?.coinChange) {
+          badges.push({
+            label: '金幣變動',
+            value: `${eff.coinChange > 0 ? '+' : ''}${eff.coinChange} 金幣`,
+            color: eff.coinChange > 0 ? 'text-yellow-400' : 'text-amber-400',
+          });
+        }
+        if (isHeadacheOnAction) {
+          badges.push({
+            label: '偏頭痛消耗',
+            value: '本回合抽卡行動力共扣 2 點',
+            color: 'text-amber-400',
+          });
+        }
+        if (eff?.setFlag?.['gold_town_unlocked']) {
+          badges.push({ label: '環境解鎖', value: '淘金小鎮常駐', color: 'text-yellow-400' });
         }
         if (eff?.rewindRound !== undefined) {
           badges.push({ label: '時空逆轉', value: '重返第 1 回合', color: 'text-cyan-300' });
@@ -1564,9 +2468,19 @@ export default function App() {
         }
       }
 
-      // 體力耗盡判定（包含在 R30 跳接後卡牌抉擇、或一般卡牌體力歸 0 時）
+      // 行動力耗盡判定（包含在 R30 跳接後卡牌抉擇、或一般卡牌行動力歸 0 時）
       if (nextStats.ap <= 0) {
         nextStats.ap = 0;
+        // 行動力耗盡，本局冒險強制結束，清除當前所有暫態環境狀態
+        nextHeadacheActive = false;
+        nextFlags['headache_active'] = false;
+        nextFireworksBurning = false;
+        nextFlags['fireworks_burning'] = false;
+        nextNinjaChasing = false;
+        nextFlags['ninja_chasing'] = false;
+        nextRainyWeatherActive = false;
+        nextFlags['rainy_weather_active'] = false;
+
         // 系統保留此選項的物品、狀態、成就與化身，以利後續繼承判定（如鐵盒存放）
         setGameState((prev) => ({
           ...prev,
@@ -1575,23 +2489,27 @@ export default function App() {
           flags: nextFlags,
           character: nextCharacter,
           stats: nextStats,
+          headacheActive: false,
+          fireworksBurning: false,
+          ninjaChasing: false,
+          rainyWeatherActive: false,
         }));
         addLog('【行動力竭】行動力歸 0，身體已達極限，本局冒險結束！', 'warning');
 
         let narrativeDesc = '';
         if (eff?.rewindRound !== undefined) {
-          narrativeDesc = `雖然必須時空逆轉重返第 1 回合，但因體力已耗盡，本局冒險在此結束。`;
+          narrativeDesc = `雖然必須時空逆轉重返第 1 回合，但因行動力已耗盡，本局冒險在此結束。`;
         } else if (effectiveForceNextCardId) {
           const targetNext = CARD_DATABASE.find((c) => c.id === effectiveForceNextCardId);
-          narrativeDesc = `雖然觸發連動前往【${targetNext?.name || '下一卡牌'}】，但因體力已耗盡，本局冒險在此結束。`;
+          narrativeDesc = `雖然觸發連動前往【${targetNext?.name || '下一卡牌'}】，但因行動力已耗盡，本局冒險在此結束。`;
         } else if (optionResultText || option.resultText) {
-          narrativeDesc = `雖然${optionResultText || option.resultText}，但因體力已耗盡，本局冒險在此結束。`;
+          narrativeDesc = `雖然${optionResultText || option.resultText}，但因行動力已耗盡，本局冒險在此結束。`;
         } else {
-          narrativeDesc = `雖然做出了抉擇，但因體力耗盡，本局冒險結束。`;
+          narrativeDesc = `雖然做出了抉擇，但因行動力耗盡，本局冒險結束。`;
         }
 
         setOutcomeModal({
-          title: '✦ 宿命終曲・體力耗盡 ✦',
+          title: '✦ 宿命終曲・行動力耗盡 ✦',
           icon: '⏳',
           subtitle: `【${card.name}】・${option.text}`,
           narrative: narrativeDesc,
@@ -1603,6 +2521,17 @@ export default function App() {
               ...prev,
               defeatReason: '行動力已歸 0，本局冒險強制結束。所有的遺憾都將化為下一局的經驗！',
               phase: 'GAME_OVER',
+              headacheActive: false,
+              fireworksBurning: false,
+              ninjaChasing: false,
+              rainyWeatherActive: false,
+              flags: {
+                ...prev.flags,
+                headache_active: false,
+                fireworks_burning: false,
+                ninja_chasing: false,
+                rainy_weather_active: false,
+              },
             }));
             setShowApExhaustedModal(true);
           },
@@ -1639,6 +2568,8 @@ export default function App() {
         ...prev,
         inventory: nextInventory,
         itemAcquisitionOrder: nextItemOrder,
+        drawnCount: nextDrawnCount,
+        peninsulaInheritedCounts: nextPeninsulaCounts,
         flags: nextFlags,
         character: nextCharacter,
         stats: nextStats,
@@ -1646,10 +2577,15 @@ export default function App() {
         ninjaChasing: nextNinjaChasing,
         ninjaNextEncounterRound: nextNinjaNextEncounterRound,
         blacksmithUnlocked: nextBlacksmithUnlocked,
+        goldTownUnlocked: nextGoldTownUnlocked,
+        terraceUnlocked: nextTerraceUnlocked,
+        romanticPhoneUnlocked: nextRomanticPhoneUnlocked,
+        headacheActive: nextHeadacheActive,
+        rainyWeatherActive: nextRainyWeatherActive,
       }));
 
       // 【第30回合邊界條件機制】
-      // (3) 觸發卡牌導致增加體力的情況，不影響原先機制，因為原先機制本來就是就算體力再多也是得 30 回合結束，就算體力從 0 補回 1 也一樣
+      // (3) 觸發卡牌導致增加行動力的情況，不影響原先機制，因為原先機制本來就是就算行動力再多也是得 30 回合結束，就算行動力從 0 補回 1 也一樣
       // (2) 回合不計數 - 依然是第 30 回合，不會變成第 31、32 回合，結算依然不超過 30 回合上限
       const isAtOrExceedingRound30 = gameState.round >= 30;
       const finalConfirmRound = isAtOrExceedingRound30 ? 31 : nextRound;
@@ -1707,14 +2643,28 @@ export default function App() {
         onConfirm: () => {
           setOutcomeModal(null);
           const advanceToNextRound = () => {
-            // 檢查是否為說走就走 (C2016-02) 設定的小鐵匠離開回合 (R+5)：
-            // 於第 leaveRound 回合探索結算後、進入下一回合 (leaveRound + 1) 前發動離開機制
-            const leaveRound = Number(nextFlags['blacksmith_leave_round'] || 0);
+            // 檢查是否為說走就走 (C2016-02) 累積經歷滿 5 個探索回合小鐵匠離開機制：
+            // 與梯田生長累積制相同：若時間往前推進 (delta > 0)，累計歷經探索回合；
+            // 若時空倒流（反方向的鐘或跳轉更早回合），已累積歷經進度保留不回退！
+            const delta = finalConfirmRound > gameState.round ? finalConfirmRound - gameState.round : 0;
+            const currentElapsed = Number(
+              nextFlags['blacksmith_leave_elapsed'] ??
+              (nextFlags['blacksmith_leave_round']
+                ? Math.max(0, 5 - Math.max(0, Number(nextFlags['blacksmith_leave_round']) - gameState.round))
+                : 0)
+            );
+            const nextElapsed = currentElapsed + (delta > 0 ? 1 : 0);
+
+            const hasLeavePlan =
+              nextFlags['blacksmith_leave_countdown'] !== undefined ||
+              nextFlags['blacksmith_leave_elapsed'] !== undefined ||
+              Number(nextFlags['blacksmith_leave_round'] || 0) > 0;
+
             const isDepartureTriggerRound =
               Boolean(nextBlacksmithUnlocked || nextFlags['blacksmith_unlocked']) &&
-              leaveRound > 0 &&
+              hasLeavePlan &&
               (nextInventory['說走就走'] || 0) > 0 &&
-              gameState.round === leaveRound;
+              nextElapsed >= 5;
 
             if (isDepartureTriggerRound) {
               const postDepartureInventory = { ...nextInventory };
@@ -1730,6 +2680,8 @@ export default function App() {
                 blacksmith_unlocked: false,
               };
               delete postDepartureFlags['blacksmith_leave_round'];
+              delete postDepartureFlags['blacksmith_leave_countdown'];
+              delete postDepartureFlags['blacksmith_leave_elapsed'];
 
               // 即時更新當前底層狀態，確保畫面上的「小鐵鋪」按鈕與行囊即時解除與移除
               setGameState((prev) => ({
@@ -1741,7 +2693,7 @@ export default function App() {
               }));
 
               addLog(
-                `【說走就走】第 ${leaveRound} 回合已至，米蘭的小鐵匠收拾好行囊，前往遠方追尋自由與音樂之夢！小鐵鋪已打烊關閉，隨風消逝的【鄉間的路】已從行囊移除。往後旅程中將有機會再度與他相遇！`,
+                `【說走就走】第 ${gameState.round} 回合探索結束，米蘭的小鐵匠收拾好行囊，前往遠方追尋自由與音樂之夢！小鐵鋪已打烊關閉，隨風消逝的【鄉間的路】已從行囊移除。往後旅程中將有機會再度與他相遇！`,
                 'warning'
               );
 
@@ -1753,7 +2705,7 @@ export default function App() {
                   <>
                     「說走就走的旅行 Oh~」
                     <br />
-                    第 {leaveRound} 回合探索結束，小鐵匠收拾起工具，踏上了追尋自由的遠方。
+                    第 {gameState.round} 回合探索結束，小鐵匠收拾工具，踏上追尋自由的旅途。
                     <br />
                     小鐵鋪已解除 • 【說走就走】消失 • 【鄉間的路】不見蹤跡
                     <br />
@@ -1775,33 +2727,49 @@ export default function App() {
                     character: nextCharacter,
                     stats: nextStats,
                     fireworksBurning: nextFireworksBurning,
+                    headacheActive: nextHeadacheActive,
+                    rainyWeatherActive: nextRainyWeatherActive,
                     ninjaChasing: nextNinjaChasing,
                     ninjaRound: nextNinjaRound,
                     ninjaNextEncounterRound: nextNinjaNextEncounterRound,
                     blacksmithUnlocked: false,
                     latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
                     drawnCount: {
-                      ...gameState.drawnCount,
+                      ...nextDrawnCount,
                       'C2026-12': 0,
                       'C2002-09': 0,
                     },
+                    peninsulaInheritedCounts: nextPeninsulaCounts,
                   });
                 },
               });
               return;
             }
 
+            const updatedFlags = { ...nextFlags };
+            if (Boolean(nextBlacksmithUnlocked || nextFlags['blacksmith_unlocked']) && (nextInventory['說走就走'] || 0) > 0 && hasLeavePlan) {
+              updatedFlags['blacksmith_leave_elapsed'] = nextElapsed;
+              updatedFlags['blacksmith_leave_countdown'] = Math.max(0, 5 - nextElapsed);
+            }
+
             startNewRound(finalConfirmRound, {
               inventory: nextInventory,
               itemAcquisitionOrder: nextItemOrder,
-              flags: nextFlags,
+              drawnCount: nextDrawnCount,
+              peninsulaInheritedCounts: nextPeninsulaCounts,
+              flags: updatedFlags,
               character: nextCharacter,
               stats: nextStats,
               fireworksBurning: nextFireworksBurning,
+              headacheActive: nextHeadacheActive,
+              rainyWeatherActive: nextRainyWeatherActive,
               ninjaChasing: nextNinjaChasing,
               ninjaRound: nextNinjaRound,
               ninjaNextEncounterRound: nextNinjaNextEncounterRound,
               blacksmithUnlocked: nextBlacksmithUnlocked,
+              goldTownUnlocked: nextGoldTownUnlocked,
+              terraceUnlocked: nextTerraceUnlocked,
+              romanticPhoneUnlocked: nextRomanticPhoneUnlocked,
               latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
             });
           };
@@ -1810,7 +2778,8 @@ export default function App() {
             triggerCardShowcase(
               specialCardToShowcase.cardId,
               specialCardToShowcase.sourceText,
-              advanceToNextRound
+              advanceToNextRound,
+              specialCardToShowcase.badgeTitle
             );
           } else {
             advanceToNextRound();
@@ -1937,74 +2906,26 @@ export default function App() {
     return Boolean(cardDef?.isPeninsulaRestricted || itemName === '最後的戰役');
   }, []);
 
-  // Iron Box store/take handlers (支援至多 5 樣卡牌跨局封存傳承)
-  const handleStoreIronBox = (itemName: string) => {
-    if (meta.ironBoxItems.length >= 5) return;
-    if (isItemPeninsulaRestricted(itemName)) {
-      addLog(`【半島鐵盒】此物品蘊含當局決戰因果，無法放入鐵盒封存！`, 'warning');
-      return;
-    }
-    setGameState((prev) => {
-      const nextInv = { ...prev.inventory };
-      nextInv[itemName] = Math.max(0, (nextInv[itemName] || 1) - 1);
-      if (nextInv[itemName] === 0) delete nextInv[itemName];
-      return { ...prev, inventory: nextInv };
-    });
-    setMeta((prev) => ({
-      ...prev,
-      ironBoxItems: [...prev.ironBoxItems, itemName],
-    }));
-    addLog(`將【${itemName}】放入半島鐵盒，將可跨局傳承至下一局！`, 'action');
-    setOutcomeModal({
-      title: '✦ 半島鐵盒・時空封存 ✦',
-      icon: '📻',
-      subtitle: '跨局記憶傳承',
-      narrative: `你將【${itemName}】小心翼翼地放入了半島鐵盒之中。這份珍貴的物品將跨越時空輪迴，在未來的冒險中由你再度繼承。`,
-      badges: [{ label: '封存物品', value: `【${itemName}】`, color: 'text-amber-300' }],
-      confirmText: '確認',
-      onConfirm: () => setOutcomeModal(null),
-    });
-  };
-
-  // 於第 30 回合結束進入 NG 時，若持有半島鐵盒，啟動詢問玩家要保留哪些獲得卡牌繼承到 NG (至多 10 樣)
-  const triggerNextGameWithIronBoxCheck = (proceedFn: () => void) => {
+  // 於第 30 回合結束進入 NG 時，若持有半島鐵盒，啟動詢問玩家要保留哪些獲得卡牌繼承到 NG
+  const triggerNextGameWithIronBoxCheck = (
+    proceedFn: (inherited?: string[], retainChar?: boolean) => void
+  ) => {
     const hasIronBox = Boolean(gameState.inventory['半島鐵盒']);
     const availableItems = Object.keys(gameState.inventory).filter(
       (k) => (gameState.inventory[k] || 0) > 0 && !isItemPeninsulaRestricted(k)
     );
     if (hasIronBox && availableItems.length > 0) {
+      const capacity = getIronBoxCapacity();
       const initialSelected = (meta.ironBoxItems || [])
         .filter((it) => availableItems.includes(it))
-        .slice(0, 10);
+        .slice(0, capacity);
       setSelectedIronBoxItems(initialSelected);
+      setRetainCharacterInNextGame(false);
       setPendingNextGameCallback(() => proceedFn);
       setShowIronBoxInheritModal(true);
     } else {
       proceedFn();
     }
-  };
-
-  const handleTakeIronBox = (itemName: string) => {
-    setMeta((prev) => {
-      const nextItems = [...prev.ironBoxItems];
-      const idx = nextItems.indexOf(itemName);
-      if (idx >= 0) nextItems.splice(idx, 1);
-      return { ...prev, ironBoxItems: nextItems };
-    });
-    setGameState((prev) => {
-      const nextInv = { ...prev.inventory, [itemName]: (prev.inventory[itemName] || 0) + 1 };
-      return { ...prev, inventory: nextInv };
-    });
-    addLog(`從半島鐵盒取回了【${itemName}】至行囊。`, 'action');
-    setOutcomeModal({
-      title: '✦ 半島鐵盒・取出回憶 ✦',
-      icon: '📻',
-      subtitle: '取回封存物品',
-      narrative: `你從半島鐵盒中取出了【${itemName}】，卡牌已重新放入當前冒險的行囊。`,
-      badges: [{ label: '取出行囊', value: `【${itemName}】`, color: 'text-amber-300' }],
-      confirmText: '確認',
-      onConfirm: () => setOutcomeModal(null),
-    });
   };
 
   // Restart Current Game (CG) for testing - maintains gameNumber without advancing to NG
@@ -2015,15 +2936,24 @@ export default function App() {
       maxRounds: 30,
       character: null,
       inventory: {},
+      itemAcquisitionOrder: [],
       drawnCount: {},
+      peninsulaInheritedCounts: {},
       flags: {},
       jokerSlots: { place: null, shoes: null, performance: null },
       reversedClockUsesRemaining: 3,
-      stats: { ap: 15 },
+      stats: { ap: 15, coins: 0 },
       ninjaChasing: false,
       ninjaNextEncounterRound: null,
       fireworksBurning: false,
+      headacheActive: false,
+      rainyWeatherActive: false,
+      drenchedItemNotice: null,
       blacksmithUnlocked: false,
+      goldTownUnlocked: false,
+      terraceUnlocked: false,
+      romanticPhoneUnlocked: false,
+      terracePlot: { targetCrop: null, step: 'idle' },
       logs: [
         {
           round: 0,
@@ -2090,6 +3020,128 @@ export default function App() {
     setShowGuideBlacksmithModal(false);
   };
 
+  /**
+   * 米蘭小鐵匠各項鍛造／交換操作後的回合推進與打烊離開檢查
+   * 採用與梯田相同的「累積經歷回合制」：
+   * 不論時空如何回溯（反方向的鐘）或跳轉，均以實際歷經推進的探索回合數為準，
+   * 滿 5 回合時統一行囊移除、小鐵鋪常駐解除，並彈出統一之打烊告別視窗！
+   */
+  const performBlacksmithAdvance = (
+    nextInventory: Record<string, number>,
+    nextItemOrder: string[],
+    newlyAcquiredItemsThisRound: string[] = [],
+    extraState: Partial<GameState> = {}
+  ) => {
+    const isAtOrExceedingRound30 = gameState.round >= 30;
+    const nextRound = gameState.round + 1;
+    const finalConfirmRound = isAtOrExceedingRound30 ? 31 : nextRound;
+
+    const delta = finalConfirmRound > gameState.round ? finalConfirmRound - gameState.round : 0;
+    const currentElapsed = Number(
+      gameState.flags['blacksmith_leave_elapsed'] ??
+      (gameState.flags['blacksmith_leave_round']
+        ? Math.max(0, 5 - Math.max(0, Number(gameState.flags['blacksmith_leave_round']) - gameState.round))
+        : 0)
+    );
+    const nextElapsed = currentElapsed + (delta > 0 ? 1 : 0);
+
+    const hasLeavePlan =
+      gameState.flags['blacksmith_leave_countdown'] !== undefined ||
+      gameState.flags['blacksmith_leave_elapsed'] !== undefined ||
+      Number(gameState.flags['blacksmith_leave_round'] || 0) > 0;
+
+    const isDepartureTriggerRound =
+      Boolean(gameState.blacksmithUnlocked || gameState.flags['blacksmith_unlocked']) &&
+      hasLeavePlan &&
+      (nextInventory['說走就走'] || 0) > 0 &&
+      nextElapsed >= 5;
+
+    if (isDepartureTriggerRound) {
+      const postDepartureInventory = { ...nextInventory };
+      delete postDepartureInventory['說走就走'];
+      delete postDepartureInventory['鄉間的路'];
+
+      const postDepartureItemOrder = (nextItemOrder || Object.keys(postDepartureInventory)).filter(
+        (k) => (postDepartureInventory[k] || 0) > 0
+      );
+
+      const postDepartureFlags = {
+        ...gameState.flags,
+        blacksmith_unlocked: false,
+      };
+      delete postDepartureFlags['blacksmith_leave_round'];
+      delete postDepartureFlags['blacksmith_leave_countdown'];
+      delete postDepartureFlags['blacksmith_leave_elapsed'];
+
+      setGameState((prev) => ({
+        ...prev,
+        inventory: postDepartureInventory,
+        itemAcquisitionOrder: postDepartureItemOrder,
+        flags: postDepartureFlags,
+        blacksmithUnlocked: false,
+      }));
+
+      addLog(
+        `【說走就走】第 ${gameState.round} 回合探索結束，米蘭的小鐵匠收拾好行囊，前往遠方追尋自由與音樂之夢！小鐵鋪已打烊關閉，隨風消逝的【鄉間的路】已從行囊移除。往後旅程中將有機會再度與他相遇！`,
+        'warning'
+      );
+
+      setOutcomeModal({
+        title: '✦ 小鐵匠離去・小鐵鋪打烊 ✦',
+        icon: '🎒',
+        subtitle: '【說走就走】效果發動完成',
+        narrative: (
+          <>
+            「說走就走的旅行 Oh~」
+            <br />
+            第 {gameState.round} 回合探索結束，小鐵匠收拾工具，踏上追尋自由的旅途。
+            <br />
+            小鐵鋪已解除 • 【說走就走】消失 • 【鄉間的路】不見蹤跡
+            <br />
+            往後旅途仍有機會再與米蘭的小鐵匠相遇！
+          </>
+        ),
+        badges: [
+          { label: '環境變化', value: '小鐵鋪解除', color: 'text-amber-400' },
+        ],
+        confirmText: isAtOrExceedingRound30
+          ? '確定（第 30 回合冒險結算）'
+          : `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
+        onConfirm: () => {
+          setOutcomeModal(null);
+          startNewRound(finalConfirmRound, {
+            inventory: postDepartureInventory,
+            itemAcquisitionOrder: postDepartureItemOrder,
+            flags: postDepartureFlags,
+            blacksmithUnlocked: false,
+            latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
+            ...extraState,
+            drawnCount: {
+              ...(extraState.drawnCount || gameState.drawnCount),
+              'C2026-12': 0,
+              'C2002-09': 0,
+            },
+          });
+        },
+      });
+      return;
+    }
+
+    const updatedFlags = { ...gameState.flags };
+    if (Boolean(gameState.blacksmithUnlocked || gameState.flags['blacksmith_unlocked']) && (nextInventory['說走就走'] || 0) > 0 && hasLeavePlan) {
+      updatedFlags['blacksmith_leave_elapsed'] = nextElapsed;
+      updatedFlags['blacksmith_leave_countdown'] = Math.max(0, 5 - nextElapsed);
+    }
+
+    startNewRound(finalConfirmRound, {
+      inventory: nextInventory,
+      itemAcquisitionOrder: nextItemOrder,
+      flags: updatedFlags,
+      latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
+      ...extraState,
+    });
+  };
+
   // 遭遇米蘭的小鐵匠交換樂器確認處理（以烏克麗麗交換療傷燒肉粽）
   const handleConfirmExchangeInstrument = () => {
     setShowExchangeInstrumentModal(false);
@@ -2118,90 +3170,9 @@ export default function App() {
 
     const isAtOrExceedingRound30 = gameState.round >= 30;
     const nextRound = gameState.round + 1;
-    const finalConfirmRound = isAtOrExceedingRound30 ? 31 : nextRound;
 
     const advanceToNextRound = () => {
-      // 檢查是否為說走就走 (C2016-02) 設定的小鐵匠離開回合 (R+5)
-      const leaveRound = Number(gameState.flags['blacksmith_leave_round'] || 0);
-      const isDepartureTriggerRound =
-        Boolean(gameState.blacksmithUnlocked || gameState.flags['blacksmith_unlocked']) &&
-        leaveRound > 0 &&
-        (nextInventory['說走就走'] || 0) > 0 &&
-        gameState.round === leaveRound;
-
-      if (isDepartureTriggerRound) {
-        const postDepartureInventory = { ...nextInventory };
-        delete postDepartureInventory['說走就走'];
-        delete postDepartureInventory['鄉間的路'];
-
-        const postDepartureItemOrder = (nextItemOrder || Object.keys(postDepartureInventory)).filter(
-          (k) => (postDepartureInventory[k] || 0) > 0
-        );
-
-        const postDepartureFlags = {
-          ...gameState.flags,
-          blacksmith_unlocked: false,
-        };
-        delete postDepartureFlags['blacksmith_leave_round'];
-
-        setGameState((prev) => ({
-          ...prev,
-          inventory: postDepartureInventory,
-          itemAcquisitionOrder: postDepartureItemOrder,
-          flags: postDepartureFlags,
-          blacksmithUnlocked: false,
-        }));
-
-        addLog(
-          `【說走就走】第 ${leaveRound} 回合已至，米蘭的小鐵匠收拾好行囊，前往遠方追尋自由與音樂之夢！小鐵鋪已打烊關閉，隨風消逝的【鄉間的路】已從行囊移除。往後旅程中將有機會再度與他相遇！`,
-          'warning'
-        );
-
-        setOutcomeModal({
-          title: '✦ 小鐵匠離去・小鐵鋪打烊 ✦',
-          icon: '🎒',
-          subtitle: '【說走就走】效果發動完成',
-          narrative: (
-            <>
-              「說走就走的旅行 Oh~」
-              <br />
-              第 {leaveRound} 回合探索結束，小鐵匠收拾起工具，踏上了追尋自由的遠方。
-              <br />
-              小鐵鋪已解除 • 【說走就走】消失 • 【鄉間的路】不見蹤跡
-              <br />
-              往後旅途仍有機會再與米蘭的小鐵匠相遇！
-            </>
-          ),
-          badges: [
-            { label: '環境變化', value: '小鐵鋪解除', color: 'text-amber-400' },
-          ],
-          confirmText: isAtOrExceedingRound30
-            ? '確定（第 30 回合冒險結算）'
-            : `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
-          onConfirm: () => {
-            setOutcomeModal(null);
-            startNewRound(finalConfirmRound, {
-              inventory: postDepartureInventory,
-              itemAcquisitionOrder: postDepartureItemOrder,
-              flags: postDepartureFlags,
-              blacksmithUnlocked: false,
-              latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
-              drawnCount: {
-                ...gameState.drawnCount,
-                'C2026-12': 0,
-                'C2002-09': 0,
-              },
-            });
-          },
-        });
-        return;
-      }
-
-      startNewRound(finalConfirmRound, {
-        inventory: nextInventory,
-        itemAcquisitionOrder: nextItemOrder,
-        latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
-      });
+      performBlacksmithAdvance(nextInventory, nextItemOrder, newlyAcquiredItemsThisRound);
     };
 
     setOutcomeModal({
@@ -2263,90 +3234,9 @@ export default function App() {
 
     const isAtOrExceedingRound30 = gameState.round >= 30;
     const nextRound = gameState.round + 1;
-    const finalConfirmRound = isAtOrExceedingRound30 ? 31 : nextRound;
 
     const advanceToNextRound = () => {
-      // 檢查是否為說走就走 (C2016-02) 設定的小鐵匠離開回合 (R+5)
-      const leaveRound = Number(gameState.flags['blacksmith_leave_round'] || 0);
-      const isDepartureTriggerRound =
-        Boolean(gameState.blacksmithUnlocked || gameState.flags['blacksmith_unlocked']) &&
-        leaveRound > 0 &&
-        (nextInventory['說走就走'] || 0) > 0 &&
-        gameState.round === leaveRound;
-
-      if (isDepartureTriggerRound) {
-        const postDepartureInventory = { ...nextInventory };
-        delete postDepartureInventory['說走就走'];
-        delete postDepartureInventory['鄉間的路'];
-
-        const postDepartureItemOrder = (nextItemOrder || Object.keys(postDepartureInventory)).filter(
-          (k) => (postDepartureInventory[k] || 0) > 0
-        );
-
-        const postDepartureFlags = {
-          ...gameState.flags,
-          blacksmith_unlocked: false,
-        };
-        delete postDepartureFlags['blacksmith_leave_round'];
-
-        setGameState((prev) => ({
-          ...prev,
-          inventory: postDepartureInventory,
-          itemAcquisitionOrder: postDepartureItemOrder,
-          flags: postDepartureFlags,
-          blacksmithUnlocked: false,
-        }));
-
-        addLog(
-          `【說走就走】第 ${leaveRound} 回合已至，米蘭的小鐵匠收拾好行囊，前往遠方追尋自由與音樂之夢！小鐵鋪已打烊關閉，隨風消逝的【鄉間的路】已從行囊移除。往後旅程中將有機會再度與他相遇！`,
-          'warning'
-        );
-
-        setOutcomeModal({
-          title: '✦ 小鐵匠離去・小鐵鋪打烊 ✦',
-          icon: '🎒',
-          subtitle: '【說走就走】效果發動完成',
-          narrative: (
-            <>
-              「說走就走的旅行 Oh~」
-              <br />
-              第 {leaveRound} 回合探索結束，小鐵匠收拾起工具，踏上了追尋自由的遠方。
-              <br />
-              小鐵鋪已解除 • 【說走就走】消失 • 【鄉間的路】不見蹤跡
-              <br />
-              往後旅途仍有機會再與米蘭的小鐵匠相遇！
-            </>
-          ),
-          badges: [
-            { label: '環境變化', value: '小鐵鋪解除', color: 'text-amber-400' },
-          ],
-          confirmText: isAtOrExceedingRound30
-            ? '確定（第 30 回合冒險結算）'
-            : `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
-          onConfirm: () => {
-            setOutcomeModal(null);
-            startNewRound(finalConfirmRound, {
-              inventory: postDepartureInventory,
-              itemAcquisitionOrder: postDepartureItemOrder,
-              flags: postDepartureFlags,
-              blacksmithUnlocked: false,
-              latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
-              drawnCount: {
-                ...gameState.drawnCount,
-                'C2026-12': 0,
-                'C2002-09': 0,
-              },
-            });
-          },
-        });
-        return;
-      }
-
-      startNewRound(finalConfirmRound, {
-        inventory: nextInventory,
-        itemAcquisitionOrder: nextItemOrder,
-        latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
-      });
+      performBlacksmithAdvance(nextInventory, nextItemOrder, newlyAcquiredItemsThisRound);
     };
 
     setOutcomeModal({
@@ -2373,6 +3263,64 @@ export default function App() {
       onConfirm: () => {
         setOutcomeModal(null);
         triggerCardShowcase('C2012-10', '米蘭的小鐵匠巧手改造', advanceToNextRound);
+      },
+    });
+  };
+
+  // 遭遇米蘭的小鐵匠重鑄鐵鏟確認處理（將雙截棍重鑄為鐵鏟）
+  const handleConfirmUpgradeShovel = () => {
+    setShowUpgradeShovelModal(false);
+    if (!gameState.revealedCard) return;
+
+    const hasNunchaku = (gameState.inventory['雙截棍'] || 0) >= 1;
+    if (!hasNunchaku) {
+      addLog('【道具不足】未持有【雙截棍】，無法重鑄改造。', 'warning');
+      return;
+    }
+
+    const nextInventory = { ...gameState.inventory };
+    nextInventory['雙截棍'] = (nextInventory['雙截棍'] || 1) - 1;
+    if (nextInventory['雙截棍'] <= 0) delete nextInventory['雙截棍'];
+    nextInventory['鐵鏟'] = (nextInventory['鐵鏟'] || 0) + 1;
+
+    let nextItemOrder = [...(gameState.itemAcquisitionOrder || Object.keys(nextInventory))].filter(
+      (k) => (nextInventory[k] || 0) > 0
+    );
+    nextItemOrder = [...nextItemOrder.filter((k) => k !== '鐵鏟'), '鐵鏟'];
+
+    let nextDrawn = { ...gameState.drawnCount };
+    let nextPen = { ...(gameState.peninsulaInheritedCounts || {}) };
+    const quota = restoreCardQuotaOnItemLost('雙截棍', nextDrawn, nextPen, 1);
+    nextDrawn = quota.nextDrawnCount;
+    nextPen = quota.nextPeninsulaCounts;
+
+    addLog('【小鐵匠重鑄】消耗 1 把【雙截棍】，小鐵匠在鍛爐前揮汗如雨，巧手為你重鑄成了【鐵鏟】！', 'milestone');
+
+    const isAtOrExceedingRound30 = gameState.round >= 30;
+    const nextRound = gameState.round + 1;
+
+    const advanceToNextRound = () => {
+      performBlacksmithAdvance(nextInventory, nextItemOrder, ['鐵鏟'], {
+        drawnCount: nextDrawn,
+        peninsulaInheritedCounts: nextPen,
+      });
+    };
+
+    setOutcomeModal({
+      title: '✦ 小鐵匠重鑄・鐵鏟 ✦',
+      icon: '⚒️',
+      subtitle: '重鑄改造・武器化為實用工具',
+      narrative: '小鐵匠在鍛爐前揮汗如雨，將 1 把【雙截棍】重鑄改造為 1 把結實耐用的【鐵鏟】！\n\n熊熊爐火，武器也能重新鍛造成合適的工具。',
+      badges: [
+        { label: '重鑄武器', value: '消耗【雙截棍】*1', color: 'text-stone-400' },
+        { label: '獲得工具', value: '獲得【鐵鏟】*1', color: 'text-amber-300' },
+      ],
+      confirmText: isAtOrExceedingRound30
+        ? '確定（第 30 回合冒險結算）'
+        : `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
+      onConfirm: () => {
+        setOutcomeModal(null);
+        advanceToNextRound();
       },
     });
   };
@@ -2409,90 +3357,9 @@ export default function App() {
 
     const isAtOrExceedingRound30 = gameState.round >= 30;
     const nextRound = gameState.round + 1;
-    const finalConfirmRound = isAtOrExceedingRound30 ? 31 : nextRound;
 
     const advanceToNextRound = () => {
-      // 檢查是否為說走就走 (C2016-02) 設定的小鐵匠離開回合 (R+5)
-      const leaveRound = Number(gameState.flags['blacksmith_leave_round'] || 0);
-      const isDepartureTriggerRound =
-        Boolean(gameState.blacksmithUnlocked || gameState.flags['blacksmith_unlocked']) &&
-        leaveRound > 0 &&
-        (nextInventory['說走就走'] || 0) > 0 &&
-        gameState.round === leaveRound;
-
-      if (isDepartureTriggerRound) {
-        const postDepartureInventory = { ...nextInventory };
-        delete postDepartureInventory['說走就走'];
-        delete postDepartureInventory['鄉間的路'];
-
-        const postDepartureItemOrder = (nextItemOrder || Object.keys(postDepartureInventory)).filter(
-          (k) => (postDepartureInventory[k] || 0) > 0
-        );
-
-        const postDepartureFlags = {
-          ...gameState.flags,
-          blacksmith_unlocked: false,
-        };
-        delete postDepartureFlags['blacksmith_leave_round'];
-
-        setGameState((prev) => ({
-          ...prev,
-          inventory: postDepartureInventory,
-          itemAcquisitionOrder: postDepartureItemOrder,
-          flags: postDepartureFlags,
-          blacksmithUnlocked: false,
-        }));
-
-        addLog(
-          `【說走就走】第 ${leaveRound} 回合已至，米蘭的小鐵匠收拾好行囊，前往遠方追尋自由與音樂之夢！小鐵鋪已打烊關閉，隨風消逝的【鄉間的路】已從行囊移除。往後旅程中將有機會再度與他相遇！`,
-          'warning'
-        );
-
-        setOutcomeModal({
-          title: '✦ 小鐵匠離去・小鐵鋪打烊 ✦',
-          icon: '🎒',
-          subtitle: '【說走就走】效果發動完成',
-          narrative: (
-            <>
-              「說走就走的旅行 Oh~」
-              <br />
-              第 {leaveRound} 回合探索結束，小鐵匠收拾起工具，踏上了追尋自由的遠方。
-              <br />
-              小鐵鋪已解除 • 【說走就走】消失 • 【鄉間的路】不見蹤跡
-              <br />
-              往後旅途仍有機會再與米蘭的小鐵匠相遇！
-            </>
-          ),
-          badges: [
-            { label: '環境變化', value: '小鐵鋪解除', color: 'text-amber-400' },
-          ],
-          confirmText: isAtOrExceedingRound30
-            ? '確定（第 30 回合冒險結算）'
-            : `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
-          onConfirm: () => {
-            setOutcomeModal(null);
-            startNewRound(finalConfirmRound, {
-              inventory: postDepartureInventory,
-              itemAcquisitionOrder: postDepartureItemOrder,
-              flags: postDepartureFlags,
-              blacksmithUnlocked: false,
-              latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
-              drawnCount: {
-                ...gameState.drawnCount,
-                'C2026-12': 0,
-                'C2002-09': 0,
-              },
-            });
-          },
-        });
-        return;
-      }
-
-      startNewRound(finalConfirmRound, {
-        inventory: nextInventory,
-        itemAcquisitionOrder: nextItemOrder,
-        latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
-      });
+      performBlacksmithAdvance(nextInventory, nextItemOrder, newlyAcquiredItemsThisRound);
     };
 
     setOutcomeModal({
@@ -2512,6 +3379,136 @@ export default function App() {
       onConfirm: () => {
         setOutcomeModal(null);
         triggerCardShowcase('C2010-09-EX', '米蘭的小鐵匠巧手強化', advanceToNextRound);
+      },
+    });
+  };
+
+  // 遭遇米蘭的小鐵匠擴充鐵盒確認處理（以持有頁籤擴充半島鐵盒）
+  const handleConfirmExpandIronBox = () => {
+    setShowExpandIronBoxModal(false);
+    if (!gameState.revealedCard) return;
+
+    const hasIronBox = (gameState.inventory['半島鐵盒'] || 0) >= 1;
+    const firstCount = gameState.inventory['第一頁'] || 0;
+    const sixthCount = gameState.inventory['第六頁'] || 0;
+    const seventhCount = gameState.inventory['第七頁'] || 0;
+    const prefaceCount = gameState.inventory['序'] || 0;
+
+    if (!hasIronBox || firstCount + sixthCount + seventhCount + prefaceCount <= 0) {
+      addLog('【道具不足】缺少【半島鐵盒】或擴充頁籤，無法擴充。', 'warning');
+      return;
+    }
+
+    const nextInventory = { ...gameState.inventory };
+    const pagesGained: string[] = [];
+    let capacityGain = 0;
+    let prefaceUnlocked = false;
+
+    const currentPages = { ...(meta.ironBoxPages || {}) };
+
+    // 順序 1: 第一頁
+    if (!currentPages.firstPage && firstCount > 0) {
+      nextInventory['第一頁'] -= 1;
+      if (nextInventory['第一頁'] <= 0) delete nextInventory['第一頁'];
+      currentPages.firstPage = true;
+      capacityGain += 1;
+      pagesGained.push('【第一頁】(+1格容量)');
+    }
+    // 順序 2: 第六頁 (需已擴充第一頁)
+    if (currentPages.firstPage && !currentPages.sixthPage && sixthCount > 0) {
+      nextInventory['第六頁'] -= 1;
+      if (nextInventory['第六頁'] <= 0) delete nextInventory['第六頁'];
+      currentPages.sixthPage = true;
+      capacityGain += 6;
+      pagesGained.push('【第六頁】(+6格容量)');
+    }
+    // 順序 3: 第七頁 (需已擴充第六頁)
+    if (currentPages.sixthPage && !currentPages.seventhPage && seventhCount > 0) {
+      nextInventory['第七頁'] -= 1;
+      if (nextInventory['第七頁'] <= 0) delete nextInventory['第七頁'];
+      currentPages.seventhPage = true;
+      capacityGain += 7;
+      pagesGained.push('【第七頁】(+7格容量)');
+    }
+    // 順序 4: 序 (需已擴充第七頁)
+    if (currentPages.seventhPage && !currentPages.preface && prefaceCount > 0) {
+      nextInventory['序'] -= 1;
+      if (nextInventory['序'] <= 0) delete nextInventory['序'];
+      currentPages.preface = true;
+      prefaceUnlocked = true;
+      pagesGained.push('【序】(解鎖跨局繼承角色)');
+    }
+
+    if (pagesGained.length === 0) {
+      addLog('【順序不符】未持有當前順位所需之擴充頁籤，請依照順序（第一頁 ➔ 第六頁 ➔ 第七頁 ➔ 序）進行擴充。', 'warning');
+      return;
+    }
+
+    const nextItemOrder = [...(gameState.itemAcquisitionOrder || Object.keys(nextInventory))].filter(
+      (k) => (nextInventory[k] || 0) > 0
+    );
+
+    setMeta((prev) => ({
+      ...prev,
+      ironBoxPages: currentPages,
+    }));
+
+    const newCap = getIronBoxCapacity(currentPages);
+    addLog(
+      `【鐵盒擴充】小鐵匠以純熟工藝將 ${pagesGained.join('、')} 鍛造融入【半島鐵盒】！當前封存上限提升為 ${newCap} 樣！${
+        prefaceUnlocked ? ' 並已啟動跨局「繼承角色化身」傳奇能力！' : ''
+      }`,
+      'milestone'
+    );
+
+    const isAtOrExceedingRound30 = gameState.round >= 30;
+    const nextRound = gameState.round + 1;
+
+    const advanceToNextRound = () => {
+      performBlacksmithAdvance(nextInventory, nextItemOrder);
+    };
+
+    setOutcomeModal({
+      title: '✦ 半島鐵盒・神器擴充 ✦',
+      icon: '📻',
+      subtitle: '遭遇米蘭的小鐵匠・擴充鐵盒',
+      narrative: (
+        <div className="space-y-3 font-sans leading-relaxed text-stone-300">
+          <p>「放在床邊堆好多 第一頁第六頁第七頁序」</p>
+          <p>小鐵匠接過【半島鐵盒】與挖掘出的泛黃頁籤，精準裝訂並重鑄進鐵盒之中！</p>
+          <div className="bg-amber-950/40 border border-amber-600/50 p-3 rounded-xl text-xs space-y-1.5">
+            <div className="text-amber-200 font-bold">本次擴充成果：</div>
+            <div className="text-stone-300 space-y-1">
+              {pagesGained.map((pg, idx) => (
+                <div key={`${pg}-${idx}`} className="flex items-center gap-1.5 text-amber-300">
+                  <span>✦</span>
+                  <span>融入 {pg}</span>
+                </div>
+              ))}
+            </div>
+            <div className="pt-1 border-t border-amber-800/40 text-stone-300 flex items-center justify-between">
+              <span>鐵盒當前封存上限：</span>
+              <span className="font-mono font-bold text-amber-200 text-sm">{newCap} 樣道具</span>
+            </div>
+            {currentPages.preface && (
+              <div className="text-yellow-300 font-bold flex items-center gap-1.5">
+                <span>✨</span>
+                <span>已啟動【序】：第 30 回合結束時可選擇跨局繼承當前角色！</span>
+              </div>
+            )}
+          </div>
+        </div>
+      ),
+      badges: [
+        ...(capacityGain > 0
+          ? [{ label: '容量提升', value: `+${capacityGain} 格 (總計 ${newCap} 格)`, color: 'text-amber-300' }]
+          : []),
+        ...(prefaceUnlocked ? [{ label: '能力啟動', value: '跨局繼承角色', color: 'text-yellow-400' }] : []),
+      ],
+      confirmText: `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
+      onConfirm: () => {
+        setOutcomeModal(null);
+        advanceToNextRound();
       },
     });
   };
@@ -2595,103 +3592,57 @@ export default function App() {
         : `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
       onConfirm: () => {
         setOutcomeModal(null);
-        const leaveRound = Number(gameState.flags['blacksmith_leave_round'] || 0);
-        const isDepartureTriggerRound =
-          Boolean(gameState.blacksmithUnlocked || gameState.flags['blacksmith_unlocked']) &&
-          leaveRound > 0 &&
-          (nextInventory['說走就走'] || 0) > 0 &&
-          gameState.round === leaveRound;
-
-        if (isDepartureTriggerRound) {
-          const postDepartureInventory = { ...nextInventory };
-          delete postDepartureInventory['說走就走'];
-          delete postDepartureInventory['鄉間的路'];
-
-          const postDepartureItemOrder = (nextItemOrder || Object.keys(postDepartureInventory)).filter(
-            (k) => (postDepartureInventory[k] || 0) > 0
-          );
-
-          const postDepartureFlags = {
-            ...gameState.flags,
-            blacksmith_unlocked: false,
-          };
-          delete postDepartureFlags['blacksmith_leave_round'];
-
-          // 即時更新當前底層狀態，確保畫面上的「小鐵鋪」按鈕與行囊即時解除與移除
-          setGameState((prev) => ({
-            ...prev,
-            inventory: postDepartureInventory,
-            itemAcquisitionOrder: postDepartureItemOrder,
-            flags: postDepartureFlags,
-            blacksmithUnlocked: false,
-          }));
-
-          addLog(
-            `【說走就走】第 ${leaveRound} 回合已至，米蘭的小鐵匠收拾好行囊，前往遠方追尋自由與音樂之夢！小鐵鋪已打烊關閉，隨風消逝的【鄉間的路】已從行囊移除。往後旅程中將有機會再度與他相遇！`,
-            'warning'
-          );
-
-          setOutcomeModal({
-            title: '✦ 小鐵匠離去・小鐵鋪打烊 ✦',
-            icon: '🎒',
-            subtitle: '【說走就走】效果發動完成',
-            narrative: (
-              <>
-                「說走就走的旅行 Oh~」
-                <br />
-                第 {leaveRound} 回合探索結束，小鐵匠收拾起工具，踏上了追尋自由的遠方。
-                <br />
-                小鐵鋪已解除 • 【說走就走】消失 • 【鄉間的路】不見蹤跡
-                <br />
-                往後旅途仍有機會再與米蘭的小鐵匠相遇！
-              </>
-            ),
-            badges: [
-              { label: '環境變化', value: '小鐵鋪解除', color: 'text-amber-400' },
-            ],
-            confirmText: isAtOrExceedingRound30
-              ? '確定（第 30 回合冒險結算）'
-              : `確定（進入第 ${Math.min(30, nextRound)} 回合）`,
-            onConfirm: () => {
-              setOutcomeModal(null);
-              startNewRound(finalConfirmRound, {
-                inventory: postDepartureInventory,
-                itemAcquisitionOrder: postDepartureItemOrder,
-                flags: postDepartureFlags,
-                blacksmithUnlocked: false,
-                latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
-                drawnCount: {
-                  ...gameState.drawnCount,
-                  'C2026-12': 0,
-                  'C2002-09': 0,
-                },
-              });
-            },
-          });
-          return;
-        }
-
-        startNewRound(finalConfirmRound, {
-          inventory: nextInventory,
-          itemAcquisitionOrder: nextItemOrder,
-          latestAcquiredItemsThisRound: newlyAcquiredItemsThisRound,
-        });
+        performBlacksmithAdvance(nextInventory, nextItemOrder, newlyAcquiredItemsThisRound);
       },
     });
   };
 
   // 小鐵鋪改造交易處理
   const handleBlacksmithTrade = (
-    type: 'nunchucks_to_blades' | 'blades_to_nunchucks' | 'craft_maltose' | 'trade_ukulele' | 'upgrade_clock'
+    type:
+      | 'nunchucks_to_blades'
+      | 'blades_to_nunchucks'
+      | 'nunchucks_to_shovel'
+      | 'craft_maltose'
+      | 'trade_ukulele'
+      | 'upgrade_clock'
+      | 'upgrade_time_machine'
+      | 'expand_iron_box'
   ): boolean => {
     const inv = { ...gameState.inventory };
     const currentOrder = gameState.itemAcquisitionOrder || Object.keys(inv);
     let nextOrder = [...currentOrder];
+    let nextDrawn = { ...gameState.drawnCount };
+    let nextPen = { ...(gameState.peninsulaInheritedCounts || {}) };
+
+    if (type === 'nunchucks_to_shovel') {
+      if ((inv['雙截棍'] || 0) < 1) return false;
+      inv['雙截棍'] -= 1;
+      if (inv['雙截棍'] === 0) delete inv['雙截棍'];
+      const quota = restoreCardQuotaOnItemLost('雙截棍', nextDrawn, nextPen, 1);
+      nextDrawn = quota.nextDrawnCount;
+      nextPen = quota.nextPeninsulaCounts;
+      inv['鐵鏟'] = (inv['鐵鏟'] || 0) + 1;
+      nextOrder = [...nextOrder.filter((k) => k !== '鐵鏟'), '鐵鏟'];
+      nextOrder = nextOrder.filter((k) => (inv[k] || 0) > 0);
+      setGameState((prev) => ({
+        ...prev,
+        inventory: inv,
+        itemAcquisitionOrder: nextOrder,
+        drawnCount: nextDrawn,
+        peninsulaInheritedCounts: nextPen,
+      }));
+      addLog('【小鐵鋪重鑄】消耗 1 把【雙截棍】，改造成 1 把【鐵鏟】！', 'milestone');
+      return true;
+    }
 
     if (type === 'nunchucks_to_blades') {
       if ((inv['雙截棍'] || 0) < 2) return false;
       inv['雙截棍'] -= 2;
       if (inv['雙截棍'] === 0) delete inv['雙截棍'];
+      const quota = restoreCardQuotaOnItemLost('雙截棍', nextDrawn, nextPen, 2);
+      nextDrawn = quota.nextDrawnCount;
+      nextPen = quota.nextPeninsulaCounts;
       inv['雙刀'] = (inv['雙刀'] || 0) + 1;
       nextOrder = [...nextOrder.filter((k) => k !== '雙刀'), '雙刀'];
       nextOrder = nextOrder.filter((k) => (inv[k] || 0) > 0);
@@ -2699,6 +3650,8 @@ export default function App() {
         ...prev,
         inventory: inv,
         itemAcquisitionOrder: nextOrder,
+        drawnCount: nextDrawn,
+        peninsulaInheritedCounts: nextPen,
       }));
       checkAchievements(inv);
       addLog('【小鐵鋪重鑄】消耗 2 把【雙截棍】，小鐵匠以純熟爐火為你改造成 1 把【雙刀】！', 'milestone');
@@ -2709,6 +3662,9 @@ export default function App() {
       if ((inv['雙刀'] || 0) < 1) return false;
       inv['雙刀'] -= 1;
       if (inv['雙刀'] === 0) delete inv['雙刀'];
+      const quota = restoreCardQuotaOnItemLost('雙刀', nextDrawn, nextPen, 1);
+      nextDrawn = quota.nextDrawnCount;
+      nextPen = quota.nextPeninsulaCounts;
       inv['雙截棍'] = (inv['雙截棍'] || 0) + 2;
       nextOrder = [...nextOrder.filter((k) => k !== '雙截棍'), '雙截棍'];
       nextOrder = nextOrder.filter((k) => (inv[k] || 0) > 0);
@@ -2716,6 +3672,8 @@ export default function App() {
         ...prev,
         inventory: inv,
         itemAcquisitionOrder: nextOrder,
+        drawnCount: nextDrawn,
+        peninsulaInheritedCounts: nextPen,
       }));
       checkAchievements(inv);
       addLog('【小鐵鋪拆解】消耗 1 把【雙刀】，小鐵匠熟練拆解為你改造成 2 把【雙截棍】！', 'milestone');
@@ -2728,6 +3686,12 @@ export default function App() {
       if (inv['甜甜的'] === 0) delete inv['甜甜的'];
       inv['稻香'] -= 1;
       if (inv['稻香'] === 0) delete inv['稻香'];
+      const q1 = restoreCardQuotaOnItemLost('甜甜的', nextDrawn, nextPen, 1);
+      nextDrawn = q1.nextDrawnCount;
+      nextPen = q1.nextPeninsulaCounts;
+      const q2 = restoreCardQuotaOnItemLost('稻香', nextDrawn, nextPen, 1);
+      nextDrawn = q2.nextDrawnCount;
+      nextPen = q2.nextPeninsulaCounts;
       inv['麥芽糖'] = (inv['麥芽糖'] || 0) + 1;
       nextOrder = [...nextOrder.filter((k) => k !== '麥芽糖'), '麥芽糖'];
       nextOrder = nextOrder.filter((k) => (inv[k] || 0) > 0);
@@ -2735,6 +3699,8 @@ export default function App() {
         ...prev,
         inventory: inv,
         itemAcquisitionOrder: nextOrder,
+        drawnCount: nextDrawn,
+        peninsulaInheritedCounts: nextPen,
       }));
       checkAchievements(inv);
       addLog('【小鐵鋪熬製】消耗【甜甜的】與【稻香】，小鐵匠以溫火為你慢熬出香甜黏手的【麥芽糖】！', 'milestone');
@@ -2762,6 +3728,9 @@ export default function App() {
       if ((inv['烏克麗麗'] || 0) < 1) return false;
       inv['烏克麗麗'] -= 1;
       if (inv['烏克麗麗'] === 0) delete inv['烏克麗麗'];
+      const quota = restoreCardQuotaOnItemLost('烏克麗麗', nextDrawn, nextPen, 1);
+      nextDrawn = quota.nextDrawnCount;
+      nextPen = quota.nextPeninsulaCounts;
       inv['療傷燒肉粽'] = (inv['療傷燒肉粽'] || 0) + 1;
       nextOrder = [...nextOrder.filter((k) => k !== '療傷燒肉粽'), '療傷燒肉粽'];
       nextOrder = nextOrder.filter((k) => (inv[k] || 0) > 0);
@@ -2769,6 +3738,8 @@ export default function App() {
         ...prev,
         inventory: inv,
         itemAcquisitionOrder: nextOrder,
+        drawnCount: nextDrawn,
+        peninsulaInheritedCounts: nextPen,
       }));
       checkAchievements(inv);
       addLog('【小鐵鋪情懷】小鐵匠開心地收下【烏克麗麗】隨興彈唱，並熱情贈予你一串熱氣騰騰的【療傷燒肉粽】！', 'milestone');
@@ -2798,6 +3769,9 @@ export default function App() {
       if ((inv['反方向的鐘'] || 0) < 1) return false;
       inv['反方向的鐘'] -= 1;
       if (inv['反方向的鐘'] === 0) delete inv['反方向的鐘'];
+      const quota = restoreCardQuotaOnItemLost('反方向的鐘', nextDrawn, nextPen, 1);
+      nextDrawn = quota.nextDrawnCount;
+      nextPen = quota.nextPeninsulaCounts;
       inv['大笨鐘'] = (inv['大笨鐘'] || 0) + 1;
       nextOrder = [...nextOrder.filter((k) => k !== '大笨鐘'), '大笨鐘'];
       nextOrder = nextOrder.filter((k) => (inv[k] || 0) > 0);
@@ -2805,6 +3779,8 @@ export default function App() {
         ...prev,
         inventory: inv,
         itemAcquisitionOrder: nextOrder,
+        drawnCount: nextDrawn,
+        peninsulaInheritedCounts: nextPen,
       }));
       checkAchievements(inv);
       addLog('【小鐵鋪改造】消耗【反方向的鐘】，小鐵匠以純熟工藝為你改造成【大笨鐘】！', 'milestone');
@@ -2864,7 +3840,527 @@ export default function App() {
       return true;
     }
 
+    if (type === 'expand_iron_box') {
+      if ((inv['半島鐵盒'] || 0) < 1) return false;
+      const firstCount = inv['第一頁'] || 0;
+      const sixthCount = inv['第六頁'] || 0;
+      const seventhCount = inv['第七頁'] || 0;
+      const prefaceCount = inv['序'] || 0;
+      if (firstCount + sixthCount + seventhCount + prefaceCount <= 0) return false;
+
+      const pagesGained: string[] = [];
+      let capacityGain = 0;
+      let prefaceUnlocked = false;
+
+      const currentPages = { ...(meta.ironBoxPages || {}) };
+
+      // 順序 1: 第一頁
+      if (!currentPages.firstPage && firstCount > 0) {
+        inv['第一頁'] -= 1;
+        if (inv['第一頁'] <= 0) delete inv['第一頁'];
+        currentPages.firstPage = true;
+        capacityGain += 1;
+        pagesGained.push('【第一頁】(+1格容量)');
+      }
+      // 順序 2: 第六頁 (需已擴充第一頁)
+      if (currentPages.firstPage && !currentPages.sixthPage && sixthCount > 0) {
+        inv['第六頁'] -= 1;
+        if (inv['第六頁'] <= 0) delete inv['第六頁'];
+        currentPages.sixthPage = true;
+        capacityGain += 6;
+        pagesGained.push('【第六頁】(+6格容量)');
+      }
+      // 順序 3: 第七頁 (需已擴充第六頁)
+      if (currentPages.sixthPage && !currentPages.seventhPage && seventhCount > 0) {
+        inv['第七頁'] -= 1;
+        if (inv['第七頁'] <= 0) delete inv['第七頁'];
+        currentPages.seventhPage = true;
+        capacityGain += 7;
+        pagesGained.push('【第七頁】(+7格容量)');
+      }
+      // 順序 4: 序 (需已擴充第七頁)
+      if (currentPages.seventhPage && !currentPages.preface && prefaceCount > 0) {
+        inv['序'] -= 1;
+        if (inv['序'] <= 0) delete inv['序'];
+        currentPages.preface = true;
+        prefaceUnlocked = true;
+        pagesGained.push('【序】(解鎖跨局繼承角色)');
+      }
+
+      if (pagesGained.length === 0) return false;
+
+      nextOrder = nextOrder.filter((k) => (inv[k] || 0) > 0);
+
+      setMeta((prev) => ({
+        ...prev,
+        ironBoxPages: currentPages,
+      }));
+
+      setGameState((prev) => ({
+        ...prev,
+        inventory: inv,
+        itemAcquisitionOrder: nextOrder,
+      }));
+
+      const newCap = getIronBoxCapacity(currentPages);
+      addLog(
+        `【鐵盒擴充】小鐵匠以純熟工藝將 ${pagesGained.join('、')} 鍛造融入【半島鐵盒】！當前封存上限提升為 ${newCap} 樣！${
+          prefaceUnlocked ? ' 並已啟動跨局「繼承角色化身」傳奇能力！' : ''
+        }`,
+        'milestone'
+      );
+
+      setShowBlacksmithModal(false);
+      setOutcomeModal({
+        title: '✦ 半島鐵盒・神器擴充 ✦',
+        icon: '📻',
+        subtitle: '【米蘭的小鐵匠】・改造物品',
+        narrative: (
+          <div className="space-y-3 font-sans leading-relaxed text-stone-300">
+            <p>「走廊燈關上 書包放 走到房間窗外望……第一頁第六頁第七頁序」</p>
+            <p>小鐵匠在鐵砧與鍛爐前專注敲打，將泛黃書頁精準裝訂並重鑄進【半島鐵盒】的金屬封皮之中！</p>
+            <div className="bg-amber-950/40 border border-amber-600/50 p-3 rounded-xl text-xs space-y-1.5">
+              <div className="text-amber-200 font-bold">本次擴充成果：</div>
+              <div className="text-stone-300 space-y-1">
+                {pagesGained.map((pg, idx) => (
+                  <div key={`${pg}-${idx}`} className="flex items-center gap-1.5 text-amber-300">
+                    <span>✦</span>
+                    <span>融入 {pg}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-1 border-t border-amber-800/40 text-stone-300 flex items-center justify-between">
+                <span>鐵盒當前封存上限：</span>
+                <span className="font-mono font-bold text-amber-200 text-sm">{newCap} 樣道具</span>
+              </div>
+              {currentPages.preface && (
+                <div className="text-yellow-300 font-bold flex items-center gap-1.5">
+                  <span>✨</span>
+                  <span>已啟動【序】：第 30 回合結束時可選擇跨局繼承當前角色！</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ),
+        badges: [
+          ...(capacityGain > 0
+            ? [{ label: '容量提升', value: `+${capacityGain} 格 (總計 ${newCap} 格)`, color: 'text-amber-300' }]
+            : []),
+          ...(prefaceUnlocked ? [{ label: '能力啟動', value: '跨局繼承角色', color: 'text-yellow-400' }] : []),
+        ],
+        confirmText: '確定',
+        onConfirm: () => {
+          setOutcomeModal(null);
+        },
+      });
+      return true;
+    }
+
     return false;
+  };
+
+  // 淘金小鎮：按順序取得制計算當前應出土之頁籤（第一頁 -> 第六頁 -> 第七頁 -> 序，不並存）
+  const getNextGoldTownPageTarget = (): 'first_page' | 'sixth_page' | 'seventh_page' | 'preface' | null => {
+    const p = meta.ironBoxPages || {};
+    const inv = gameState.inventory || {};
+    if (!p.firstPage) {
+      if ((inv['第一頁'] || 0) > 0) return null; // 背包已有，先去改造擴充
+      return 'first_page';
+    }
+    if (!p.sixthPage) {
+      if ((inv['第六頁'] || 0) > 0) return null;
+      return 'sixth_page';
+    }
+    if (!p.seventhPage) {
+      if ((inv['第七頁'] || 0) > 0) return null;
+      return 'seventh_page';
+    }
+    if (!p.preface) {
+      if ((inv['序'] || 0) > 0) return null;
+      return 'preface';
+    }
+    return null; // 全部已擴充完畢
+  };
+
+  // 淘金小鎮常駐按鈕點擊處理：開啟入場確認視窗
+  const handleOpenGoldTown = () => {
+    setIsGoldTownFromRevealedCard(false);
+    setShowGoldTownConfirmModal(true);
+  };
+
+  // 淘金小鎮探勘結算處理（無論抽卡觸發或常駐前往，結算畫面均正常彈出）
+  const handleGoldTownComplete = (reward: GoldTownReward) => {
+    setShowGoldTownDigModal(false);
+
+    const foundCoins = reward.foundCoins || 0;
+    const foundItems = reward.foundItems || [];
+    const isFromCard = isGoldTownFromRevealedCard;
+    setIsGoldTownFromRevealedCard(false);
+
+    setGameState((prev) => {
+      const updatedInventory = { ...prev.inventory };
+      let updatedItemOrder = [...(prev.itemAcquisitionOrder || Object.keys(updatedInventory))];
+      const updatedDrawnCount = { ...prev.drawnCount };
+
+      foundItems.forEach((itemName) => {
+        updatedInventory[itemName] = (updatedInventory[itemName] || 0) + 1;
+        if (!updatedItemOrder.includes(itemName)) {
+          updatedItemOrder.push(itemName);
+        }
+        const card = CARD_DATABASE.find((c) => c.name === itemName || c.id === itemName);
+        if (card) {
+          updatedDrawnCount[card.id] = (updatedDrawnCount[card.id] || 0) + 1;
+        }
+      });
+
+      const updatedCoins = (prev.stats.coins || 0) + foundCoins;
+      const updatedFlags = { ...prev.flags };
+      if (foundCoins > 0 || updatedCoins > 0) {
+        updatedFlags['discovered_coins'] = true;
+      }
+
+      return {
+        ...prev,
+        inventory: updatedInventory,
+        itemAcquisitionOrder: updatedItemOrder,
+        drawnCount: updatedDrawnCount,
+        flags: updatedFlags,
+        stats: {
+          ...prev.stats,
+          coins: updatedCoins,
+        },
+      };
+    });
+
+    // 圖鑑解鎖
+    const newlyUnlockedCards: string[] = [];
+    foundItems.forEach((itemName) => {
+      const card = CARD_DATABASE.find((c) => c.name === itemName || c.id === itemName);
+      if (card && !meta.unlockedCardIds.includes(card.id)) {
+        newlyUnlockedCards.push(card.id);
+      }
+    });
+    if (newlyUnlockedCards.length > 0) {
+      setMeta((m) => ({
+        ...m,
+        unlockedCardIds: Array.from(new Set([...m.unlockedCardIds, ...newlyUnlockedCards])),
+      }));
+    }
+
+    const lootSummary: string[] = [];
+    if (foundCoins > 0) lootSummary.push(`${foundCoins} 枚金幣`);
+    foundItems.forEach((it) => lootSummary.push(`【${it}】`));
+
+    if (lootSummary.length > 0) {
+      addLog(`【淘金成果】本次探勘成功挖獲：${lootSummary.join('、')}！`, 'milestone');
+    } else {
+      addLog('【淘金空手而歸】荒野礦坑泥沙滾滾，這次探勘未能掘得寶物。', 'warning');
+    }
+
+    // 探勘結算視窗（不論是抽卡觸發還是常駐前往，一律展示結算）
+    const nextR = gameState.round + 1;
+    setOutcomeModal({
+      title: '✦ 淘金小鎮・探勘結算 ✦',
+      icon: '⛏️',
+      subtitle: '荒野礦坑・淘金探勘大獲豐收',
+      narrative: (
+        <div className="space-y-3 font-sans leading-relaxed text-stone-300">
+          <p>
+            渴望成就的靈魂，拯救的靈魂，吶喊著慶重生！
+          </p>
+          <div className="bg-amber-950/40 border border-amber-600/50 p-3 rounded-xl text-xs space-y-2">
+            <div className="text-amber-200 font-bold">本次探勘收穫：</div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {foundCoins > 0 && (
+                <span className="bg-yellow-950/80 border border-yellow-500/80 px-2 py-1 rounded text-yellow-300 font-mono flex items-center gap-1.5">
+                  <GoldCoinIcon className="w-3.5 h-3.5" />
+                  <span>金幣 +{foundCoins} 枚</span>
+                </span>
+              )}
+              {foundItems.map((item, idx) => {
+                let iconElement: React.ReactNode = <span>✨</span>;
+                if (item === '空瓶') iconElement = <span>🍾</span>;
+                else if (item === '青花瓷') iconElement = <span>🏺</span>;
+                else if (item === '蘭亭序') iconElement = <span>📜</span>;
+                else if (item === '第一頁' || item === '第六頁' || item === '第七頁') iconElement = <span>📑</span>;
+                else if (item === '序') iconElement = <span>📖</span>;
+                else if (item === '雙截棍') iconElement = <NunchakuIcon className="w-4 h-4 shrink-0" />;
+                else if (item === '鐵鏟') iconElement = <ShovelIcon className="w-3.5 h-3.5 shrink-0" />;
+                else if (item === '黑色毛衣') iconElement = <span>🧶</span>;
+                else if (item === '本草綱目') iconElement = <span>📚</span>;
+                return (
+                  <span
+                    key={`${item}-${idx}`}
+                    className="bg-emerald-950/80 border border-emerald-500/80 px-2 py-1 rounded text-emerald-300 font-bold flex items-center gap-1.5"
+                  >
+                    {iconElement}
+                    <span>獲得【{item}】</span>
+                  </span>
+                );
+              })}
+              {foundCoins === 0 && foundItems.length === 0 && (
+                <span className="text-stone-400">只有碎石黃沙，未獲得任何寶物。</span>
+              )}
+            </div>
+          </div>
+        </div>
+      ),
+      badges: [
+        { label: '行動力消耗', value: '-5 點', color: 'text-amber-400' },
+        ...(foundCoins > 0 ? [{ label: '金幣獲得', value: `+${foundCoins} 枚`, color: 'text-yellow-400' }] : []),
+        ...foundItems.map((item) => ({ label: '珍寶出土', value: item, color: 'text-emerald-300' })),
+      ],
+      confirmText: isFromCard
+        ? `確定（進入第 ${Math.min(30, nextR)} 回合）`
+        : '確定（返回冒險）',
+      onConfirm: () => {
+        setOutcomeModal(null);
+
+        // 挖寶獲得的珍寶若是卡牌（如青花瓷、蘭亭序），於結算後依序彈出卡牌獲得確認視窗 (CardShowcaseModal)
+        const dugCards: CardDefinition[] = [];
+        foundItems.forEach((itemName) => {
+          const card = CARD_DATABASE.find((c) => c.name === itemName || c.id === itemName);
+          if (card) {
+            dugCards.push(card);
+          }
+        });
+
+        const handleFinishSequence = () => {
+          if (isFromCard) {
+            startNewRound(nextR);
+          }
+        };
+
+        if (dugCards.length > 0) {
+          const showCardsInSequence = (index: number) => {
+            if (index >= dugCards.length) {
+              handleFinishSequence();
+              return;
+            }
+            const currentCard = dugCards[index];
+            triggerCardShowcase(currentCard.id, '淘金小鎮探勘發掘', () => {
+              setTimeout(() => {
+                showCardsInSequence(index + 1);
+              }, 60);
+            });
+          };
+          showCardsInSequence(0);
+        } else {
+          handleFinishSequence();
+        }
+      },
+    });
+  };
+
+  // =========================================================================
+  // 梯田 (C2003-10) 耕作農事處理常式（真實農序：翻土 ➔ 播種 ➔ 灌溉 ➔ 5回合成熟 ➔ 收成）
+  // =========================================================================
+
+  // 1. 梯田翻土 (需持有鐵鏟，農具不消耗；將 idle 翻整為 tilled)
+  const handleTerraceTill = () => {
+    const shovel = gameState.inventory['鐵鏟'] || 0;
+    if (shovel < 1) return;
+    setGameState((prev) => {
+      return {
+        ...prev,
+        terracePlot: {
+          targetCrop: prev.terracePlot?.targetCrop || null,
+          step: 'tilled',
+        },
+      };
+    });
+    addLog('⚒️【梯田翻土】手持【鐵鏟】深耕翻動梯田土壤，土質鬆軟透氣！下一步可進行播種作物！', 'action');
+  };
+
+  // 2. 梯田播種 (土壤已深耕翻整，投入泥土 ➔ 茶葉；菊花＋迷迭香 ➔ 花海；將 tilled 轉為 seeded)
+  const handleTerracePlant = (crop: 'tea' | 'flower_sea') => {
+    if (crop === 'tea') {
+      const soil = gameState.inventory['泥土'] || 0;
+      if (soil < 1) return;
+      setGameState((prev) => {
+        const nextInv = { ...prev.inventory };
+        if (nextInv['泥土'] > 1) {
+          nextInv['泥土'] -= 1;
+        } else {
+          delete nextInv['泥土'];
+        }
+        return {
+          ...prev,
+          inventory: nextInv,
+          terracePlot: {
+            targetCrop: 'tea',
+            step: 'seeded',
+          },
+        };
+      });
+      addLog('🌱【梯田播種】在鬆軟土壤中播撒【泥土】茶苗種子，茶苗已妥善入土！下一步需以【水】引水灌溉！', 'action');
+    } else if (crop === 'flower_sea') {
+      const chrysanthemum = gameState.inventory['菊花'] || 0;
+      const rosemary = gameState.inventory['迷迭香'] || 0;
+      if (chrysanthemum < 1 || rosemary < 1) return;
+      setGameState((prev) => {
+        const nextInv = { ...prev.inventory };
+        if (nextInv['菊花'] > 1) nextInv['菊花'] -= 1;
+        else delete nextInv['菊花'];
+        if (nextInv['迷迭香'] > 1) nextInv['迷迭香'] -= 1;
+        else delete nextInv['迷迭香'];
+
+        return {
+          ...prev,
+          inventory: nextInv,
+          terracePlot: {
+            targetCrop: 'flower_sea',
+            step: 'seeded',
+          },
+        };
+      });
+      addLog('🌸【梯田播種】在鬆軟土壤中播撒【菊花】與【迷迭香】，花種已入土！下一步需以【水】引水灌溉！', 'action');
+    }
+  };
+
+  // 3. 梯田灌溉 (消耗水*1，掛載5回合計時)
+  const handleTerraceWater = () => {
+    const waterCount = gameState.inventory['水'] || 0;
+    if (waterCount < 1) return;
+    setGameState((prev) => {
+      if (!prev.terracePlot) return prev;
+      const nextInv = { ...prev.inventory };
+      if (nextInv['水'] > 1) {
+        nextInv['水'] -= 1;
+      } else {
+        delete nextInv['水'];
+      }
+
+      const currentR = prev.round;
+
+      return {
+        ...prev,
+        inventory: nextInv,
+        terracePlot: {
+          ...prev.terracePlot,
+          step: 'watered',
+          completedRound: currentR,
+          growthRounds: 0,
+          requiredRounds: 5,
+        },
+      };
+    });
+    addLog('💧【梯田灌溉】傾倒甘霖滋養田畦，作物正式進入生長！歷經滿 5 回合後即可收成！', 'milestone');
+  };
+
+  // 4. 梯田收成 (茶葉 ➔ 道具彈窗；花海 ➔ 卡牌全版大卡亮相)
+  const handleTerraceHarvest = () => {
+    if (!gameState.terracePlot || gameState.terracePlot.step !== 'watered') return;
+    const growth = Number(
+      gameState.terracePlot.growthRounds ??
+      (gameState.round >= (gameState.terracePlot.matureRound || 999) ? 5 : 0)
+    );
+    if (growth < 5) return;
+
+    const targetCrop = gameState.terracePlot.targetCrop;
+    if (targetCrop === 'tea') {
+      setGameState((prev) => {
+        const nextInv = { ...prev.inventory };
+        nextInv['茶葉'] = (nextInv['茶葉'] || 0) + 1;
+        const currentOrder = prev.itemAcquisitionOrder || Object.keys(nextInv);
+        const order = currentOrder.filter((k) => (nextInv[k] || 0) > 0);
+        if (!order.includes('茶葉')) order.push('茶葉');
+
+        return {
+          ...prev,
+          inventory: nextInv,
+          itemAcquisitionOrder: order,
+          terracePlot: {
+            targetCrop: null,
+            step: 'idle',
+            growthRounds: 0,
+            requiredRounds: 5,
+          },
+        };
+      });
+      addLog('🍵🌾【梯田收成】採收獲得新鮮青翠的【茶葉】！此茶香氣馥郁！', 'milestone');
+      setOutcomeModal({
+        title: '✦ 高山茶嶺・香茗採收 ✦',
+        icon: '🍵',
+        subtitle: '梯田耕作・茶葉豐收',
+        narrative: (
+          <div className="space-y-3 font-sans leading-relaxed text-stone-300">
+            <p>經歷 5 回合淬鍊，茶葉生長翠綠、你摘下香氣撲鼻的【茶葉】！</p>
+            <p>這【茶葉】之香，絕對比得上爺爺當年說的茶聖泡的茶！</p>
+            <p className="text-s text-emerald-300/90 font-mono">你不禁心想：或許，外婆能再次泡出當年爺爺泡的茶。</p>
+          </div>
+        ),
+        badges: [
+          { label: '收成作物', value: '【茶葉】1份', color: 'text-emerald-300' },
+          { label: '梯田狀態', value: '恢復閒置・可再耕種', color: 'text-stone-400' },
+        ],
+        confirmText: '收入行囊',
+        onConfirm: () => {
+          setOutcomeModal(null);
+          // 保持梯田視窗開啟，玩家立即回到已重置的梯田初始畫面，可自由決定再次種植或返回冒險
+        },
+      });
+    } else if (targetCrop === 'flower_sea') {
+      setGameState((prev) => {
+        const nextInv = { ...prev.inventory };
+        nextInv['花海'] = (nextInv['花海'] || 0) + 1;
+        const currentOrder = prev.itemAcquisitionOrder || Object.keys(nextInv);
+        const order = currentOrder.filter((k) => (nextInv[k] || 0) > 0);
+        if (!order.includes('花海')) order.push('花海');
+
+        return {
+          ...prev,
+          inventory: nextInv,
+          itemAcquisitionOrder: order,
+          terracePlot: {
+            targetCrop: null,
+            step: 'idle',
+            growthRounds: 0,
+            requiredRounds: 5,
+          },
+        };
+      });
+      setMeta((prev) => ({
+        ...prev,
+        unlockedCardIds: Array.from(new Set([...prev.unlockedCardIds, 'C2008-04'])),
+      }));
+      addLog('💐🌾【花海盛開】梯田繁花錦簇，獲得卡牌《花海》！', 'milestone');
+      // 保持梯田視窗開啟，大卡視窗關閉後回歸已重置的梯田初始畫面，讓玩家自由決定再次種植或返回冒險
+      triggerCardShowcase('C2008-04', '高山梯田培育盛開出土', () => {
+        setShowTerraceModal(true);
+      });
+    }
+  };
+
+  // 5. 梯田田畦重置清空
+  const handleTerraceClear = () => {
+    setGameState((prev) => ({
+      ...prev,
+      terracePlot: {
+        targetCrop: null,
+        step: 'idle',
+        growthRounds: 0,
+        requiredRounds: 5,
+      },
+    }));
+    addLog('🌾【梯田重置】清空了梯田田畦，恢復為荒蕪閒置狀態，可重新選擇播種。', 'action');
+  };
+
+  // 6. 梯田狀態標籤計算（供角色欄按鈕顯示狀態徽章）
+  const getTerraceStatusBadge = () => {
+    if (!gameState.terraceUnlocked && !gameState.flags['terrace_unlocked']) return null;
+    const plot = gameState.terracePlot;
+    if (!plot || plot.step === 'idle') return null;
+    if (plot.step === 'tilled') return { text: '待播種', isMature: false };
+    if (plot.step === 'seeded') return { text: '待澆水', isMature: false };
+    if (plot.step === 'watered') {
+      const growth = Number(plot.growthRounds || 0);
+      if (growth >= 5) {
+        return { text: '可收成！', isMature: true };
+      }
+      return { text: `剩${Math.max(1, 5 - growth)}回合`, isMature: false };
+    }
+    return null;
   };
 
   // 拖曳道具至「煙火燃燒」環境標籤處理：
@@ -2911,7 +4407,7 @@ export default function App() {
           onConfirm: () => setOutcomeModal(null),
         });
       } else {
-        addLog('【未明藥理】尚未啟動行囊進階功能，無法辨識與啟用【煙花易冷】的滅火功效！', 'warning');
+        addLog('你試圖運用【煙花易冷】澆滅火勢，但尚未獲得【古書】，無法參透並啟動其奧妙。\n\n提示：需先啟動行囊進階功能才能施展。', 'warning');
         setOutcomeModal({
           title: '✦ 行囊進階功能未解鎖 ✦',
           icon: '📜',
@@ -2943,10 +4439,17 @@ export default function App() {
 
         // 燒毀所有未受保護的行囊物品
         const burnedItems: string[] = [];
+        let nextDrawn = { ...prev.drawnCount };
+        let nextPen = { ...(prev.peninsulaInheritedCounts || {}) };
+
         Object.keys(nextInv).forEach((k) => {
           if (k !== '錯過的煙火' && k !== sparedLatestItem && (nextInv[k] || 0) > 0) {
             burnedItems.push(k);
+            const count = nextInv[k];
             delete nextInv[k];
+            const quota = restoreCardQuotaOnItemLost(k, nextDrawn, nextPen, count);
+            nextDrawn = quota.nextDrawnCount;
+            nextPen = quota.nextPeninsulaCounts;
           }
         });
 
@@ -2959,7 +4462,6 @@ export default function App() {
             )}】！僅【錯過的煙火】與最新獲得的【${sparedLatestItem}】倖存！`,
             'warning'
           );
-          setBurntItemNotice(`💥 火上加火大爆炸！行囊中的【${burnedItems.join('、')}】全數被烈火燒毀！`);
           setOutcomeModal({
             title: '✦ 火上加火・引發大爆炸 ✦',
             icon: '💥',
@@ -2975,7 +4477,6 @@ export default function App() {
             '💥【火上加火・大爆炸】你將【錯過的煙火】移入燃燒的煙火中引爆大火！四周火星激射，因行囊無其他可燃舊物，【錯過的煙火】與最新物品安然無恙！',
             'warning'
           );
-          setBurntItemNotice('💥 火上加火引發大爆炸！四周烈焰翻騰，但無其他舊物品損毀。');
           setOutcomeModal({
             title: '✦ 火上加火・引發大爆炸 ✦',
             icon: '💥',
@@ -2991,7 +4492,219 @@ export default function App() {
           ...prev,
           inventory: nextInv,
           itemAcquisitionOrder: nextOrder,
+          drawnCount: nextDrawn,
+          peninsulaInheritedCounts: nextPen,
         };
+      });
+      return;
+    }
+
+    // 燃燒【青花瓷】：高溫崩解還原，去釉化土，獲得【泥土】（後續可種於梯田與爺爺泡的茶連動）
+    if (itemName === '青花瓷') {
+      setGameState((prev) => {
+        const nextInv = { ...prev.inventory };
+        nextInv['青花瓷'] = Math.max(0, (nextInv['青花瓷'] || 1) - 1);
+        if (nextInv['青花瓷'] === 0) {
+          delete nextInv['青花瓷'];
+        }
+        nextInv['泥土'] = (nextInv['泥土'] || 0) + 1;
+
+        const quota = restoreCardQuotaOnItemLost(
+          '青花瓷',
+          prev.drawnCount,
+          prev.peninsulaInheritedCounts,
+          1
+        );
+        const currentOrder = prev.itemAcquisitionOrder || Object.keys(nextInv);
+        const order = currentOrder.filter((k) => (nextInv[k] || 0) > 0);
+        if (!order.includes('泥土')) {
+          order.push('泥土');
+        }
+
+        return {
+          ...prev,
+          inventory: nextInv,
+          itemAcquisitionOrder: order,
+          drawnCount: quota.nextDrawnCount,
+          peninsulaInheritedCounts: quota.nextPeninsulaCounts,
+        };
+      });
+
+      addLog('🏺🔥【燒瓷成土】你將【青花瓷】投向漫天飛濺的煙火！烈焰燃燒後的瓷器化為肥沃的【泥土】收入行囊！', 'milestone');
+      setOutcomeModal({
+        title: '✦ 烈焰燒瓷・青瓷化土 ✦',
+        icon: '🌱',
+        subtitle: '【青花瓷】高溫燃燒轉化',
+        narrative: '「不見炊煙裊裊昇起，卻見烈火吞噬瓷器。」\n\n你將【青花瓷】移入燃燒的煙火中。青瓷釉色逐漸融化，最終燒盡轉化為原始的【泥土】！\n\n此土或許能做些什麼？',
+        badges: [
+          { label: '消耗文物', value: '【青花瓷】1件', color: 'text-stone-400' },
+          { label: '轉化獲得', value: '【泥土】1份', color: 'text-amber-300' },
+        ],
+        confirmText: '收入行囊',
+        onConfirm: () => setOutcomeModal(null),
+      });
+      return;
+    }
+
+    // 燃燒【蘭亭序】：墨韻浴火涅槃，轉化獲得神卡【手寫的從前】（C2014-08）
+    if (itemName === '蘭亭序') {
+      setGameState((prev) => {
+        const nextInv = { ...prev.inventory };
+        nextInv['蘭亭序'] = Math.max(0, (nextInv['蘭亭序'] || 1) - 1);
+        if (nextInv['蘭亭序'] === 0) {
+          delete nextInv['蘭亭序'];
+        }
+        nextInv['手寫的從前'] = (nextInv['手寫的從前'] || 0) + 1;
+
+        const quota = restoreCardQuotaOnItemLost(
+          '蘭亭序',
+          prev.drawnCount,
+          prev.peninsulaInheritedCounts,
+          1
+        );
+        const currentOrder = prev.itemAcquisitionOrder || Object.keys(nextInv);
+        const order = currentOrder.filter((k) => (nextInv[k] || 0) > 0);
+        if (!order.includes('手寫的從前')) {
+          order.push('手寫的從前');
+        }
+
+        return {
+          ...prev,
+          inventory: nextInv,
+          itemAcquisitionOrder: order,
+          drawnCount: quota.nextDrawnCount,
+          peninsulaInheritedCounts: quota.nextPeninsulaCounts,
+        };
+      });
+
+      // 永久解鎖卡牌 C2014-08
+      setMeta((prev) => ({
+        ...prev,
+        unlockedCardIds: Array.from(new Set([...prev.unlockedCardIds, 'C2014-08'])),
+      }));
+
+      addLog('📜🔥【字化從前】你將《蘭亭序》投向燃燒的煙火！墨香與火光交融，文字行雲流水般在烈焰中幻化成古老思念信箋——獲得卡牌【手寫的從前】！', 'milestone');
+
+      setOutcomeModal({
+        title: '✦ 懸筆一絕・手寫從前 ✦',
+        icon: '💌',
+        subtitle: '【蘭亭序】傾城頃刻間湮滅',
+        narrative: (
+          <div className="space-y-3 font-sans leading-relaxed text-stone-300">
+            <p>「無關風月，我題序等妳回……」</p>
+            <p>你將天下第一行書《蘭亭序》投向漫天燃燒的花火！墨香與火光交融，文字行雲流水般在烈焰中幻化成古老的思念信箋。</p>
+            <p className="text-s text-amber-300/90 font-mono">昔日蘭亭臨帖，文字穿梭時空而來，獲得卡牌【手寫的從前】！</p>
+          </div>
+        ),
+        badges: [
+          { label: '消耗文物', value: '【蘭亭序】1件', color: 'text-stone-400' },
+          { label: '獲得卡牌', value: '《手寫的從前》', color: 'text-amber-300' },
+        ],
+        confirmText: '展開信箋',
+        onConfirm: () => {
+          setOutcomeModal(null);
+          triggerCardShowcase('C2014-08', '蘭亭序於煙火中燃燒轉化獲得');
+        },
+      });
+      return;
+    }
+
+    // 燃燒【水】：煙火烈焰高溫煮沸，轉化獲得【熱水】（用於沖泡爺爺泡的茶）
+    if (itemName === '水') {
+      setGameState((prev) => {
+        const nextInv = { ...prev.inventory };
+        if (nextInv['水'] > 1) {
+          nextInv['水'] -= 1;
+        } else {
+          delete nextInv['水'];
+        }
+        nextInv['熱水'] = (nextInv['熱水'] || 0) + 1;
+
+        const currentOrder = prev.itemAcquisitionOrder || Object.keys(nextInv);
+        const order = currentOrder.filter((k) => (nextInv[k] || 0) > 0);
+        if (!order.includes('熱水')) {
+          order.push('熱水');
+        }
+
+        return {
+          ...prev,
+          inventory: nextInv,
+          itemAcquisitionOrder: order,
+        };
+      });
+
+      addLog('🔥💧【煙火煮水】你引導煙火的高溫，將【水】煮沸，成功獲得【熱水】！', 'milestone');
+
+      setOutcomeModal({
+        title: '✦ 煙火煮沸・熱水沸騰 ✦',
+        icon: '♨️',
+        subtitle: '【水】經煙火高溫煮沸',
+        narrative: (
+          <div className="space-y-3 font-sans leading-relaxed text-stone-300">
+            <p>你將【水】置於燃燒的火焰上，水氣蒸騰，煮沸成了一壺熱滾滾的【熱水】！</p>
+            <p className="text-s text-amber-300/90 font-mono">獲得【熱水】1 壺，把水燒開了能做些什麼嗎？</p>
+          </div>
+        ),
+        badges: [
+          { label: '消耗水源', value: '【水】1瓶', color: 'text-stone-400' },
+          { label: '煮沸獲得', value: '【熱水】1壺', color: 'text-amber-300' },
+        ],
+        confirmText: '收入行囊',
+        onConfirm: () => setOutcomeModal(null),
+      });
+      return;
+    }
+
+    // 燃燒【菊花台】：金甲落幕，殘菊浴火，轉化獲得【菊花】（梯田花海培育材料）
+    if (itemName === '菊花台') {
+      setGameState((prev) => {
+        const nextInv = { ...prev.inventory };
+        nextInv['菊花台'] = Math.max(0, (nextInv['菊花台'] || 1) - 1);
+        if (nextInv['菊花台'] === 0) {
+          delete nextInv['菊花台'];
+        }
+        nextInv['菊花'] = (nextInv['菊花'] || 0) + 1;
+
+        const quota = restoreCardQuotaOnItemLost(
+          '菊花台',
+          prev.drawnCount,
+          prev.peninsulaInheritedCounts,
+          1
+        );
+        const currentOrder = prev.itemAcquisitionOrder || Object.keys(nextInv);
+        const order = currentOrder.filter((k) => (nextInv[k] || 0) > 0);
+        if (!order.includes('菊花')) {
+          order.push('菊花');
+        }
+
+        return {
+          ...prev,
+          inventory: nextInv,
+          itemAcquisitionOrder: order,
+          drawnCount: quota.nextDrawnCount,
+          peninsulaInheritedCounts: quota.nextPeninsulaCounts,
+        };
+      });
+
+      addLog('🌼🔥【焚台取菊】你將《菊花台》投向燃燒的煙火！台座燒燬殆盡，餘燼中取出殘存的【菊花】收入行囊！', 'milestone');
+
+      setOutcomeModal({
+        title: '✦ 焚歌燒台・餘燼殘花 ✦',
+        icon: '🌼',
+        subtitle: '【菊花台】燒燬台座取花',
+        narrative: (
+          <div className="space-y-3 font-sans leading-relaxed text-stone-300">
+            <p>「菊花殘 滿地傷 你的笑容已泛黃……」</p>
+            <p>烈火吞噬了台座，漫天飛舞的餘燼裡，取出殘存的一朵堅韌【菊花】！</p>
+            <p className="text-xs text-amber-300/90 font-mono">此花無堅不摧，必能再度於綻放。</p>
+          </div>
+        ),
+        badges: [
+          { label: '消耗卡牌', value: '【菊花台】1張', color: 'text-stone-400' },
+          { label: '轉化獲得', value: '【菊花】1朵', color: 'text-yellow-300' },
+        ],
+        confirmText: '收入行囊',
+        onConfirm: () => setOutcomeModal(null),
       });
       return;
     }
@@ -3003,6 +4716,12 @@ export default function App() {
       if (nextInv[itemName] === 0) {
         delete nextInv[itemName];
       }
+      const quota = restoreCardQuotaOnItemLost(
+        itemName,
+        prev.drawnCount,
+        prev.peninsulaInheritedCounts,
+        1
+      );
       const nextOrder = (prev.itemAcquisitionOrder || Object.keys(nextInv)).filter(
         (k) => (nextInv[k] || 0) > 0
       );
@@ -3011,11 +4730,15 @@ export default function App() {
         ...prev,
         inventory: nextInv,
         itemAcquisitionOrder: nextOrder,
+        drawnCount: quota.nextDrawnCount,
+        peninsulaInheritedCounts: quota.nextPeninsulaCounts,
         ...(itemName === '說走就走'
           ? {
               flags: {
                 ...prev.flags,
                 blacksmith_leave_round: 0,
+                blacksmith_leave_countdown: 0,
+                blacksmith_leave_elapsed: 0,
               },
             }
           : {}),
@@ -3027,7 +4750,6 @@ export default function App() {
     }
 
     addLog(`🔥【物品焚毀】你將【${itemName}】移入漫天煙火之中，熊熊烈火瞬間將其吞噬，化為灰燼消失！`, 'warning');
-    setBurntItemNotice(`【${itemName}】已被煙火烈焰焚燒消失！`);
     setOutcomeModal({
       title: '✦ 物品焚毀 ✦',
       icon: '🔥',
@@ -3038,8 +4760,171 @@ export default function App() {
     });
   };
 
+  // 拖曳道具至「偏頭痛」環境標籤處理：
+  // 若行囊有本草綱目且拖曳至「偏頭痛」，則可痊癒解除狀態
+  const handleDropOnHeadache = (itemName: string) => {
+    const isHeadache = Boolean(gameState.headacheActive || gameState.flags['headache_active']);
+    if (!isHeadache) return;
+
+    if (itemName === '本草綱目') {
+      setGameState((prev) => ({
+        ...prev,
+        headacheActive: false,
+        flags: {
+          ...prev.flags,
+          headache_active: false,
+        },
+      }));
+      addLog('🌿【恢復健康】研讀《本草綱目》的藥理，調和氣血經絡，【偏頭痛】狀態已痊癒解除！', 'milestone');
+      setOutcomeModal({
+        title: '✦ 恢復健康・頭痛痊癒 ✦',
+        icon: '🌿',
+        subtitle: '【本草綱目】行囊藥理調治',
+        narrative: '你取出珍藏的《本草綱目》，依循書中所載的草本藥理調和氣血。翻騰難受的偏頭痛頓時痊癒，每回合行動力懲罰已完全解除！',
+        badges: [
+          { label: '環境解除', value: '偏頭痛痊癒', color: 'text-emerald-400' },
+          { label: '行動力恢復', value: '免除每回合 -2 扣損', color: 'text-amber-300' },
+        ],
+        confirmText: '神清氣爽，繼續探索',
+        onConfirm: () => {
+          setOutcomeModal(null);
+        },
+      });
+    } else {
+      addLog(`【方法無效】「${itemName}」並非治頭痛之良藥！研讀醫學方能對症下藥解除偏頭痛。`, 'warning');
+    }
+  };
+
+  // 拖曳道具至「下雨天」環境標籤處理：
+  // 1. 空瓶：盛接雨水轉化為【水】× 1（消耗 1 空瓶）
+  // 2. 晴天：放晴解除下雨天狀態（需本草綱目），成功後獲得傳奇卡牌《彩虹》（C2007-02）
+  const handleDropOnRain = (itemName: string) => {
+    const isRainy = Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']);
+    if (!isRainy) return;
+    if (!gameState.inventory[itemName] || gameState.inventory[itemName] <= 0) return;
+
+    if (itemName === '空瓶') {
+      setGameState((prev) => {
+        const nextInv = { ...prev.inventory };
+        if (nextInv['空瓶'] > 1) {
+          nextInv['空瓶'] -= 1;
+        } else {
+          delete nextInv['空瓶'];
+        }
+        nextInv['水'] = (nextInv['水'] || 0) + 1;
+        const currentOrder = prev.itemAcquisitionOrder || Object.keys(nextInv);
+        const order = currentOrder.filter((k) => (nextInv[k] || 0) > 0);
+        if (!order.includes('水')) order.push('水');
+
+        return {
+          ...prev,
+          inventory: nextInv,
+          itemAcquisitionOrder: order,
+        };
+      });
+      addLog('🍾🌧️【雨天接水】在大雨中伸出【空瓶】盛裝，成功獲得【水】1 瓶！', 'milestone');
+      setOutcomeModal({
+        title: '✦ 雨天盛水・獲得水源 ✦',
+        icon: '💧',
+        subtitle: '下雨天環境互動',
+        narrative: (
+          <div className="space-y-3 font-sans leading-relaxed text-stone-300">
+            <p>你將空瓶置於大雨之中，冰涼的雨水轉瞬盛滿了整只瓶子！</p>
+            <p className="text-s text-sky-300 font-mono">獲得【水】1 瓶，可用於灌溉</p>
+          </div>
+        ),
+        badges: [
+          { label: '消耗物品', value: '【空瓶】× 1', color: 'text-stone-400' },
+          { label: '獲得水源', value: '【水】× 1 瓶', color: 'text-sky-300' },
+        ],
+        confirmText: '收入行囊',
+        onConfirm: () => setOutcomeModal(null),
+      });
+      return;
+    }
+
+    if (itemName === '晴天') {
+      const hasHerbBook = (gameState.inventory['本草綱目'] || 0) > 0;
+      if (hasHerbBook) {
+        setGameState((prev) => {
+          const nextInv = { ...prev.inventory };
+          if (nextInv['晴天'] > 1) {
+            nextInv['晴天'] -= 1;
+          } else {
+            delete nextInv['晴天'];
+          }
+          nextInv['彩虹'] = (nextInv['彩虹'] || 0) + 1;
+          const currentOrder = prev.itemAcquisitionOrder || Object.keys(nextInv);
+          const order = currentOrder.filter((k) => (nextInv[k] || 0) > 0);
+          if (!order.includes('彩虹')) order.push('彩虹');
+
+          return {
+            ...prev,
+            inventory: nextInv,
+            itemAcquisitionOrder: order,
+            rainyWeatherActive: false,
+            flags: {
+              ...prev.flags,
+              rainy_weather_active: false,
+              rainy_rounds_count: 0,
+              rain_completed_rounds: 0,
+              pending_heard_rain_trigger: false,
+            },
+          };
+        });
+        setMeta((prev) => {
+          if (prev.unlockedCardIds.includes('C2007-02')) return prev;
+          return {
+            ...prev,
+            unlockedCardIds: [...prev.unlockedCardIds, 'C2007-02'],
+          };
+        });
+        addLog('🌈【雨後天晴】你將《晴天》迎向大雨，陽光穿透烏雲，天空豁然放晴！浮現出一道絢爛奪目的《彩虹》', 'milestone');
+
+        setOutcomeModal({
+          title: '✦ 雨後天晴・晴空現虹 ✦',
+          icon: '🌈',
+          subtitle: '【下雨天】環境解除',
+          narrative: (
+            <div className="space-y-3 font-sans leading-relaxed text-stone-300">
+              <p>「等到放晴的那天 也許我會比較好一點」</p>
+              <p>你將【晴天】迎向大雨，陽光穿透烏雲，天空豁然放晴！</p>
+              <p className="text-s text-sky-300 font-mono">雨過天晴，浮現出一道絢爛奪目的【彩虹】！</p>
+            </div>
+          ),
+          badges: [
+            { label: '消耗卡牌', value: '【晴天】1張', color: 'text-stone-400' },
+            { label: '環境變化', value: '雨停放晴', color: 'text-amber-300' },
+            { label: '獲得', value: '《彩虹》', color: 'text-sky-300' },
+          ],
+          confirmText: '凝望彩虹',
+          onConfirm: () => {
+            setOutcomeModal(null);
+            triggerCardShowcase('C2007-02', '雨後天晴・以晴天驅散漫天雨勢獲得');
+          },
+        });
+      } else {
+        addLog('你試圖運用【晴天】驅散漫天烏雲，但尚未獲得【古書】，無法參透並啟動其奧妙。\n\n提示：需先啟動行囊進階功能才能施展。', 'warning');
+        setOutcomeModal({
+          title: '✦ 行囊進階功能未解鎖 ✦',
+          icon: '📜',
+          subtitle: '【晴天】特殊能力尚未啟動',
+          narrative: '你試圖運用【晴天】驅散漫天烏雲，但尚未獲得【古書】，無法參透並啟動其奧妙。\n\n提示：需先啟動行囊進階功能才能施展。',
+          confirmText: '知道了',
+          onConfirm: () => setOutcomeModal(null),
+        });
+      }
+      return;
+    }
+
+    addLog(`【雨中沖刷】你將【${itemName}】置於雨水之中沖刷洗滌，並無特殊連動。`, 'action');
+  };
+
   // Start Next Game (NG) - called when GameOverModal transitions to next run
-  const handleStartNextGame = () => {
+  const handleStartNextGame = (
+    overrideIronBoxItems?: string[],
+    retainCharacter?: boolean
+  ) => {
     const finalOutcomeType = gameState.victoryType ? 'VICTORY' : 'DEFEAT';
     const finalOutcomeTitle = gameState.victoryType
       ? `傳奇通關 (${gameState.victoryType})`
@@ -3085,6 +4970,33 @@ export default function App() {
       defeatReason: gameState.defeatReason,
     };
 
+    const inheritedItems = overrideIronBoxItems ?? meta.ironBoxItems ?? [];
+    const initialInventory: Record<string, number> = {};
+    const initialItemOrder: string[] = [];
+    const initialPeninsulaCounts: Record<string, number> = {};
+
+    if (inheritedItems.length > 0) {
+      inheritedItems.forEach((item) => {
+        const actualItem = item === '飛行時光機' ? '時光機' : item;
+        initialInventory[actualItem] = (initialInventory[actualItem] || 0) + 1;
+        if (!initialItemOrder.includes(actualItem)) {
+          initialItemOrder.push(actualItem);
+        }
+        const cardId = getCardIdByItemName(actualItem);
+        if (cardId) {
+          initialPeninsulaCounts[cardId] = (initialPeninsulaCounts[cardId] || 0) + 1;
+        }
+      });
+    }
+
+    const shouldRetainCharacter = Boolean(
+      retainCharacter &&
+      (gameState.character || meta.ironBoxRetainedCharacter)
+    );
+    const activeCharacter = shouldRetainCharacter
+      ? gameState.character || meta.ironBoxRetainedCharacter || null
+      : null;
+
     setMeta((prev) => ({
       ...prev,
       pastGamesCount: prev.pastGamesCount + 1,
@@ -3093,37 +5005,88 @@ export default function App() {
       settlementHistory: isGrandSlam
         ? [settlementRec, ...(prev.settlementHistory || [])]
         : (prev.settlementHistory || []),
+      ironBoxItems: inheritedItems,
+      ironBoxRetainedCharacter: shouldRetainCharacter ? activeCharacter : null,
     }));
 
-    setGameState((prev) => ({
-      ...prev,
-      gameNumber: prev.gameNumber + 1,
-      round: 1,
-      maxRounds: 30,
-      character: null,
-      inventory: {},
-      drawnCount: {},
-      flags: {},
-      jokerSlots: { place: null, shoes: null, performance: null },
-      reversedClockUsesRemaining: 3,
-      stats: { ap: 15 },
-      ninjaChasing: false,
-      ninjaNextEncounterRound: null,
-      fireworksBurning: false,
-      blacksmithUnlocked: false,
-      logs: [
-        {
-          round: 0,
-          text: `順勢推進，開啟第 ${prev.gameNumber + 1} 局新探索！請抽取初始角色化身……`,
+    const initialFlags = { ...(meta.nextGameFlags || {}) };
+
+    setGameState((prev) => {
+      const nextGameNum = prev.gameNumber + 1;
+      const initialLogs: LogEntry[] = [];
+
+      if (shouldRetainCharacter && activeCharacter) {
+        initialLogs.push({
+          round: 1,
+          text: `【半島鐵盒・序】跨局時空傳承發動！你維持了角色化身【${activeCharacter.name}】（${activeCharacter.title}），直接邁入第 1 回合！請抽卡！`,
           type: 'milestone',
-        },
-      ],
-      phase: 'CHOOSE_CHARACTER',
-      revealedCard: null,
-      currentDrawChoices: [],
-      defeatReason: undefined,
-      victoryType: undefined,
-    }));
+        });
+      } else {
+        initialLogs.push({
+          round: 0,
+          text: `順勢推進，開啟第 ${nextGameNum} 局新探索！請抽取初始角色化身……`,
+          type: 'milestone',
+        });
+      }
+
+      if (inheritedItems.length > 0) {
+        initialLogs.push({
+          round: shouldRetainCharacter ? 1 : 0,
+          text: `【半島鐵盒】跨局傳承生效，繼承了上一局封存的 ${inheritedItems
+            .map((it) => (it === '飛行時光機' ? '時光機（由飛行時光機復原）' : it))
+            .join('、')}！`,
+          type: 'milestone',
+        });
+      }
+
+      const initialChoices = shouldRetainCharacter && activeCharacter
+        ? rollThreeCards(
+            {
+              ...prev,
+              character: activeCharacter,
+              round: 1,
+              flags: initialFlags,
+              inventory: initialInventory,
+              itemAcquisitionOrder: initialItemOrder,
+              peninsulaInheritedCounts: initialPeninsulaCounts,
+              drawnCount: {},
+            },
+            meta
+          )
+        : [];
+
+      return {
+        ...prev,
+        gameNumber: nextGameNum,
+        round: 1,
+        maxRounds: 30,
+        character: activeCharacter,
+        inventory: initialInventory,
+        itemAcquisitionOrder: initialItemOrder,
+        peninsulaInheritedCounts: initialPeninsulaCounts,
+        flags: initialFlags,
+        jokerSlots: { place: null, shoes: null, performance: null },
+        reversedClockUsesRemaining: 3,
+        stats: { ap: activeCharacter ? (activeCharacter.startingAp ?? 15) : 15, coins: 0 },
+        ninjaChasing: false,
+        ninjaNextEncounterRound: null,
+        fireworksBurning: false,
+        headacheActive: false,
+        rainyWeatherActive: false,
+        drenchedItemNotice: null,
+        blacksmithUnlocked: false,
+        goldTownUnlocked: false,
+        terraceUnlocked: false,
+        romanticPhoneUnlocked: false,
+        terracePlot: { targetCrop: null, step: 'idle' },
+        logs: initialLogs,
+        phase: shouldRetainCharacter && activeCharacter ? 'DRAW_THREE' : 'CHOOSE_CHARACTER',
+        revealedCard: null,
+        currentDrawChoices: initialChoices,
+        defeatReason: undefined,
+        victoryType: undefined,
+      };
+    });
   };
 
   // Confirm AP Exhausted - forced CG end, transitions to NG (gameNumber + 1)
@@ -3155,14 +5118,20 @@ export default function App() {
       character: null,
       inventory: {},
       drawnCount: {},
+      peninsulaInheritedCounts: {},
       flags: {},
       jokerSlots: { place: null, shoes: null, performance: null },
       reversedClockUsesRemaining: 3,
-      stats: { ap: 15 },
+      stats: { ap: 15, coins: 0 },
       ninjaChasing: false,
       ninjaNextEncounterRound: null,
       fireworksBurning: false,
+      headacheActive: false,
       blacksmithUnlocked: false,
+      goldTownUnlocked: false,
+      terraceUnlocked: false,
+      romanticPhoneUnlocked: false,
+      terracePlot: { targetCrop: null, step: 'idle' },
       logs: [
         {
           round: 0,
@@ -3211,6 +5180,14 @@ export default function App() {
         if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
           e.preventDefault();
           outcomeModal.onConfirm();
+          return;
+        }
+      }
+
+      if (showHeardRainNoticeModal) {
+        if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
+          e.preventDefault();
+          setShowHeardRainNoticeModal(false);
           return;
         }
       }
@@ -3279,7 +5256,7 @@ export default function App() {
         }
       }
 
-      // 優先序 5：體力耗盡失敗處罰視窗
+      // 優先序 5：行動力耗盡失敗處罰視窗
       if (showUnopenedLetterAmbushModal) {
         if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
           e.preventDefault();
@@ -3320,10 +5297,9 @@ export default function App() {
         } else if (showDevPasswordModal) {
           e.preventDefault();
           setShowDevPasswordModal(false);
-        } else if (showNewGamePlusModal || showWipeMemoryModal) {
+        } else if (showNewGamePlusModal) {
           e.preventDefault();
           setShowNewGamePlusModal(false);
-          setShowWipeMemoryModal(false);
         } else if (showGuideBlacksmithModal) {
           e.preventDefault();
           setShowGuideBlacksmithModal(false);
@@ -3336,12 +5312,22 @@ export default function App() {
         } else if (showUpgradeTimeMachineModal) {
           e.preventDefault();
           setShowUpgradeTimeMachineModal(false);
+        } else if (showUpgradeShovelModal) {
+          e.preventDefault();
+          setShowUpgradeShovelModal(false);
+        } else if (showExpandIronBoxModal) {
+          e.preventDefault();
+          setShowExpandIronBoxModal(false);
         } else if (showFlightTimeMachineModal) {
           e.preventDefault();
           setShowFlightTimeMachineModal(false);
         } else if (showBlacksmithModal) {
           e.preventDefault();
           setShowBlacksmithModal(false);
+        } else if (showGoldTownConfirmModal) {
+          e.preventDefault();
+          setShowGoldTownConfirmModal(false);
+          setIsGoldTownFromRevealedCard(false);
         }
       }
     };
@@ -3361,14 +5347,16 @@ export default function App() {
     showExchangeInstrumentModal,
     showUpgradeClockModal,
     showUpgradeTimeMachineModal,
+    showUpgradeShovelModal,
+    showExpandIronBoxModal,
     showFlightTimeMachineModal,
     showBlacksmithModal,
+    showGoldTownDigModal,
     showCompendium,
     showHallOfFame,
     showDevModal,
     showDevPasswordModal,
     showNewGamePlusModal,
-    showWipeMemoryModal,
     showcaseCard,
     handleCloseShowcase,
     addLog,
@@ -3495,6 +5483,7 @@ export default function App() {
     const cleanMeta: MetaProgress = {
       unlockedCardIds: [],
       unlockedAchievements: [],
+      activeSkills: [],
       unlockedDiaries: [],
       ironBoxItems: [],
       pastGamesCount: 1,
@@ -3516,14 +5505,20 @@ export default function App() {
       character: null,
       inventory: {},
       drawnCount: {},
+      peninsulaInheritedCounts: {},
       flags: {},
       jokerSlots: { place: null, shoes: null, performance: null },
       reversedClockUsesRemaining: 3,
-      stats: { ap: 15 },
+      stats: { ap: 15, coins: 0 },
       ninjaChasing: false,
       ninjaNextEncounterRound: null,
       fireworksBurning: false,
+      headacheActive: false,
       blacksmithUnlocked: false,
+      goldTownUnlocked: false,
+      terraceUnlocked: false,
+      romanticPhoneUnlocked: false,
+      terracePlot: { targetCrop: null, step: 'idle' },
       logs: [
         {
           round: 0,
@@ -3535,7 +5530,6 @@ export default function App() {
       revealedCard: null,
       currentDrawChoices: [],
     });
-    setShowWipeMemoryModal(false);
     setShowNewGamePlusModal(false);
     setShowCompendium(false);
   };
@@ -3638,7 +5632,7 @@ export default function App() {
               }
             }}
             className="px-2.5 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/80 text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1"
-            title="開發者測試控制台（密碼 1028，本網頁開啟期間只需輸入一次）"
+            title="開發者測試控制台"
           >
             <span>🔧</span>
             <span>開發測試</span>
@@ -3669,7 +5663,15 @@ export default function App() {
             jokerSlots={gameState.jokerSlots}
             inventory={gameState.inventory}
             blacksmithUnlocked={Boolean(gameState.blacksmithUnlocked || gameState.flags['blacksmith_unlocked'])}
+            goldTownUnlocked={Boolean(gameState.goldTownUnlocked || gameState.flags['gold_town_unlocked'])}
+            terraceUnlocked={Boolean(gameState.terraceUnlocked || gameState.flags['terrace_unlocked'])}
+            terraceStatusBadge={getTerraceStatusBadge()}
+            romanticPhoneUnlocked={Boolean(gameState.romanticPhoneUnlocked || gameState.flags['romantic_phone_unlocked'] || (gameState.inventory['浪漫手機'] || 0) > 0)}
+            hasDiscoveredCoins={Boolean(gameState.flags['discovered_coins'] || (gameState.stats.coins && gameState.stats.coins > 0))}
             onOpenBlacksmith={() => setShowBlacksmithModal(true)}
+            onOpenGoldTown={handleOpenGoldTown}
+            onOpenTerrace={() => setShowTerraceModal(true)}
+            onOpenRomanticPhone={() => setShowRomanticPhoneModal(true)}
             onEquipJokerSlot={handleEquipJoker}
             onUnequipJokerSlot={handleUnequipJoker}
           />
@@ -3698,47 +5700,96 @@ export default function App() {
               )}
             </div>
 
-            {/* 環境狀態 (Environment Status) - 紅框閃爍標籤區，各環境變化可共存各自作用 */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {Boolean(gameState.flags['chaos_era_active'] || gameState.flags['chaos_era_obtained']) && (
-                <span
-                  title="環境狀態：亂舞春秋時代（時空震盪，戰亂降臨）"
-                  className="text-[11px] sm:text-xs bg-red-950 text-red-300 border border-red-800 px-2.5 py-0.5 rounded font-mono font-bold animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.25)]"
-                >
-                  亂舞春秋時代
-                </span>
-              )}
+            {/* 環境狀態 (Environment Status) - 紅框閃爍標籤區，各環境變化可共存各自作用（結算與選角過場不顯示） */}
+            {gameState.phase !== 'GAME_OVER' && gameState.phase !== 'CHOOSE_CHARACTER' && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {Boolean(gameState.flags['chaos_era_active'] || gameState.flags['chaos_era_obtained']) && (
+                  <span
+                    title="環境狀態：亂舞春秋時代（時空震盪，戰亂降臨）"
+                    className="text-[11px] sm:text-xs bg-red-950 text-red-300 border border-red-800 px-2.5 py-0.5 rounded font-mono font-bold animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.25)] flex items-center gap-1"
+                  >
+                    <span>⚔️</span>
+                    <span>亂舞春秋時代</span>
+                  </span>
+                )}
 
-              {Boolean(gameState.ninjaChasing) && (
-                <span
-                  title="環境狀態：追逐忍者（忍者正朝著第 30 回合狂奔）"
-                  className="text-[11px] sm:text-xs bg-red-950 text-red-300 border border-red-800 px-2.5 py-0.5 rounded font-mono font-bold animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.25)]"
-                >
-                  忍者前進到第 {gameState.ninjaRound || (gameState.round + 1)} 回合
-                </span>
-              )}
+                {Boolean(gameState.ninjaChasing) && (
+                  <span
+                    title="環境狀態：追逐忍者（忍者正朝著第 30 回合狂奔）"
+                    className="text-[11px] sm:text-xs bg-red-950 text-red-300 border border-red-800 px-2.5 py-0.5 rounded font-mono font-bold animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.25)] flex items-center gap-1.5"
+                  >
+                    <NinjaIcon className="w-3.5 h-3.5" />
+                    <span>忍者前進到第 {gameState.ninjaRound || (gameState.round + 1)} 回合</span>
+                  </span>
+                )}
 
-              {Boolean(gameState.fireworksBurning) && (
-                <span
-                  id="env-fireworks-burning-badge"
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'copy';
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const itemName = e.dataTransfer.getData('text/plain');
-                    if (itemName) {
-                      handleDropOnFireworks(itemName);
-                    }
-                  }}
-                  title="環境狀態：煙火燃燒！每三回合燒毀一樣物品。請盡速滅火！"
-                  className="text-[11px] sm:text-xs bg-red-950 text-red-300 border border-red-800 hover:border-amber-400 hover:text-amber-200 px-2.5 py-0.5 rounded font-mono font-bold animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.25)] transition-all cursor-pointer select-none"
-                >
-                  煙火燃燒
-                </span>
-              )}
-            </div>
+                {Boolean(gameState.fireworksBurning) && (
+                  <span
+                    id="env-fireworks-burning-badge"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'copy';
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const itemName = e.dataTransfer.getData('text/plain');
+                      if (itemName) {
+                        handleDropOnFireworks(itemName);
+                      }
+                    }}
+                    title="環境狀態：煙火燃燒！每三回合燒毀一樣物品。請盡速滅火！"
+                    className="text-[11px] sm:text-xs bg-red-950 text-red-300 border border-red-800 hover:border-amber-400 hover:text-amber-200 px-2.5 py-0.5 rounded font-mono font-bold animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.25)] transition-all cursor-pointer select-none flex items-center gap-1"
+                  >
+                    <span>🎆</span>
+                    <span>煙火燃燒</span>
+                  </span>
+                )}
+
+                {Boolean(gameState.headacheActive || gameState.flags['headache_active']) && (
+                  <span
+                    id="env-headache-badge"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'copy';
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const itemName = e.dataTransfer.getData('text/plain');
+                      if (itemName) {
+                        handleDropOnHeadache(itemName);
+                      }
+                    }}
+                    title="環境狀態：偏頭痛！每回合抽卡行動力消耗共 -2，趕快想辦法痊癒吧！"
+                    className="text-[11px] sm:text-xs bg-red-950 text-red-300 border border-red-800 hover:border-emerald-400 hover:text-emerald-200 px-2.5 py-0.5 rounded font-mono font-bold animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.25)] transition-all cursor-pointer select-none flex items-center gap-1"
+                  >
+                    <span>🤕</span>
+                    <span>偏頭痛</span>
+                  </span>
+                )}
+
+                {Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']) && (
+                  <span
+                    id="env-rainy-badge"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'copy';
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const itemName = e.dataTransfer.getData('text/plain');
+                      if (itemName) {
+                        handleDropOnRain(itemName);
+                      }
+                    }}
+                    title="環境狀態：下雨天！每回合行囊中的紙類物品會被淋濕損毀，真希望能趕快放晴！"
+                    className="text-[11px] sm:text-xs bg-sky-950 text-sky-300 border border-sky-600 hover:border-cyan-300 hover:text-cyan-100 px-2.5 py-0.5 rounded font-mono font-bold animate-pulse shadow-[0_0_10px_rgba(56,189,248,0.25)] transition-all cursor-pointer select-none flex items-center gap-1"
+                  >
+                    <span>🌧️</span>
+                    <span>下雨天</span>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 煙火燃燒通知橫幅 */}
@@ -3771,81 +5822,162 @@ export default function App() {
             </div>
           )}
 
+          {/* 下雨天紙類物品淋濕損毀通知橫幅 */}
+          {gameState.drenchedItemNotice && (
+            <div
+              className="w-full bg-sky-950/95 border border-sky-500 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-sky-200 flex items-center justify-between gap-2 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base sm:text-lg">🌧️</span>
+                <span className="font-bold text-sky-300">【淋濕損毀】</span>
+                <span>{gameState.drenchedItemNotice}</span>
+              </div>
+              <button
+                onClick={() => setGameState((prev) => ({ ...prev, drenchedItemNotice: null }))}
+                className="text-stone-400 hover:text-white text-xs px-2 py-0.5 rounded bg-black/40 border border-stone-700 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* C. 中央舞台 */}
           <div className="w-full min-h-[460px] bg-[#101014] border border-stone-800/80 rounded-2xl p-6 flex flex-col items-center justify-center relative shadow-inner overflow-hidden">
-            {/* Phase 1: 盲抽初始角色 (Lottery Draw) */}
+            {/* Phase 1: 抽取初始化身 (Destiny Avatar Summoning - 附圖二全新翻新) */}
             {gameState.phase === 'CHOOSE_CHARACTER' && (
-              <div className="w-full flex flex-col items-center gap-6 text-center animate-in fade-in duration-300">
+              <div className="w-full flex flex-col items-center gap-6 text-center animate-in fade-in duration-300 py-4">
                 <div>
-                  <h2 className="text-xl font-black text-amber-200 font-serif">
-                    命運之門已開啟・請抽取初始化身
+                  <h2 className="text-2xl sm:text-3xl font-black text-amber-200 font-serif tracking-wide">
+                    音樂之門已開啟・抽取初始化身
                   </h2>
-                  <p className="text-xs text-stone-400 mt-1">
-                    三張神秘命運之簽懸浮於虛空之中，點選其中一張抽取你本局的命運化身
+                  <p className="text-sm text-stone-400 mt-2 font-sans">
+                    點擊下方按鍵喚醒並抽取本局專屬於你的音樂冒險化身
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 sm:gap-6 w-full max-w-lg justify-items-center">
-                  {[0, 1, 2].map((idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        // Randomly draw an initial selectable character
-                        const randomIndex = Math.floor(Math.random() * INITIAL_SELECTABLE_CHARACTERS.length);
-                        const drawnChar = INITIAL_SELECTABLE_CHARACTERS[randomIndex];
-                        setPendingCharacter(drawnChar);
-                        setShowCharConfirmModal(true);
-                        triggerJayQuote();
-                      }}
-                      className="group w-28 sm:w-36 h-44 sm:h-52 rounded-xl bg-gradient-to-b from-[#1c1b22] via-[#141318] to-[#0c0c10] border-2 border-stone-800 hover:border-[#d4af37] p-3 flex flex-col items-center justify-between shadow-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.25)] transition-all transform hover:-translate-y-1.5 cursor-pointer relative overflow-hidden active:scale-95"
-                    >
-                      <div className="w-full flex justify-between items-center text-[10px] text-stone-500 font-serif">
-                        <span>✦</span>
-                        <span>✦</span>
+                {/* 中央命運契約召喚台與動態黑膠星軌 */}
+                <div className="relative my-2 flex flex-col items-center justify-center">
+                  {/* 外層光暈靈能氛圍 */}
+                  <div
+                    className={`absolute -inset-8 rounded-full bg-gradient-to-r from-amber-500/20 via-yellow-300/30 to-amber-600/20 blur-2xl pointer-events-none transition-all duration-700 ${
+                      isDrawingCharacterAnimation ? 'scale-125 opacity-90' : 'scale-100 opacity-40'
+                    }`}
+                  />
+
+                  {/* 召喚儀式卡框 */}
+                  <div className="relative w-48 sm:w-56 h-64 sm:h-72 rounded-2xl bg-gradient-to-b from-[#22202a] via-[#16151c] to-[#0c0c10] border-2 border-[#d4af37] shadow-[0_0_35px_rgba(212,175,55,0.3)] p-4 flex flex-col items-center justify-between overflow-hidden">
+                    {/* 頂部徽飾 */}
+                    <div className="w-full flex justify-between items-center text-xs text-[#d4af37]/70 font-mono">
+                      <span>✦</span>
+                      <span className="text-[10px] tracking-widest uppercase">Destiny Avatar</span>
+                      <span>✦</span>
+                    </div>
+
+                    {/* 中央動態星軌黑膠 / 旋轉召喚圖騰 */}
+                    <div className="relative flex flex-col items-center justify-center my-auto">
+                      <div
+                        className={`w-28 sm:w-32 h-28 sm:h-32 rounded-full border-2 border-[#d4af37]/60 flex items-center justify-center relative bg-black/60 shadow-inner ${
+                          isDrawingCharacterAnimation ? 'animate-[spin_0.8s_linear_infinite]' : ''
+                        }`}
+                      >
+                        {/* 經典唱片溝槽 */}
+                        <div className="w-22 h-22 rounded-full border border-dashed border-[#d4af37]/40" />
+                        <div className="w-14 h-14 rounded-full border border-[#d4af37]/30" />
+                        <div className="absolute w-9 h-9 rounded-full bg-[#d4af37]/20 border border-[#d4af37] flex items-center justify-center shadow-md">
+                          <span className="text-amber-200 text-lg font-serif">
+                            {isDrawingCharacterAnimation ? '✨' : '♫'}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="w-14 h-14 rounded-full border border-stone-700/80 group-hover:border-[#d4af37] flex items-center justify-center bg-black/40 group-hover:bg-[#d4af37]/10 transition-colors">
-                        <span className="text-stone-400 group-hover:text-amber-200 font-serif text-lg font-bold">
-                          ？
-                        </span>
-                      </div>
+                      {/* 動態狀態文字 */}
+                      <span className="mt-4 text-xs font-mono tracking-widest text-[#d4af37] drop-shadow">
+                        {isDrawingCharacterAnimation
+                          ? '✦ 命運星軌共鳴中…… ✦'
+                          : '✦ 命運之簽待召喚 ✦'}
+                      </span>
+                    </div>
 
-                      <div className="flex flex-col items-center">
-                        <span className="text-xs font-bold text-stone-300 group-hover:text-amber-200 font-serif">
-                          抽取化身
-                        </span>
-                        <span className="text-[9px] text-stone-500 mt-0.5">
-                          點擊盲抽
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                    {/* 底部裝飾 */}
+                    <div className="w-full flex justify-between items-center text-xs text-[#d4af37]/70 font-mono">
+                      <span>◆</span>
+                      <span className="text-[9px] text-stone-500 tracking-wider">JAY CHOU</span>
+                      <span>◆</span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* 抽選角色按鍵 */}
+                <button
+                  id="draw-character-summon-btn"
+                  disabled={isDrawingCharacterAnimation}
+                  onClick={() => {
+                    if (isDrawingCharacterAnimation) return;
+                    setIsDrawingCharacterAnimation(true);
+                    triggerJayQuote();
+                    setTimeout(() => {
+                      const randomIndex = Math.floor(Math.random() * INITIAL_SELECTABLE_CHARACTERS.length);
+                      const drawnChar = INITIAL_SELECTABLE_CHARACTERS[randomIndex];
+                      setPendingCharacter(drawnChar);
+                      setShowCharConfirmModal(true);
+                      setIsDrawingCharacterAnimation(false);
+                    }, 1100);
+                  }}
+                  className={`w-64 sm:w-72 py-4 px-6 rounded-2xl font-black text-base sm:text-lg tracking-widest shadow-xl cursor-pointer transition-all active:scale-98 border-2 ${
+                    isDrawingCharacterAnimation
+                      ? 'bg-stone-800 text-stone-400 border-stone-700 cursor-not-allowed animate-pulse'
+                      : 'bg-gradient-to-r from-amber-600 via-[#d4af37] to-amber-500 text-stone-950 border-amber-300 hover:brightness-110 shadow-[0_4px_25px_rgba(212,175,55,0.4)] hover:scale-102'
+                  }`}
+                >
+                  {isDrawingCharacterAnimation ? '✦ 召喚中…… ✦' : '✦ 點擊抽選命運化身 ✦'}
+                </button>
               </div>
             )}
 
-            {/* Phase 2: Draw Three Cards (Tarot Mystery Cards) */}
+            {/* Phase 2: 翻牌抽取 (Tarot Mystery Cards) */}
             {gameState.phase === 'DRAW_THREE' && (
               <div className="w-full flex flex-col items-center gap-6 text-center animate-in fade-in duration-200">
                 <div className="-mt-2 flex flex-col items-center">
                   <h2 className="text-xl sm:text-2xl font-black text-amber-200 font-serif tracking-wider">
-                    命運牌堆已洗牌完畢
+                    {gameState.currentDrawChoices.length === 1
+                      ? '雨幕深處・命運之牌已浮現'
+                      : '命運牌堆已洗牌完畢'}
                   </h2>
                   <p className="text-sm text-stone-400 mt-1 font-sans">
-                    請點選其中一張覆蓋卡牌盲抽（僅公開所選卡牌，未選中者保持覆蓋）
+                    {gameState.currentDrawChoices.length === 1
+                      ? '在下雨天許久，你聽見了下雨的聲音……請翻開這張唯一的命運之牌'
+                      : '請點選其中一張覆蓋卡牌盲抽（僅公開所選卡牌，未選中者保持覆蓋）'}
                   </p>
                 </div>
 
-                <div className="w-full max-w-2xl grid grid-cols-3 gap-3 sm:gap-6 px-2 justify-items-center">
-                  {gameState.currentDrawChoices.map((choiceCard, idx) => (
-                    <MysteryCard
-                      key={choiceCard.id}
-                      index={idx}
-                      onClick={() => handleDrawCard(choiceCard)}
-                      isMagicVision={gameState.character?.name === '魔術先生'}
-                      cardHintType={choiceCard.type}
-                    />
-                  ))}
+                {gameState.currentDrawChoices.length === 1 && (
+                  <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-950/80 border border-sky-400/70 text-sky-200 text-xs font-bold animate-pulse shadow-[0_0_15px_rgba(56,189,248,0.3)]">
+                    <span>🌧️</span>
+                    <span>下雨天累積滿 5 回合連動：100% 抽取《聽見下雨的聲音》</span>
+                  </div>
+                )}
+
+                <div
+                  className={`w-full ${
+                    gameState.currentDrawChoices.length === 1
+                      ? 'max-w-xs flex justify-center mx-auto'
+                      : 'max-w-2xl grid grid-cols-3 gap-3 sm:gap-6 justify-items-center'
+                  } px-2`}
+                >
+                  {gameState.currentDrawChoices.map((choiceCard, idx) => {
+                    const isMagician = gameState.character?.name === '魔術先生';
+                    const hasTape = Boolean(gameState.inventory['免費教學錄影帶']);
+                    return (
+                      <MysteryCard
+                        key={choiceCard.id}
+                        index={idx}
+                        onClick={() => handleDrawCard(choiceCard)}
+                        isMagicVision={isMagician}
+                        canSeeItemCards={isMagician && hasTape}
+                        cardHintType={choiceCard.type}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -3863,7 +5995,7 @@ export default function App() {
             {gameState.phase === 'BOSS_BATTLE' && (
               <BossBattleView
                 gameState={gameState}
-                onVictory={(type) => {
+                onVictory={(type, details) => {
                   const totalRoundsNow = (meta.totalRoundsPlayed || 0) + gameState.round;
                   const record: RouteVictoryRecord = {
                     route: type,
@@ -3876,6 +6008,8 @@ export default function App() {
                   setGameState((prev) => ({
                     ...prev,
                     victoryType: type,
+                    victoryLyric: details?.lyric,
+                    victoryNarrative: details?.narrative,
                     phase: 'GAME_OVER',
                   }));
                   setMeta((prev) => ({
@@ -3905,9 +6039,85 @@ export default function App() {
                 gameState={gameState}
                 meta={meta}
                 onRestartNewGame={() => {
-                  triggerNextGameWithIronBoxCheck(() => {
-                    handleStartNextGame();
-                  });
+                  const isRainy = Boolean(
+                    gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']
+                  );
+                  const reachedEnd = gameState.round >= 30;
+                  const isDaughter = gameState.character?.name === '女兒殿下';
+
+                  const proceedNext = () => {
+                    triggerNextGameWithIronBoxCheck((inherited, retainChar) => {
+                      handleStartNextGame(inherited, retainChar);
+                    });
+                  };
+
+                  const awardRainyEndCard = (onDone: () => void) => {
+                    setGameState((prev) => {
+                      const nextInv = { ...prev.inventory };
+                      nextInv['雨下一整晚'] = (nextInv['雨下一整晚'] || 0) + 1;
+                      const currentOrder = prev.itemAcquisitionOrder || Object.keys(nextInv);
+                      const order = currentOrder.filter((k) => (nextInv[k] || 0) > 0);
+                      if (!order.includes('雨下一整晚')) order.push('雨下一整晚');
+                      return {
+                        ...prev,
+                        inventory: nextInv,
+                        itemAcquisitionOrder: order,
+                      };
+                    });
+                    setMeta((prev) => {
+                      if (prev.unlockedCardIds.includes('C2010-06')) return prev;
+                      return {
+                        ...prev,
+                        unlockedCardIds: [...prev.unlockedCardIds, 'C2010-06'],
+                      };
+                    });
+                    addLog(
+                      '🌧️🎻【雨下一整晚】「雨下一整晚，街燈下斑駁的倒影……」下雨天維持至第 30 回合終局，獲得卡牌《雨下一整晚》（C2010-06）！',
+                      'milestone'
+                    );
+                    triggerCardShowcase('C2010-06', '始終下雨・維持下雨天狀態至第30回合結束獲得', () => {
+                      onDone();
+                    });
+                  };
+
+                  if (reachedEnd && isDaughter) {
+                    // 達成以女兒殿下守護完成第 30 回合終局：獲得卡牌《女兒殿下》（C2026-10）
+                    setGameState((prev) => {
+                      const nextInv = { ...prev.inventory };
+                      nextInv['女兒殿下'] = (nextInv['女兒殿下'] || 0) + 1;
+                      const currentOrder = prev.itemAcquisitionOrder || Object.keys(nextInv);
+                      const order = currentOrder.filter((k) => (nextInv[k] || 0) > 0);
+                      if (!order.includes('女兒殿下')) order.push('女兒殿下');
+                      return {
+                        ...prev,
+                        inventory: nextInv,
+                        itemAcquisitionOrder: order,
+                      };
+                    });
+                    setMeta((prev) => ({
+                      ...prev,
+                      unlockedCardIds: Array.from(new Set([...prev.unlockedCardIds, 'C2026-10'])),
+                    }));
+                    addLog(
+                      '👑💖【女兒殿下】父愛如山，你守護著女兒殿下平安度過 30 回合！獲得關鍵卡牌《女兒殿下》（C2026-10）！',
+                      'milestone'
+                    );
+                    triggerCardShowcase('C2026-10', '以【女兒殿下】身分成功完成第 30 回合終局冒險後獲得', () => {
+                      if (isRainy && reachedEnd) {
+                        awardRainyEndCard(proceedNext);
+                      } else {
+                        proceedNext();
+                      }
+                    });
+                    return;
+                  }
+
+                  if (isRainy && reachedEnd) {
+                    awardRainyEndCard(proceedNext);
+                    return;
+                  }
+
+                  proceedNext();
                 }}
                 onRewindWithClock={handleRewindWithClock}
                 onTriggerJayQuote={triggerJayQuote}
@@ -4013,8 +6223,7 @@ export default function App() {
           meta={meta}
           gameState={gameState}
           onClose={() => setShowCompendium(false)}
-          onStoreInIronBox={handleStoreIronBox}
-          onTakeFromIronBox={handleTakeIronBox}
+          onToggleSkill={handleToggleSkill}
         />
       )}
 
@@ -4192,7 +6401,15 @@ export default function App() {
               ...prev,
               stats: { ...prev.stats, ap: Math.max(0, ap) },
             }));
-            addLog(`【開發者指令】AP 體力調節為 ${ap}。`, 'milestone');
+            addLog(`【開發者指令】行動力調節為 ${ap}。`, 'milestone');
+          }}
+          currentCoins={gameState.stats.coins || 0}
+          onSetCoins={(coins) => {
+            setGameState((prev) => ({
+              ...prev,
+              stats: { ...prev.stats, coins: Math.max(0, coins) },
+            }));
+            addLog(`【開發者指令】金幣調節為 ${coins} 枚。`, 'milestone');
           }}
           onTriggerBoss={() => {
             setShowGeneralEncounterModal(true);
@@ -4356,6 +6573,107 @@ export default function App() {
             }));
             addLog(`【開發測試】${active ? '開啟' : '關閉'}【米蘭小鐵鋪常駐】狀態。`, 'milestone');
           }}
+          isGoldTownUnlocked={Boolean(gameState.goldTownUnlocked || gameState.flags['gold_town_unlocked'])}
+          onToggleGoldTown={(active) => {
+            setGameState((prev) => ({
+              ...prev,
+              goldTownUnlocked: active,
+              flags: {
+                ...prev.flags,
+                gold_town_unlocked: active,
+              },
+            }));
+            addLog(`【開發測試】${active ? '開啟' : '關閉'}【淘金小鎮常駐】狀態。`, 'milestone');
+          }}
+          isTerraceUnlocked={Boolean(gameState.terraceUnlocked || gameState.flags['terrace_unlocked'])}
+          onToggleTerrace={(active) => {
+            setGameState((prev) => ({
+              ...prev,
+              terraceUnlocked: active,
+              flags: {
+                ...prev.flags,
+                terrace_unlocked: active,
+              },
+            }));
+            addLog(`【開發測試】${active ? '開啟' : '關閉'}【梯田常駐】狀態。`, 'milestone');
+          }}
+          onFastMatureTerrace={(specificCrop) => {
+            setGameState((prev) => {
+              const currentCrop = specificCrop || prev.terracePlot?.targetCrop || 'tea';
+              return {
+                ...prev,
+                terracePlot: {
+                  targetCrop: currentCrop,
+                  step: 'watered',
+                  completedRound: prev.round,
+                  growthRounds: 5,
+                  requiredRounds: 5,
+                  matureRound: prev.round,
+                },
+              };
+            });
+            addLog('⚡【開發測試】梯田作物已快速催熟，進入【可收成】狀態！', 'milestone');
+          }}
+          isHeadacheActive={Boolean(gameState.headacheActive || gameState.flags['headache_active'])}
+          onToggleHeadache={(active) => {
+            setGameState((prev) => ({
+              ...prev,
+              headacheActive: active,
+              flags: {
+                ...prev.flags,
+                headache_active: active,
+              },
+            }));
+            addLog(`【開發測試】${active ? '開啟' : '解除'}【偏頭痛】環境狀態。`, 'milestone');
+          }}
+          isRainyWeatherActive={Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active'])}
+          onToggleRainyWeather={(active) => {
+            setGameState((prev) => ({
+              ...prev,
+              rainyWeatherActive: active,
+              flags: {
+                ...prev.flags,
+                rainy_weather_active: active,
+                rainy_rounds_count: active ? (prev.flags['rainy_rounds_count'] || 0) : 0,
+              },
+            }));
+            addLog(`【開發測試】${active ? '開啟' : '解除'}【那天下雨了】下雨天狀態。`, 'milestone');
+          }}
+          onFastForwardRainRounds={() => {
+            setGameState((prev) => ({
+              ...prev,
+              rainyWeatherActive: true,
+              flags: {
+                ...prev.flags,
+                rainy_weather_active: true,
+                rain_completed_rounds: 5,
+                rainy_rounds_count: 5,
+                pending_heard_rain_trigger: true,
+              },
+            }));
+            addLog('⚡【開發測試】設定下雨天歷經滿 5 回合！下一回合將觸發居中《聽見下雨的聲音》！', 'milestone');
+          }}
+          isRomanticPhoneUnlocked={Boolean(gameState.romanticPhoneUnlocked || gameState.flags['romantic_phone_unlocked'] || (gameState.inventory['浪漫手機'] || 0) > 0)}
+          onToggleRomanticPhone={(active) => {
+            setGameState((prev) => {
+              const nextInv = { ...prev.inventory };
+              if (active) {
+                nextInv['浪漫手機'] = 1;
+              } else {
+                delete nextInv['浪漫手機'];
+              }
+              return {
+                ...prev,
+                romanticPhoneUnlocked: active,
+                inventory: nextInv,
+                flags: {
+                  ...prev.flags,
+                  romantic_phone_unlocked: active,
+                },
+              };
+            });
+            addLog(`【開發測試】${active ? '開啟' : '關閉'}【浪漫手機常駐】狀態。`, 'milestone');
+          }}
         />
       )}
 
@@ -4368,7 +6686,7 @@ export default function App() {
       />
 
       {/* 開啟新周目 / Universal Memory Wipe Modal - 等比放大 */}
-      {(showNewGamePlusModal || showWipeMemoryModal) && (
+      {showNewGamePlusModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-lg sm:max-w-xl bg-gradient-to-b from-[#1c1414] via-[#140e0e] to-[#0a0707] border-2 border-red-700/80 rounded-2xl p-7 sm:p-9 shadow-[0_0_40px_rgba(220,38,38,0.3)] flex flex-col gap-5 text-center">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-950/60 border border-red-600 flex items-center justify-center mx-auto text-3xl sm:text-4xl text-red-400 shadow-inner">
@@ -4391,23 +6709,23 @@ export default function App() {
             <div className="bg-black/60 border border-stone-800 rounded-xl p-4 sm:p-5 text-left text-xs sm:text-sm text-stone-300 space-y-2.5 font-sans">
               <div className="flex items-center gap-2 text-amber-300 font-bold bg-amber-950/40 p-2.5 rounded-lg border border-amber-700/60">
                 <span className="text-lg text-amber-400">🛡️</span>
-                <span>【傳奇殿堂戰績卡永久保存】過往所有已獲得的全通關評級戰績將完整珍藏，不會丟失！</span>
+                <span>【傳奇殿堂戰績卡永久保存】已獲得的全通關結算評級將完整珍藏，不會丟失！</span>
               </div>
               <div className="flex items-center gap-2 text-stone-300">
                 <span className="text-red-400 font-bold">✕</span>
-                <span>已解鎖歌曲圖鑑全數歸零 (0/63)</span>
+                <span>全域圖鑑中已解鎖歌曲圖鑑、成就技能、冒險日誌全數清除</span>
               </div>
               <div className="flex items-center gap-2 text-stone-300">
                 <span className="text-red-400 font-bold">✕</span>
-                <span>各主線通關進度重新開始</span>
+                <span>各通關路線進度重新開始</span>
               </div>
               <div className="flex items-center gap-2 text-stone-300">
                 <span className="text-red-400 font-bold">✕</span>
-                <span>全域成就與特質加成重新挑戰</span>
+                <span>局數與回合數歸零重新挑戰</span>
               </div>
               <div className="flex items-center gap-2 text-stone-300">
                 <span className="text-red-400 font-bold">✕</span>
-                <span>當前行囊道具與鐵盒遺物清空</span>
+                <span>當前行囊道具與跨局攜帶物品清空</span>
               </div>
               <div className="flex items-center gap-2 pt-2 border-t border-stone-800 text-amber-300/90 font-sans">
                 <span>✦</span>
@@ -4420,7 +6738,6 @@ export default function App() {
                 id="cancel-new-cycle-btn"
                 onClick={() => {
                   setShowNewGamePlusModal(false);
-                  setShowWipeMemoryModal(false);
                 }}
                 className="flex-1 py-3.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-sm sm:text-base font-bold transition-all cursor-pointer"
               >
@@ -4430,7 +6747,6 @@ export default function App() {
                 id="confirm-new-cycle-btn"
                 onClick={() => {
                   setShowNewGamePlusModal(false);
-                  setShowWipeMemoryModal(false);
                   handleFullMemoryWipe();
                 }}
                 className="flex-1 py-3.5 rounded-xl bg-red-900/90 hover:bg-red-700 text-white text-sm sm:text-base font-black border border-red-600 transition-all cursor-pointer shadow-md active:scale-98"
@@ -4513,12 +6829,12 @@ export default function App() {
                     </span>
                   )}
                 </div>
-                <p className="text-sm sm:text-base text-[#d4af37] mt-1 font-sans font-medium">
+                <p className="text-base sm:text-[17px] text-[#d4af37] mt-1 font-sans font-medium">
                   {pendingCharacter.title}
                 </p>
               </div>
 
-              <div className="w-full bg-black/40 border border-stone-800 rounded-xl p-5 sm:p-6 text-sm sm:text-base text-stone-300 leading-relaxed text-left font-sans">
+              <div className="w-full bg-black/40 border border-stone-800 rounded-xl p-5 sm:p-6 text-base sm:text-[17px] text-stone-300 leading-relaxed text-left font-sans">
                 {pendingCharacter.description}
               </div>
 
@@ -4543,6 +6859,37 @@ export default function App() {
                   : '確認化身・冒險開始！'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 聽見下雨的聲音過場通知視窗 */}
+      {showHeardRainNoticeModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-gradient-to-b from-[#121924] via-[#0c1219] to-[#080d12] border-2 border-sky-500/80 rounded-2xl p-6 sm:p-8 shadow-[0_0_50px_rgba(56,189,248,0.35)] flex flex-col items-center text-center gap-4">
+            <div className="w-14 h-14 rounded-full bg-sky-950/70 border border-sky-400 flex items-center justify-center text-3xl shadow-inner animate-pulse">
+              <span>🌧️</span>
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-xl font-black text-sky-200 font-serif">
+                雨的聲音
+              </h3>
+              <p className="text-base text-sky-100 font-serif leading-relaxed mt-2 font-bold">
+                「在下雨天許久，你聽見了下雨的聲音...」
+              </p>
+            </div>
+            <p className="text-xs text-stone-300 leading-relaxed font-sans">
+              細竹籬上、玻璃瓶裡、百葉窗折射的光影折，雨聲在雨幕中悄然浮現。
+            </p>
+            <button
+              id="confirm-heard-rain-notice-btn"
+              onClick={() => {
+                setShowHeardRainNoticeModal(false);
+              }}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-600 via-blue-500 to-sky-500 text-stone-950 font-black text-base shadow-[0_0_20px_rgba(56,189,248,0.4)] hover:brightness-110 active:scale-98 transition-all cursor-pointer mt-2"
+            >
+              聆聽細雨・翻開卡牌
+            </button>
           </div>
         </div>
       )}
@@ -4575,11 +6922,11 @@ export default function App() {
 
             {/* Narrative explanation */}
             <div className="w-full bg-purple-950/30 border border-purple-800/60 rounded-xl p-5 sm:p-6 text-sm sm:text-base text-purple-100 leading-relaxed text-left font-sans shadow-sm">
-              <p className="font-medium text-stone-100 mb-3 leading-relaxed">
+              <p className="font-medium text-stone-100 mb-3 leading-relaxed whitespace-pre-line">
                 {pendingEventTransition.effectNarrative}
               </p>
               <p className="text-xs sm:text-sm text-purple-300/80 border-t border-purple-800/40 pt-2.5 font-mono">
-                ※ 時序流轉至第 {Math.min(30, pendingEventTransition.nextRound)} 回合，宿命引領你直接邁入下一張連動卡牌！
+                ※ 時序進入至第 {Math.min(30, pendingEventTransition.nextRound)} 回合，引領你直接邁入下一張連動卡牌！
               </p>
             </div>
 
@@ -4595,6 +6942,17 @@ export default function App() {
                   `【事件連動】時空流轉至第 ${finalRound} 回合，直接遭遇【${targetCardName}】！`,
                   'milestone'
                 );
+
+                // 連動進入之卡牌同步解鎖至圖鑑
+                if (trans.targetCard?.id) {
+                  setMeta((prev) => {
+                    if (prev.unlockedCardIds.includes(trans.targetCard.id)) return prev;
+                    return {
+                      ...prev,
+                      unlockedCardIds: [...prev.unlockedCardIds, trans.targetCard.id],
+                    };
+                  });
+                }
 
                 setGameState((prev) => ({
                   ...prev,
@@ -4765,7 +7123,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 追上忍者專屬通知視窗 (先告知玩家追上了，點選確認後跳轉至遭遇戰) */} //已完成
+      {/* 追上忍者專屬通知視窗 (先告知玩家追上了，點選確認後跳轉至遭遇戰) */}
       {ninjaCaughtNotice && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-lg sm:max-w-xl bg-gradient-to-b from-[#221316] via-[#170e10] to-[#0c0809] border-2 border-red-600/80 rounded-2xl p-7 sm:p-9 shadow-[0_0_50px_rgba(239,68,68,0.4)] flex flex-col items-center text-center gap-5 sm:gap-6">
@@ -4780,8 +7138,8 @@ export default function App() {
               </span>
             </div>
 
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-red-950/50 border border-red-600/70 flex items-center justify-center text-4xl sm:text-5xl shadow-[0_0_25px_rgba(239,68,68,0.3)] my-1">
-              <span>🥷</span>
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-red-950/50 border border-red-600/70 flex items-center justify-center shadow-[0_0_25px_rgba(239,68,68,0.3)] my-1">
+              <NinjaIcon className="w-10 h-10 sm:w-12 sm:h-12" />
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -4819,7 +7177,7 @@ export default function App() {
 
       {/* Outcome Confirmation Modal (獲得物品、事件效果、裝備結果彈出確認視窗) - 放大字體與加大視窗 */}
       {outcomeModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-lg sm:max-w-xl bg-gradient-to-b from-[#1e1c26] via-[#15141c] to-[#0c0c12] border-2 border-amber-600/80 rounded-2xl p-7 sm:p-9 shadow-[0_0_50px_rgba(217,119,6,0.4)] flex flex-col items-center text-center gap-5 sm:gap-6">
             <div className="w-full flex items-center justify-between border-b border-stone-800 pb-2.5">
               <span className="text-sm sm:text-base text-amber-400 font-mono tracking-widest uppercase font-bold flex items-center gap-2">
@@ -4845,7 +7203,7 @@ export default function App() {
             )}
 
             {/* Narrative text - 放大字體 */}
-            <div className="w-full bg-black/60 border border-stone-800 rounded-xl p-5 sm:p-6 text-sm sm:text-base text-stone-100 leading-relaxed text-left font-sans">
+            <div className="w-full bg-black/60 border border-stone-800 rounded-xl p-5 sm:p-6 text-sm sm:text-base text-stone-100 leading-relaxed text-left font-sans whitespace-pre-line">
               {outcomeModal.narrative}
             </div>
 
@@ -4877,102 +7235,226 @@ export default function App() {
         </div>
       )}
 
-      {/* 半島鐵盒・跨局記憶傳承 (當局回合耗盡時詢問選擇保留至多 5 樣卡牌繼承至下一局 NG) */}
-      {showIronBoxInheritModal && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="w-full max-w-lg bg-gradient-to-b from-[#221c13] via-[#16130d] to-[#0c0a07] border-2 border-amber-600/90 rounded-2xl p-6 shadow-[0_0_50px_rgba(245,158,11,0.35)] flex flex-col items-center text-center gap-4">
-            <div className="w-full flex items-center justify-between border-b border-amber-900/60 pb-2">
-              <span className="text-xs text-amber-400 font-mono tracking-widest uppercase font-bold flex items-center gap-1.5">
+      {/* 半島鐵盒・跨局記憶傳承 (當局回合耗盡時詢問選擇保留至多 X 樣卡牌繼承至下一局 NG) */}
+      {showIronBoxInheritModal && (() => {
+        const capacity = getIronBoxCapacity();
+        return (
+          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+            <div className="w-full max-w-lg bg-gradient-to-b from-[#221c13] via-[#16130d] to-[#0c0a07] border-2 border-amber-600/90 rounded-2xl p-6 shadow-[0_0_50px_rgba(245,158,11,0.35)] flex flex-col items-center text-center gap-4">
+              <div className="w-full flex items-center justify-between border-b border-amber-900/60 pb-2">
+                <span className="text-xs text-amber-400 font-mono tracking-widest uppercase font-bold flex items-center gap-1.5">
+                  <span>📻</span>
+                  <span>半島鐵盒・時空傳承</span>
+                  <span>✦</span>
+                </span>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-600/40 px-2 py-0.5 rounded font-mono font-bold">
+                  已選 {selectedIronBoxItems.length} / {capacity} 樣
+                </span>
+              </div>
+
+              <div className="w-14 h-14 rounded-2xl bg-amber-950/60 border border-amber-500/80 flex items-center justify-center text-3xl shadow-[0_0_25px_rgba(245,158,11,0.3)] my-0.5">
                 <span>📻</span>
-                <span>半島鐵盒・時空傳承</span>
-                <span>✦</span>
-              </span>
-              <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-600/40 px-2 py-0.5 rounded font-mono font-bold">
-                已選 {selectedIronBoxItems.length} / 10 樣
-              </span>
-            </div>
+              </div>
 
-            <div className="w-14 h-14 rounded-2xl bg-amber-950/60 border border-amber-500/80 flex items-center justify-center text-3xl shadow-[0_0_25px_rgba(245,158,11,0.3)] my-0.5">
-              <span>📻</span>
-            </div>
+              <div>
+                <h3 className="text-lg sm:text-xl font-black text-amber-100 font-serif tracking-wide">
+                  第 30 回合結束・半島鐵盒開啟
+                </h3>
+                <p className="text-xs text-amber-300/80 font-serif mt-1 italic">
+                  「鐵盒的序變成了日記 變成了空氣 演化成回憶，而鐵盒封存物品記憶」
+                </p>
+              </div>
 
-            <div>
-              <h3 className="text-lg sm:text-xl font-black text-amber-100 font-serif tracking-wide">
-                第 30 回合結束・半島鐵盒開啟
-              </h3>
-              <p className="text-xs text-amber-300/80 font-serif mt-1 italic">
-                「沉澱的呢喃清唱 封存跨越時空的記憶」
-              </p>
-            </div>
+              <div className="w-full bg-black/50 border border-amber-900/40 rounded-xl p-3 text-xs text-stone-200 leading-relaxed text-left font-sans">
+                <p>
+                  你在此局持有神物【半島鐵盒】！請挑選至多 <span className="text-amber-300 font-bold">{capacity} 樣</span> 獲得的卡牌/道具放入鐵盒中（包含半島鐵盒本身亦需勾選方可帶入下一局，無法攜帶的不會出現在下方），它們將跨越時空，於下一局冒險初始時直接隨身出現在你的行囊中：
+                </p>
+              </div>
 
-            <div className="w-full bg-black/50 border border-amber-900/40 rounded-xl p-3 text-xs text-stone-200 leading-relaxed text-left font-sans">
-              <p>
-                你在此局持有神物【半島鐵盒】！請挑選至多 <span className="text-amber-300 font-bold">10 樣</span> 獲得的卡牌/道具放入鐵盒中（包含半島鐵盒本身亦需勾選方可帶入下一局，無法攜帶的不會出現在下方），它們將跨越時空，於下一局冒險初始時直接隨身出現在你的行囊中：
-              </p>
-            </div>
+              {/* 序・角色時空傳承區塊（當已擴充「序」且有角色時展示） */}
+              {Boolean(meta.ironBoxPages?.preface) && gameState.character && (
+                <div className="w-full bg-amber-950/40 border border-yellow-500/60 rounded-xl p-3 text-xs text-left space-y-1.5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-yellow-300 flex items-center gap-1.5 font-serif">
+                      <span>📖</span>
+                      <span>【序・角色時空傳承】已啟動</span>
+                    </span>
+                    <span className="text-[10px] bg-yellow-500/20 text-yellow-200 border border-yellow-600/40 px-1.5 py-0.5 rounded font-mono font-bold">
+                      傳奇功能
+                    </span>
+                  </div>
+                  <p className="text-stone-300 text-[11px] leading-relaxed">
+                    你已將【序】裝訂融入半島鐵盒！可選擇於下一局直接維持當前角色化身，跳過隨機抽選角色。
+                  </p>
+                  <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={retainCharacterInNextGame}
+                      onChange={(e) => setRetainCharacterInNextGame(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-amber-600 bg-stone-900 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-amber-100 flex items-center gap-1.5">
+                      <span>維持當前角色：</span>
+                      <span className="text-yellow-300">【{gameState.character.name}】（{gameState.character.title}）</span>
+                    </span>
+                  </label>
+                </div>
+              )}
 
-            {/* 可選物品清單 */}
-            <div className="w-full max-h-56 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2 pr-1 text-left">
-              {Object.keys(gameState.inventory)
-                .filter((name) => (gameState.inventory[name] || 0) > 0 && !isItemPeninsulaRestricted(name))
-                .map((itemName) => {
-                  const isSelected = selectedIronBoxItems.includes(itemName);
-                  const count = gameState.inventory[itemName];
-                  return (
-                    <button
-                      key={itemName}
-                      type="button"
-                      onClick={() => {
-                        if (isSelected) {
-                          setSelectedIronBoxItems((prev) => prev.filter((it) => it !== itemName));
-                        } else {
-                          if (selectedIronBoxItems.length >= 10) {
-                            addLog('【半島鐵盒】最多只能挑選 10 樣卡牌繼承至下一局！', 'warning');
-                            return;
+              {/* 可選物品清單 */}
+              <div className="w-full max-h-52 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2 pr-1 text-left">
+                {Object.keys(gameState.inventory)
+                  .filter((name) => (gameState.inventory[name] || 0) > 0 && !isItemPeninsulaRestricted(name))
+                  .map((itemName) => {
+                    const isSelected = selectedIronBoxItems.includes(itemName);
+                    const count = gameState.inventory[itemName];
+                    return (
+                      <button
+                        key={itemName}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedIronBoxItems((prev) => prev.filter((it) => it !== itemName));
+                          } else {
+                            if (selectedIronBoxItems.length >= capacity) {
+                              addLog(`【半島鐵盒】最多只能挑選 ${capacity} 樣卡牌繼承至下一局！`, 'warning');
+                              return;
+                            }
+                            setSelectedIronBoxItems((prev) => [...prev, itemName]);
                           }
-                          setSelectedIronBoxItems((prev) => [...prev, itemName]);
-                        }
-                      }}
-                      className={`py-2 px-2.5 rounded-lg border transition-all text-xs font-sans flex items-center justify-between cursor-pointer ${
-                        isSelected
-                          ? 'bg-amber-950/80 border-amber-400 text-amber-100 shadow-[0_0_12px_rgba(245,158,11,0.3)] ring-1 ring-amber-400/50'
-                          : 'bg-black/40 border-stone-800 text-stone-300 hover:border-stone-600 hover:bg-stone-900/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-xs font-mono">{isSelected ? '✅' : '▫️'}</span>
-                        <span className="truncate font-bold">{itemName}</span>
-                      </div>
-                      {count > 1 && (
-                        <span className="text-[10px] text-stone-400 font-mono shrink-0 ml-1">
-                          x{count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+                        }}
+                        className={`py-2 px-2.5 rounded-lg border transition-all text-xs font-sans flex items-center justify-between cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-950/80 border-amber-400 text-amber-100 shadow-[0_0_12px_rgba(245,158,11,0.3)] ring-1 ring-amber-400/50'
+                            : 'bg-black/40 border-stone-800 text-stone-300 hover:border-stone-600 hover:bg-stone-900/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-xs font-mono">{isSelected ? '✅' : '▫️'}</span>
+                          <span className="truncate font-bold">{itemName}</span>
+                        </div>
+                        {count > 1 && (
+                          <span className="text-[10px] text-stone-400 font-mono shrink-0 ml-1">
+                            x{count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
+
+              <div className="w-full flex gap-2.5 mt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const itemsToInherit = [...selectedIronBoxItems];
+                    const retainChar = Boolean(meta.ironBoxPages?.preface && retainCharacterInNextGame);
+                    setMeta((prev) => ({
+                      ...prev,
+                      ironBoxItems: itemsToInherit,
+                      ironBoxRetainedCharacter: retainChar ? gameState.character : null,
+                    }));
+                    if (itemsToInherit.length > 0) {
+                      addLog(
+                        `【半島鐵盒】已將【${itemsToInherit.join('、')}】封存，將於下一局冒險繼承出現在行囊中！`,
+                        'milestone'
+                      );
+                    }
+                    if (retainChar && gameState.character) {
+                      addLog(
+                        `【半島鐵盒・序】已設定於下一局冒險繼續維持【${gameState.character.name}】（${gameState.character.title}）化身！`,
+                        'milestone'
+                      );
+                    }
+                    setShowIronBoxInheritModal(false);
+                    pendingNextGameCallback?.(itemsToInherit, retainChar);
+                  }}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 via-[#d4af37] to-amber-500 text-stone-950 font-black text-sm tracking-wider hover:brightness-110 transition-all shadow-[0_4px_18px_rgba(212,175,55,0.35)] cursor-pointer active:scale-98"
+                >
+                  確認封存（{selectedIronBoxItems.length}/{capacity}）・邁向下一局冒險
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 遭遇米蘭小鐵匠擴充鐵盒確認視窗 (持有半島鐵盒與擴充頁籤遭遇米蘭小鐵匠時) */}
+      {showExpandIronBoxModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-[#141418] border-2 border-amber-500/70 rounded-2xl p-6 shadow-[0_15px_40px_rgba(0,0,0,0.9)] flex flex-col gap-4 text-stone-200 font-sans">
+            <div className="flex items-center gap-2.5 border-b border-stone-800 pb-3">
+              <span className="text-2xl">📻</span>
+              <div>
+                <h3 className="text-lg font-bold text-amber-200 font-serif">
+                  ✦ 擴充跨局神器・半島鐵盒 ✦
+                </h3>
+                <p className="text-xs text-stone-400">
+                  遭遇米蘭的小鐵匠・擴充鐵盒
+                </p>
+              </div>
             </div>
 
-            <div className="w-full flex gap-2.5 mt-1">
+            <p className="text-base text-stone-300 leading-relaxed">
+              小鐵匠接過你身上的【半島鐵盒】與發掘出的泛黃頁籤：
+              <br />
+              是否將持有的頁籤融入鐵盒中進行全方位鍛造擴充？
+            </p>
+
+            <div className="bg-amber-950/30 border border-amber-600/40 rounded-xl p-3 text-xs text-amber-200/90 leading-relaxed space-y-2">
+              <div className="font-bold text-amber-300">📦 本次預計裝訂擴充頁籤：</div>
+              <div className="space-y-1.5 pl-1">
+                {(gameState.inventory['第一頁'] || 0) > 0 && (
+                  <div className="flex items-center justify-between text-cyan-300 bg-cyan-950/40 px-2 py-1 rounded border border-cyan-800/40">
+                    <span className="flex items-center gap-1.5">
+                      <span>📑</span>
+                      <span className="font-bold">【第一頁】</span>
+                    </span>
+                    <span className="font-mono text-cyan-200">擴充鐵盒容量 +1 格</span>
+                  </div>
+                )}
+                {(gameState.inventory['第六頁'] || 0) > 0 && (
+                  <div className="flex items-center justify-between text-indigo-300 bg-indigo-950/40 px-2 py-1 rounded border border-indigo-800/40">
+                    <span className="flex items-center gap-1.5">
+                      <span>📑</span>
+                      <span className="font-bold">【第六頁】</span>
+                    </span>
+                    <span className="font-mono text-indigo-200">擴充鐵盒容量 +6 格</span>
+                  </div>
+                )}
+                {(gameState.inventory['第七頁'] || 0) > 0 && (
+                  <div className="flex items-center justify-between text-purple-300 bg-purple-950/40 px-2 py-1 rounded border border-purple-800/40">
+                    <span className="flex items-center gap-1.5">
+                      <span>📑</span>
+                      <span className="font-bold">【第七頁】</span>
+                    </span>
+                    <span className="font-mono text-purple-200">擴充鐵盒容量 +7 格</span>
+                  </div>
+                )}
+                {(gameState.inventory['序'] || 0) > 0 && (
+                  <div className="flex items-center justify-between text-yellow-300 bg-yellow-950/40 px-2 py-1 rounded border border-yellow-700/50 font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <span>📖</span>
+                      <span>【序】</span>
+                    </span>
+                    <span className="text-yellow-200 text-[11px]">啟動跨局「繼承角色化身」</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
               <button
-                type="button"
-                onClick={() => {
-                  setMeta((prev) => ({
-                    ...prev,
-                    ironBoxItems: selectedIronBoxItems,
-                  }));
-                  if (selectedIronBoxItems.length > 0) {
-                    addLog(
-                      `【半島鐵盒】已將【${selectedIronBoxItems.join('、')}】封存，將於下一局冒險繼承出現在行囊中！`,
-                      'milestone'
-                    );
-                  }
-                  setShowIronBoxInheritModal(false);
-                  pendingNextGameCallback?.();
-                }}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 via-[#d4af37] to-amber-500 text-stone-950 font-black text-sm tracking-wider hover:brightness-110 transition-all shadow-[0_4px_18px_rgba(212,175,55,0.35)] cursor-pointer active:scale-98"
+                onClick={() => setShowExpandIronBoxModal(false)}
+                className="flex-1 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
-                確認封存（{selectedIronBoxItems.length}/10）・邁向下一局冒險
+                暫不擴充
+              </button>
+              <button
+                onClick={handleConfirmExpandIronBox}
+                className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-500 text-stone-950 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:scale-102 active:scale-98"
+              >
+                確認擴充
               </button>
             </div>
           </div>
@@ -4985,10 +7467,164 @@ export default function App() {
           inventory={gameState.inventory}
           onClose={() => setShowBlacksmithModal(false)}
           onTrade={handleBlacksmithTrade}
+          ironBoxPages={meta.ironBoxPages}
         />
       )}
 
-      {/* 米蘭小鐵匠指引確認視窗 (持有鄉間的路時抽到米蘭小鐵匠觸發機制2) */} //已完成
+      {/* 淘金小鎮常駐進入確認視窗 */}
+      {showGoldTownConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-gradient-to-b from-[#1c1917] via-[#141210] to-[#0c0a09] border-2 border-amber-600/70 rounded-2xl p-6 shadow-[0_0_50px_rgba(217,119,6,0.3)] flex flex-col gap-4 text-stone-200 font-sans">
+            <div className="flex items-center gap-3 border-b border-amber-800/40 pb-3">
+              <span className="text-3xl">⛏️</span>
+              <div>
+                <h3 className="text-lg font-bold text-amber-200 font-serif tracking-wider">
+                  ✦ 淘金小鎮・礦區探勘 ✦
+                </h3>
+                <p className="text-xs text-amber-400/80">荒野金礦區入場確認</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <p className="text-stone-300">
+                是否花費 <span className="text-amber-300 font-bold">5 點行動力</span> 踏入荒野礦區進行淘金探勘？
+              </p>
+
+              <div className="bg-amber-950/40 border border-amber-800/50 rounded-xl p-3 flex items-center justify-between text-xs">
+                <span className="text-stone-400">當前行動力：</span>
+                <span className={`font-mono font-bold text-sm ${(gameState.stats.ap || 0) < 5 ? 'text-red-400' : 'text-amber-300'}`}>
+                  ⚡ {gameState.stats.ap || 0} 點
+                </span>
+              </div>
+
+              {(gameState.stats.ap || 0) < 5 && (
+                <div className="bg-red-950/60 border border-red-600/80 rounded-lg p-2.5 text-xs text-red-200 flex items-start gap-2 animate-pulse shadow-sm">
+                  <span className="text-base shrink-0 mt-0.5">⚠️</span>
+                  <div className="font-sans leading-tight space-y-0.5">
+                    <span className="font-bold text-red-100 block">行動力不足！</span>
+                    <span>前往淘金小鎮需消耗 5 點行動力，您當前僅剩 {gameState.stats.ap || 0} 點行動力，無法進入。</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-amber-900/40">
+              <button
+                onClick={() => {
+                  setShowGoldTownConfirmModal(false);
+                  setIsGoldTownFromRevealedCard(false);
+                }}
+                className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                稍後再來
+              </button>
+
+              {(gameState.stats.ap || 0) >= 5 ? (
+                <button
+                  onClick={() => {
+                    setShowGoldTownConfirmModal(false);
+                    setGameState((prev) => ({
+                      ...prev,
+                      stats: {
+                        ...prev.stats,
+                        ap: Math.max(0, prev.stats.ap - 5),
+                      },
+                    }));
+                    addLog('【淘金小鎮】花費 5 點行動力踏入荒野礦區，開始探勘挖寶！', 'milestone');
+                    setShowGoldTownDigModal(true);
+                  }}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-black text-xs font-black shadow-lg shadow-amber-900/40 transition-all cursor-pointer active:scale-95"
+                >
+                  確定前往（消耗 5 點行動力）
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="px-5 py-2 rounded-xl bg-stone-800 text-stone-500 border border-stone-700 text-xs font-bold cursor-not-allowed"
+                >
+                  行動力不足（需 5 點）
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 淘金小鎮挖寶介面 (6x6 共 36 格，可挖 10 次) */}
+      {showGoldTownDigModal && (
+        <GoldTownDigModal
+          isOpen={showGoldTownDigModal}
+          onClose={() => handleGoldTownComplete({ foundItems: [], foundCoins: 0 })}
+          onComplete={handleGoldTownComplete}
+          currentPageTarget={getNextGoldTownPageTarget()}
+        />
+      )}
+
+      {/* 梯田高山茶嶺農作介面 */}
+      {showTerraceModal && (
+        <TerraceModal
+          isOpen={showTerraceModal}
+          onClose={() => setShowTerraceModal(false)}
+          currentRound={gameState.round}
+          inventory={gameState.inventory}
+          terracePlot={gameState.terracePlot}
+          onPlant={handleTerracePlant}
+          onTill={handleTerraceTill}
+          onWater={handleTerraceWater}
+          onHarvest={handleTerraceHarvest}
+          onClearPlot={handleTerraceClear}
+        />
+      )}
+
+      {/* 浪漫手機復古通訊介面 */}
+      {showRomanticPhoneModal && (
+        <RomanticPhoneModal
+          isOpen={showRomanticPhoneModal}
+          onClose={() => setShowRomanticPhoneModal(false)}
+          inventory={gameState.inventory}
+          characterName={gameState.character?.name || ''}
+          hasCipher={Boolean(gameState.inventory['暗號'] || gameState.flags['has_cipher'])}
+          hasBigBen={Boolean(gameState.inventory['大笨鐘'] || gameState.flags['has_big_ben'])}
+          hasStarryMood={Boolean(gameState.inventory['星晴'])}
+          hasIstanbul={Boolean(gameState.inventory['伊斯坦堡'])}
+          alreadyHasPastLover={Boolean(gameState.inventory['前世情人'] || gameState.flags['lover_trial_completed'])}
+          onCompleteLoverTrial={() => {
+            // 通過考驗：獲得【前世情人】全版大卡亮相並入庫
+            setGameState((prev) => {
+              const nextInv = { ...prev.inventory };
+              nextInv['前世情人'] = (nextInv['前世情人'] || 0) + 1;
+              const currentOrder = prev.itemAcquisitionOrder || Object.keys(nextInv);
+              const order = currentOrder.filter((k) => (nextInv[k] || 0) > 0);
+              if (!order.includes('前世情人')) {
+                order.push('前世情人');
+              }
+              return {
+                ...prev,
+                inventory: nextInv,
+                itemAcquisitionOrder: order,
+                flags: {
+                  ...prev.flags,
+                  lover_trial_completed: true,
+                },
+              };
+            });
+
+            // 解鎖全域圖鑑
+            setMeta((prev) => {
+              if (prev.unlockedCardIds.includes('C2016-04')) return prev;
+              return {
+                ...prev,
+                unlockedCardIds: [...prev.unlockedCardIds, 'C2016-04'],
+              };
+            });
+
+            addLog('👑💕【前世誓約】魔術先生浪漫演繹，以《星晴》之銀海與《伊斯坦堡》之城堡完成誓約！獲得核心卡牌《前世情人》！', 'milestone');
+            triggerCardShowcase('C2016-04', '浪漫手機連線・魔術先生考驗通過');
+          }}
+        />
+      )}
+
+      {/* 米蘭小鐵匠指引確認視窗 (持有鄉間的路時抽到米蘭小鐵匠觸發機制2) */}
       {showGuideBlacksmithModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="relative w-full max-w-md bg-[#141418] border-2 border-amber-500/70 rounded-2xl p-6 shadow-[0_15px_40px_rgba(0,0,0,0.9)] flex flex-col gap-4 text-stone-200 font-sans">
@@ -5114,6 +7750,51 @@ export default function App() {
               </button>
               <button
                 onClick={handleConfirmUpgradeClock}
+                className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-500 text-stone-950 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:scale-102 active:scale-98"
+              >
+                確認改造
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 米蘭小鐵匠重鑄鐵鏟確認視窗 (持有雙截棍遭遇米蘭小鐵匠時) */}
+      {showUpgradeShovelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-[#141418] border-2 border-amber-500/70 rounded-2xl p-6 shadow-[0_15px_40px_rgba(0,0,0,0.9)] flex flex-col gap-4 text-stone-200 font-sans">
+            <div className="flex items-center gap-2.5 border-b border-stone-800 pb-3">
+              <span className="text-2xl">⚒️</span>
+              <div>
+                <h3 className="text-lg font-bold text-amber-200 font-serif">
+                  ✦ 重鑄工具・鐵鏟 ✦
+                </h3>
+                <p className="text-xs text-stone-400">
+                  遭遇米蘭的小鐵匠・重鑄武器
+                </p>
+              </div>
+            </div>
+
+            <p className="text-base text-stone-300 leading-relaxed">
+              你身上正持有【雙截棍】！
+              <br />
+              熊熊爐火，武器也能重新鍛造成合適的工具。是否交由小鐵匠為你重鑄成【鐵鏟】？
+            </p>
+
+            <div className="bg-amber-950/30 border border-amber-600/40 rounded-xl p-3 text-xs text-amber-200/90 leading-relaxed">
+              💡 <span className="font-bold">改造說明：</span>
+              消耗 1 把【雙截棍】，重鑄改造成 1 把【鐵鏟】。
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowUpgradeShovelModal(false)}
+                className="flex-1 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                保留【雙截棍】
+              </button>
+              <button
+                onClick={handleConfirmUpgradeShovel}
                 className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-500 text-stone-950 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:scale-102 active:scale-98"
               >
                 確認改造
@@ -5327,6 +8008,7 @@ export default function App() {
         <CardShowcaseModal
           card={showcaseCard}
           sourceText={showcaseSource}
+          badgeTitle={showcaseBadgeTitle || showcaseCard.badgeTitle}
           onClose={handleCloseShowcase}
         />
       )}

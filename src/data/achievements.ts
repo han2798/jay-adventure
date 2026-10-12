@@ -11,9 +11,9 @@ export const ALL_ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'ach_yong_wu',
     title: '詠物調',
-    description: '收集《東風破》、《青花瓷》、《蘭亭序》三首中國風極致詞作。',
-    requiredCards: ['東風破', '青花瓷', '蘭亭序'],
-    rewardDescription: '於威廉古堡拜見胖女巫時，得以洞悉前世因果，直接獲賜【時光機】！',
+    description: '收集《青花瓷》、《蘭亭序》兩首中國風極致詞作。',
+    requiredCards: ['青花瓷', '蘭亭序'],
+    rewardDescription: '對於珍奇物品具有獨特眼光，或許讚賞古堡內某人的物品會有意想不到收穫！',
   },
   {
     id: 'ach_four_magicians',

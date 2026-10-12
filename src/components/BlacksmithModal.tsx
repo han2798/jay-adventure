@@ -3,18 +3,35 @@ import React, { useState } from 'react';
 interface BlacksmithModalProps {
   inventory: Record<string, number>;
   onClose: () => void;
-  onTrade: (type: 'nunchucks_to_blades' | 'blades_to_nunchucks' | 'craft_maltose' | 'trade_ukulele' | 'upgrade_clock' | 'upgrade_time_machine') => boolean;
+  onTrade: (
+    type:
+      | 'nunchucks_to_blades'
+      | 'blades_to_nunchucks'
+      | 'nunchucks_to_shovel'
+      | 'craft_maltose'
+      | 'trade_ukulele'
+      | 'upgrade_clock'
+      | 'upgrade_time_machine'
+      | 'expand_iron_box'
+  ) => boolean;
+  ironBoxPages?: {
+    firstPage?: boolean;
+    sixthPage?: boolean;
+    seventhPage?: boolean;
+    preface?: boolean;
+  };
 }
 
 export const BlacksmithModal: React.FC<BlacksmithModalProps> = ({
   inventory,
   onClose,
   onTrade,
+  ironBoxPages,
 }) => {
   const [activeTab, setActiveTab] = useState<'weapon' | 'food' | 'machine'>('weapon');
   const [notification, setNotification] = useState<{ type: 'success'; text: string } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<
-    'craft_maltose' | 'trade_ukulele' | 'upgrade_clock' | 'upgrade_time_machine' | null
+    'craft_maltose' | 'trade_ukulele' | 'upgrade_clock' | 'upgrade_time_machine' | 'expand_iron_box' | null
   >(null);
 
   const nunchucksCount = inventory['雙截棍'] || 0;
@@ -25,9 +42,51 @@ export const BlacksmithModal: React.FC<BlacksmithModalProps> = ({
   const clockCount = inventory['反方向的鐘'] || 0;
   const timeMachineCount = inventory['時光機'] || 0;
   const flightDiaryCount = inventory['愛的飛行日記'] || 0;
+  const ironBoxCount = inventory['半島鐵盒'] || 0;
+  const firstPageCount = inventory['第一頁'] || 0;
+  const sixthPageCount = inventory['第六頁'] || 0;
+  const seventhPageCount = inventory['第七頁'] || 0;
+  const prefaceCount = inventory['序'] || 0;
+
+  // 半島鐵盒嚴格順序擴充：第一頁 -> 第六頁 -> 第七頁 -> 序
+  const pages = ironBoxPages || {};
+  let nextStageName = '第一頁';
+  let nextStageBonus = '+1 格容量';
+  let hasRequiredNextPage = false;
+  let isFullyUpgraded = false;
+
+  if (!pages.firstPage) {
+    nextStageName = '第一頁';
+    nextStageBonus = '+1 格容量';
+    hasRequiredNextPage = firstPageCount >= 1;
+  } else if (!pages.sixthPage) {
+    nextStageName = '第六頁';
+    nextStageBonus = '+6 格容量';
+    hasRequiredNextPage = sixthPageCount >= 1;
+  } else if (!pages.seventhPage) {
+    nextStageName = '第七頁';
+    nextStageBonus = '+7 格容量';
+    hasRequiredNextPage = seventhPageCount >= 1;
+  } else if (!pages.preface) {
+    nextStageName = '序';
+    nextStageBonus = '啟動跨局繼承角色';
+    hasRequiredNextPage = prefaceCount >= 1;
+  } else {
+    isFullyUpgraded = true;
+  }
+
+  const canExpandIronBox = ironBoxCount >= 1 && hasRequiredNextPage && !isFullyUpgraded;
 
   const handleAction = (
-    type: 'nunchucks_to_blades' | 'blades_to_nunchucks' | 'craft_maltose' | 'trade_ukulele' | 'upgrade_clock' | 'upgrade_time_machine',
+    type:
+      | 'nunchucks_to_blades'
+      | 'blades_to_nunchucks'
+      | 'nunchucks_to_shovel'
+      | 'craft_maltose'
+      | 'trade_ukulele'
+      | 'upgrade_clock'
+      | 'upgrade_time_machine'
+      | 'expand_iron_box',
     successText: string
   ) => {
     const ok = onTrade(type);
@@ -102,7 +161,7 @@ export const BlacksmithModal: React.FC<BlacksmithModalProps> = ({
                 : 'text-stone-400 hover:text-stone-200'
             }`}
           >
-            ⚙️ 改造機械
+            ⚙️ 改造物品
           </button>
         </div>
 
@@ -178,6 +237,36 @@ export const BlacksmithModal: React.FC<BlacksmithModalProps> = ({
                   }`}
                 >
                   選擇改造（雙刀 ➔ 雙截棍）
+                </button>
+              </div>
+            </div>
+
+            {/* 選擇 3: 雙截棍*1 -> 鐵鏟*1 */}
+            <div className="bg-[#1b1a1f] border border-stone-800 rounded-xl p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-amber-100">
+                  重鑄改造：【雙截棍 x 1】→【鐵鏟 x 1】
+                </span>
+              </div>
+              <p className="text-xs text-stone-400 leading-relaxed">
+                熊熊爐火，武器也能重新鍛造成合適的工具
+              </p>
+              <div className="flex justify-end pt-1">
+                <button
+                  disabled={nunchucksCount < 1}
+                  onClick={() =>
+                    handleAction(
+                      'nunchucks_to_shovel',
+                      '改造成功！已消耗 1 把【雙截棍】，改造成 1 把【鐵鏟】！'
+                    )
+                  }
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
+                    nunchucksCount >= 1
+                      ? 'bg-amber-600 hover:bg-amber-500 text-stone-950 cursor-pointer'
+                      : 'bg-stone-900/60 text-stone-600 border border-stone-800/80 cursor-not-allowed opacity-45 pointer-events-none'
+                  }`}
+                >
+                  選擇改造（雙截棍 ➔ 鐵鏟）
                 </button>
               </div>
             </div>
@@ -288,6 +377,50 @@ export const BlacksmithModal: React.FC<BlacksmithModalProps> = ({
                   }`}
                 >
                   選擇改造時光機
+                </button>
+              </div>
+            </div>
+
+            {/* 選擇 3: 擴充半島鐵盒 */}
+            <div className="bg-[#1b1a1f] border border-stone-800 rounded-xl p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-amber-100">
+                  封存物品的格子不夠？功能太少嗎？
+                </span>
+                {canExpandIronBox && (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-600/40 px-2 py-0.5 rounded font-mono font-bold">
+                    可擴充
+                  </span>
+                )}
+                {isFullyUpgraded && (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-600/40 px-2 py-0.5 rounded font-mono font-bold">
+                    已完全擴充
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-stone-400 leading-relaxed">
+                是否有挖到能擴充跨局神器的東西？
+              </p>
+              <div className="flex justify-end pt-1">
+                <button
+                  disabled={!canExpandIronBox}
+                  onClick={() => setConfirmDialog('expand_iron_box')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
+                    canExpandIronBox
+                      ? 'bg-amber-600 hover:bg-amber-500 text-stone-950 cursor-pointer'
+                      : 'bg-stone-900/60 text-stone-600 border border-stone-800/80 cursor-not-allowed opacity-45 pointer-events-none'
+                  }`}
+                  title={
+                    !canExpandIronBox
+                      ? ironBoxCount < 1
+                        ? '未持有【半島鐵盒】'
+                        : isFullyUpgraded
+                        ? '半島鐵盒已達最高擴充上限'
+                        : `當前順位需先取得並裝訂【${nextStageName}】`
+                      : `點擊裝訂【${nextStageName}】擴充鐵盒`
+                  }
+                >
+                  {isFullyUpgraded ? '已完全擴充' : '選擇擴充'}
                 </button>
               </div>
             </div>
@@ -503,6 +636,94 @@ export const BlacksmithModal: React.FC<BlacksmithModalProps> = ({
                 className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-500 text-stone-950 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:scale-102 active:scale-98"
               >
                 確認強化
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 擴充半島鐵盒確認視窗 */}
+      {confirmDialog === 'expand_iron_box' && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-[#141418] border-2 border-amber-500/70 rounded-2xl p-6 shadow-[0_15px_40px_rgba(0,0,0,0.9)] flex flex-col gap-4 text-stone-200 font-sans">
+            <div className="flex items-center gap-2.5 border-b border-stone-800 pb-3">
+              <span className="text-2xl">📻</span>
+              <div>
+                <h3 className="text-lg font-bold text-amber-200 font-serif">
+                  ✦ 擴充跨局神器・半島鐵盒 ✦
+                </h3>
+                <p className="text-xs text-stone-400">
+                  米蘭的小鐵鋪・改造物品
+                </p>
+              </div>
+            </div>
+
+            <p className="text-base text-stone-300 leading-relaxed">
+              小鐵匠接過你的【半島鐵盒】與挖掘出的泛黃頁籤：
+              <br />
+              是否將持有的頁籤融入半島鐵盒中進行擴充？
+            </p>
+
+            <div className="bg-amber-950/30 border border-amber-600/40 rounded-xl p-3 text-xs text-amber-200/90 leading-relaxed space-y-2">
+              <div className="font-bold text-amber-300">📦 本次裝訂擴充頁籤：</div>
+              <div className="space-y-1.5 pl-1">
+                {firstPageCount > 0 && (
+                  <div className="flex items-center justify-between text-cyan-300 bg-cyan-950/40 px-2 py-1 rounded border border-cyan-800/40">
+                    <span className="flex items-center gap-1.5">
+                      <span>📑</span>
+                      <span className="font-bold">【第一頁】</span>
+                    </span>
+                    <span className="font-mono text-cyan-200">擴充鐵盒容量 +1 格</span>
+                  </div>
+                )}
+                {sixthPageCount > 0 && (
+                  <div className="flex items-center justify-between text-indigo-300 bg-indigo-950/40 px-2 py-1 rounded border border-indigo-800/40">
+                    <span className="flex items-center gap-1.5">
+                      <span>📑</span>
+                      <span className="font-bold">【第六頁】</span>
+                    </span>
+                    <span className="font-mono text-indigo-200">擴充鐵盒容量 +6 格</span>
+                  </div>
+                )}
+                {seventhPageCount > 0 && (
+                  <div className="flex items-center justify-between text-purple-300 bg-purple-950/40 px-2 py-1 rounded border border-purple-800/40">
+                    <span className="flex items-center gap-1.5">
+                      <span>📑</span>
+                      <span className="font-bold">【第七頁】</span>
+                    </span>
+                    <span className="font-mono text-purple-200">擴充鐵盒容量 +7 格</span>
+                  </div>
+                )}
+                {prefaceCount > 0 && (
+                  <div className="flex items-center justify-between text-yellow-300 bg-yellow-950/40 px-2 py-1 rounded border border-yellow-700/50 font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <span>📖</span>
+                      <span>【序】</span>
+                    </span>
+                    <span className="text-yellow-200 text-[11px]">啟動跨局「繼承角色化身」</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="flex-1 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                暫不擴充
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmDialog(null);
+                  handleAction(
+                    'expand_iron_box',
+                    '擴充成功！小鐵匠以純熟工藝將頁籤裝訂鍛造入半島鐵盒，容量與能力大幅躍升！'
+                  );
+                }}
+                className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-500 text-stone-950 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:scale-102 active:scale-98"
+              >
+                確認擴充
               </button>
             </div>
           </div>

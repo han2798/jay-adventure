@@ -1,18 +1,22 @@
 import React from 'react';
 import { CardDefinition, GameState } from '../types';
 import { ALBUMS } from '../data/albums';
+import { getCarnivalStageData } from '../data/carnival';
 
 interface CardDisplayProps {
   card: CardDefinition;
   gameState: GameState;
   onSelectOption: (optionIndex: number) => void;
   onClose?: () => void;
+  isPreview?: boolean;
 }
 
 export const CardDisplay: React.FC<CardDisplayProps> = ({
   card,
   gameState,
   onSelectOption,
+  onClose,
+  isPreview = false,
 }) => {
   if (!card) return null;
 
@@ -52,6 +56,12 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
     if (r.minAp !== undefined && gameState.stats.ap < r.minAp) {
       return { available: false, reason: r.unavailableReason || '行動力不足' };
     }
+    if (r.maxAp !== undefined && gameState.stats.ap > r.maxAp) {
+      return { available: false, reason: r.unavailableReason || `行動力需低於或等於 ${r.maxAp} 點` };
+    }
+    if (r.minCoins !== undefined && (gameState.stats.coins || 0) < r.minCoins) {
+      return { available: false, reason: r.unavailableReason || `金幣不足（需 ${r.minCoins} 金幣）` };
+    }
     if (r.character && gameState.character?.name !== r.character) {
       return { available: false, reason: r.unavailableReason || `需化身為【${r.character}】` };
     }
@@ -78,14 +88,29 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
       }
     }
     if (r.flag) {
-      const flagVal = gameState.flags[r.flag];
+      let flagVal = gameState.flags[r.flag];
+      if (r.flag === 'rainy_weather_active') {
+        flagVal = Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']);
+      } else if (r.flag === 'fireworks_burning') {
+        flagVal = Boolean(gameState.fireworksBurning || gameState.flags['fireworks_burning']);
+      } else if (r.flag === 'headache_active') {
+        flagVal = Boolean(gameState.headacheActive || gameState.flags['headache_active']);
+      }
       const requiredVal = r.flagValue !== undefined ? r.flagValue : true;
       if (flagVal !== requiredVal) {
         return { available: false, reason: r.unavailableReason || '未滿足特定前置劇情條件' };
       }
     }
     if (r.notFlag) {
-      if (Boolean(gameState.flags[r.notFlag])) {
+      let isNotFlagActive = Boolean(gameState.flags[r.notFlag]);
+      if (r.notFlag === 'rainy_weather_active') {
+        isNotFlagActive = Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']);
+      } else if (r.notFlag === 'fireworks_burning') {
+        isNotFlagActive = Boolean(gameState.fireworksBurning || gameState.flags['fireworks_burning']);
+      } else if (r.notFlag === 'headache_active') {
+        isNotFlagActive = Boolean(gameState.headacheActive || gameState.flags['headache_active']);
+      }
+      if (isNotFlagActive) {
         return { available: false, reason: r.unavailableReason || '已觸發互斥劇情條件' };
       }
     }
@@ -100,7 +125,7 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
     return { available: true };
   };
 
-  // Dynamic flavor text (e.g. 龍戰騎士: 宿命之人 vs 一般抽卡)
+  // Dynamic flavor text (e.g. 龍戰騎士: 宿命之人 vs 一般抽卡, 園遊會: 多層分支)
   const displayFlavorText = (() => {
     if (card.id === 'C2008-01') {
       if (gameState.flags['dragon_awakened']) {
@@ -109,25 +134,53 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
         return '「你還不是宿命之人！」龍戰騎士居高臨下冷冷凝視你，狂暴的龍息阻隔了前路。';
       }
     }
+    if (card.id === 'C2004-09') {
+      const currentLayer = (gameState.flags['carnival_layer'] as string) || 'carnival_layer_1';
+      return getCarnivalStageData(currentLayer, gameState.flags).flavorText;
+    }
     return card.flavorText;
+  })();
+
+  // 園遊會等多層卡牌小副標題
+  const cardSubtitle = (() => {
+    if (card.id === 'C2004-09') {
+      const currentLayer = (gameState.flags['carnival_layer'] as string) || 'carnival_layer_1';
+      return getCarnivalStageData(currentLayer, gameState.flags).name;
+    }
+    return null;
   })();
 
   return (
     <div className="w-full flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-200">
       {/* 1. Context Badge MOVED OUTSIDE THE CARD (as specifically noted in red pen: 移出圖卡) */}
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center gap-2 flex-wrap">
         <span
           className={`text-sm lg:text-base font-black tracking-widest px-4 py-1 rounded-full border ${contextTitle.color}`}
         >
           ✦ {contextTitle.text} ✦
         </span>
+        {isPreview && (
+          <span className="text-xs font-bold text-amber-300 border border-amber-500/70 bg-amber-950/90 px-3.5 py-1 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.25)]">
+            ✦ 圖鑑卡牌鑑賞 ✦
+          </span>
+        )}
       </div>
 
       {/* 2. Main Card Body */}
       <div
         id="revealed-card-display"
-        className="w-full max-w-xl flex flex-col bg-gradient-to-b from-[#1c1b1f] via-[#141416] to-[#0c0c0e] border-2 border-[#4a4026] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] overflow-hidden transition-all"
+        className="relative w-full max-w-xl flex flex-col bg-gradient-to-b from-[#1c1b1f] via-[#141416] to-[#0c0c0e] border-2 border-[#4a4026] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] overflow-hidden transition-all"
       >
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/70 hover:bg-black text-stone-300 hover:text-white border border-stone-700/80 flex items-center justify-center font-bold text-sm cursor-pointer transition-all shadow-md active:scale-95"
+            title="關閉"
+          >
+            ✕
+          </button>
+        )}
         {/* Album Artwork & Song Hero Header */}
         <div
           className={`relative w-full h-40 bg-gradient-to-br ${albumMeta.themeColor} flex items-center justify-between px-7 border-b border-stone-800 overflow-hidden`}
@@ -167,10 +220,18 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
               )}
             </div>
 
-            {/* Song Title as the Hero Focus */}
-            <h2 className="text-2xl sm:text-3xl font-black text-amber-100 drop-shadow font-serif tracking-wide mt-2">
-              {card.name}
-            </h2>
+            {/* Song Title as the Hero Focus & Subtitle */}
+            <div className="flex items-center gap-2.5 mt-2 flex-wrap">
+              <h2 className="text-2xl sm:text-3xl font-black text-amber-100 drop-shadow font-serif tracking-wide">
+                {card.name}
+              </h2>
+              {cardSubtitle && (
+                <span className="text-xs sm:text-sm font-bold text-amber-300/95 bg-black/60 border border-amber-500/50 px-2.5 py-0.5 rounded-full font-sans tracking-wide shadow-sm flex items-center gap-1">
+                  <span>🎪</span>
+                  <span>{cardSubtitle}</span>
+                </span>
+              )}
+            </div>
 
             {/* Reference Info */}
             <p className="text-xs text-stone-300/90 font-medium tracking-wide mt-1 drop-shadow-sm font-sans">
@@ -183,19 +244,46 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
 
         {/* 3. Flavor Text / Story Lyrics Box */}
         <div className="p-5">
-          <div className="bg-[#121215] p-4 rounded-xl border border-stone-800/80 text-sm text-stone-300 leading-relaxed font-sans shadow-inner">
+          <div className="bg-[#121215] p-5 rounded-xl border border-stone-800/80 text-sm sm:text-base text-stone-200 leading-relaxed font-sans shadow-inner whitespace-pre-line">
+            <div className="text-xs text-amber-400/90 font-mono font-bold mb-2 flex items-center gap-1.5">
+              <span>✦ 經典旋律・回憶銘刻 ✦</span>
+            </div>
             {displayFlavorText}
           </div>
         </div>
 
-        {/* 4. Interactive Options Area */}
+        {/* 4. Interactive Options Area (圖鑑典藏模式專屬：純粹音樂珍藏卡，絕不劇透冒險抉擇與隱藏連動) */}
         <div className="px-5 pb-5 flex flex-col gap-2.5">
-          {(() => {
+          {isPreview ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-center px-3.5 py-2.5 rounded-xl bg-stone-900/60 border border-stone-800/80 text-xs font-mono text-amber-300/90 shadow-inner">
+                <span className="flex items-center gap-2">
+                  <span>🎵</span>
+                  <span className="tracking-wider">周杰倫音樂紀事・時光留聲</span>
+                </span>
+              </div>
+
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-600 via-[#d4af37] to-amber-500 text-stone-950 font-black text-sm sm:text-base tracking-wider hover:brightness-110 transition-all shadow-[0_4px_18px_rgba(212,175,55,0.35)] cursor-pointer active:scale-98"
+                >
+                  ✦ 收入冊中・返回圖鑑 ✦
+                </button>
+              )}
+            </div>
+          ) : (() => {
             const isDragonPunch = card.id === 'C2002-04';
             const isHero = gameState.character?.name === '英雄';
             const isHeroWithTape = isHero && Boolean(gameState.inventory['免費教學錄影帶']);
 
-            const rawOptions = (card.options || []).map((opt, originalIdx) => {
+            const effectiveOptions =
+              card.id === 'C2004-09'
+                ? getCarnivalStageData((gameState.flags['carnival_layer'] as string) || 'carnival_layer_1', gameState.flags).options
+                : card.options || [];
+
+            const rawOptions = effectiveOptions.map((opt, originalIdx) => {
               if (isDragonPunch) {
                 // 龍拳 (C2002-04)：
                 // 選項 0 (我把天地拆封將長江水掏空) 與 1 (將 東方 的日出調整了時空)：正常可顯示點選觸發，無紅字
@@ -258,6 +346,20 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
                 }
               }
 
+              // 米蘭的小鐵匠 (C2002-09)：若同時持有半島鐵盒與擴充頁籤，才顯示「擴充鐵盒」
+              if (card.id === 'C2002-09' && item.opt.text.includes('擴充鐵盒')) {
+                const hasIronBox = Boolean(gameState.inventory['半島鐵盒']);
+                const hasAnyPage = Boolean(
+                  gameState.inventory['第一頁'] ||
+                  gameState.inventory['第六頁'] ||
+                  gameState.inventory['第七頁'] ||
+                  gameState.inventory['序']
+                );
+                if (!hasIronBox || !hasAnyPage) {
+                  return false;
+                }
+              }
+
               const req = item.opt.require;
               if (!req) return true;
               if (req.hideWhenUnavailable && !item.check.available) {
@@ -276,11 +378,31 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
               }
 
               // Mutually exclusive story branches
-              if (req.flag && gameState.flags[req.flag] !== (req.flagValue ?? true)) {
-                return false;
+              if (req.flag) {
+                let currentVal = gameState.flags[req.flag];
+                if (req.flag === 'rainy_weather_active') {
+                  currentVal = Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']);
+                } else if (req.flag === 'fireworks_burning') {
+                  currentVal = Boolean(gameState.fireworksBurning || gameState.flags['fireworks_burning']);
+                } else if (req.flag === 'headache_active') {
+                  currentVal = Boolean(gameState.headacheActive || gameState.flags['headache_active']);
+                }
+                if (currentVal !== (req.flagValue ?? true)) {
+                  return false;
+                }
               }
-              if (req.notFlag && Boolean(gameState.flags[req.notFlag])) {
-                return false;
+              if (req.notFlag) {
+                let isNotActive = Boolean(gameState.flags[req.notFlag]);
+                if (req.notFlag === 'rainy_weather_active') {
+                  isNotActive = Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']);
+                } else if (req.notFlag === 'fireworks_burning') {
+                  isNotActive = Boolean(gameState.fireworksBurning || gameState.flags['fireworks_burning']);
+                } else if (req.notFlag === 'headache_active') {
+                  isNotActive = Boolean(gameState.headacheActive || gameState.flags['headache_active']);
+                }
+                if (isNotActive) {
+                  return false;
+                }
               }
               return true;
             });

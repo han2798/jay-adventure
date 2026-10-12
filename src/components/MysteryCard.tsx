@@ -4,6 +4,7 @@ interface MysteryCardProps {
   index: number;
   onClick: () => void;
   isMagicVision?: boolean; // 魔術先生能力：可隱約看透事件卡
+  canSeeItemCards?: boolean; // 魔術先生持免費教學錄影帶解鎖：可看透物品卡
   cardHintType?: string;
 }
 
@@ -11,6 +12,7 @@ export const MysteryCard: React.FC<MysteryCardProps> = ({
   index,
   onClick,
   isMagicVision,
+  canSeeItemCards,
   cardHintType,
 }) => {
   return (
@@ -44,6 +46,11 @@ export const MysteryCard: React.FC<MysteryCardProps> = ({
             {isMagicVision && cardHintType === '事件' && (
               <span className="bg-blue-600/90 text-white border border-blue-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-[0_0_12px_rgba(37,99,235,0.7)] animate-pulse tracking-wider whitespace-nowrap">
                 事件
+              </span>
+            )}
+            {canSeeItemCards && cardHintType === '物品' && (
+              <span className="bg-emerald-600/90 text-white border border-emerald-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-[0_0_12px_rgba(16,185,129,0.7)] animate-pulse tracking-wider whitespace-nowrap">
+                物品
               </span>
             )}
           </div>

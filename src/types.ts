@@ -9,14 +9,16 @@ export interface CardOption {
     items?: string[]; // 多件物品同時需求（如合成材料）
     itemCount?: number;
     notItem?: string; // 不能持有某物品
-    minAp?: number; // 最小體力需求（例如收割稻香需 6 點以上，扣除 5 點後不耗盡）
+    minAp?: number; // 最小行動力需求（例如收割稻香需 6 點以上，扣除 5 點後不耗盡）
+    maxAp?: number; // 最大行動力上限（例如 AP <= 5 時才顯現該選項）
+    minCoins?: number; // 最小金幣需求（如購買淘金小鎮門票需 5 枚金幣）
     flag?: string;
     flagValue?: boolean | string | number;
     notFlag?: string;
     flag2?: string;
     flag2Value?: boolean | string | number;
     hideWhenUnavailable?: boolean; // 未滿足條件時是否隱藏（true: 隱藏不顯示；false/undefined: 顯示但 disabled）
-    unavailableReason?: string; // 自訂未滿足條件時的提示文字（例如：原料不足、體力不足）
+    unavailableReason?: string; // 自訂未滿足條件時的提示文字（例如：原料不足、行動力不足）
   };
   resultText: string;
   effect?: {
@@ -28,7 +30,8 @@ export interface CardOption {
     setMetaFlag?: Record<string, boolean | string | number>;
     forceNextCardId?: string;
     changeCharacter?: string;
-    apChange?: number; // 體力/行動力變更 (+ 恢復, - 消耗)
+    apChange?: number; // 行動力變更 (+ 恢復, - 消耗)
+    coinChange?: number; // 金幣變更 (+ 獲得, - 消耗)
     triggerVictory?: '太陽之子' | '最偉大的作品' | '周杰倫家庭';
     triggerDefeat?: string;
     rewindRound?: number; // 回合數倒流 (遞減) 例如: 《反方向的鐘》回到第 1 回合
@@ -66,6 +69,7 @@ export interface CardDefinition {
   isSynthesizedOnly?: boolean; // 是否僅能透過特定合成/特殊鍛造產出（抽卡盲抽機率為0，獲得時呼叫專屬亮相框）
   isPeninsulaRestricted?: boolean; // 是否限制不可透過半島鐵盒跨局繼承（如特定當局決戰令）
   acquisitionSource?: string; // 特殊獲得來源標籤（如：米蘭的小鐵匠慢火熬製）
+  badgeTitle?: string; // 特殊亮相視窗徽章標題（例如：✦ 秘寶現世 ✦）
   hintText?: string; // 提示文本欄位（例如：卡牌獲取時的重要機制說明或提示，顯示於新卡亮相視窗取得說明上方）
   specialAcquisitionNote?: string; // 特殊獲得說明文本（顯示於新卡亮相視窗取得說明框）
   // Special immediate effect on draw
@@ -81,6 +85,7 @@ export interface CharacterDefinition {
   avatarIcon: string; // 模擬頭像或特色圖案 (愛情廢柴固定為木柴 🪵)
   isSecret?: boolean;
   specialTrait: string;
+  startingAp?: number; // 角色初始行動力（預設 15，魔術先生為 10，流浪詩人為 20）
 }
 
 export interface AchievementDefinition {
@@ -138,11 +143,19 @@ export interface SettlementRecord {
 
 export interface MetaProgress {
   unlockedCardIds: string[]; // 圖鑑解鎖
+  unlockedCharacterIds?: string[]; // 角色化身圖鑑解鎖
   unlockedAchievements: string[]; // 成就解鎖
   activeSkills?: string[]; // 玩家已啟動的成就技能
   ironBoxUnlocked?: boolean; // 是否已解鎖過半島鐵盒
   unlockedDiaries: string[]; // 日記篇章
   ironBoxItems: string[]; // 半島鐵盒保存物品
+  ironBoxPages?: {
+    firstPage?: boolean; // 第一頁：擴充 1 格
+    sixthPage?: boolean; // 第六頁：擴充 6 格
+    seventhPage?: boolean; // 第七頁：擴充 7 格
+    preface?: boolean; // 序：跨局繼承角色
+  };
+  ironBoxRetainedCharacter?: CharacterDefinition | null; // 透過「序」跨局繼承的角色化身
   pastGamesCount: number; // 累計遊玩局數
   totalRoundsPlayed?: number; // 跨局累計遊玩總回合
   victories: string[]; // 達成過的結局名稱
@@ -156,6 +169,15 @@ export interface JokerEquipment {
   place: string | null; // 在我的地盤
   shoes: string | null; // 穿鞋子特大號
   performance: string | null; // 表演紅模仿
+}
+
+export interface TerracePlotState {
+  targetCrop: 'tea' | 'flower_sea' | null; // 耕種目標：茶葉 或 花海
+  step: 'idle' | 'tilled' | 'seeded' | 'watered'; // 階段：閒置 ➔ 翻土 ➔ 播種 ➔ 灌溉
+  completedRound?: number; // 灌溉完成當下的玩家回合
+  matureRound?: number; // 預計成熟回合（兼容輔助屬性）
+  growthRounds?: number; // 累積生長回合數（累積制：經歷滿 5 回合成熟）
+  requiredRounds?: number; // 總需生長回合數（固定為 5）
 }
 
 export type LogEntry = {
@@ -173,6 +195,7 @@ export interface GameState {
   itemAcquisitionOrder?: string[]; // 物品獲取順序 (舊到新，最新獲得的在最後)
   latestAcquiredItemsThisRound?: string[]; // 當前回合剛獲得的最新物品 (煙火燃燒不燒毀)
   drawnCount: Record<string, number>; // card id -> count drawn in current game
+  peninsulaInheritedCounts?: Record<string, number>; // card id -> count inherited from Peninsula Box at game start
   flags: Record<string, boolean | string | number>; // 當前局標籤
   jokerSlots?: JokerEquipment;
   reversedClockUsesRemaining: number; // 反方向的鐘剩餘次數 (上限3次)
@@ -181,9 +204,17 @@ export interface GameState {
   ninjaNextEncounterRound?: number | null; // 忍者下次現身回合
   fireworksBurning?: boolean; // 錯過的煙火燃燒狀態
   burntItemNotice?: string | null; // 煙火燒毀物品通知橫幅訊息
+  headacheActive?: boolean; // 公公偏頭痛環境狀態（每回合行動力 -2）
+  rainyWeatherActive?: boolean; // 那天下雨了環境狀態
+  drenchedItemNotice?: string | null; // 雨水淋濕損毀物品通知橫幅訊息
   blacksmithUnlocked?: boolean; // 米蘭的小鐵匠鋪是否留存在村莊隨時可用
+  goldTownUnlocked?: boolean; // 淘金小鎮是否解鎖為常駐環境
+  terraceUnlocked?: boolean; // 梯田環境是否解鎖為常駐環境
+  romanticPhoneUnlocked?: boolean; // 浪漫手機是否解鎖為常駐通訊裝置
+  terracePlot?: TerracePlotState; // 梯田農作當前狀態
   stats: {
     ap: number; // 行動力 (Action Points)
+    coins?: number; // 金幣 (Gold Coins)
   };
   logs: Array<{
     round: number;
@@ -197,5 +228,7 @@ export interface GameState {
   bossHp?: number; // 100
   activeRouteHint?: string;
   victoryType?: '太陽之子' | '最偉大的作品' | '周杰倫家庭';
+  victoryLyric?: string;
+  victoryNarrative?: string;
   defeatReason?: string;
 }

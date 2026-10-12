@@ -3,7 +3,10 @@ import { GameState } from '../types';
 
 interface BossBattleViewProps {
   gameState: GameState;
-  onVictory: (type: '太陽之子') => void;
+  onVictory: (
+    type: '太陽之子',
+    details?: { title?: string; lyric?: string; narrative?: string }
+  ) => void;
   onDefeat: (reason: string) => void;
   onRewindWithClock: () => void;
   onAddLog: (text: string, type?: 'combat' | 'milestone' | 'warning') => void;
@@ -30,9 +33,14 @@ export const BossBattleView: React.FC<BossBattleViewProps> = ({
     '看我把此地變成戰場！將軍立身於你的對面，殺氣如霜！'
   );
 
-  const isHero = gameState.character?.name === '英雄';
   const hasClock = Boolean(
     gameState.inventory['反方向的鐘'] && gameState.reversedClockUsesRemaining > 0
+  );
+
+  const canHeroInstantKill = Boolean(
+    gameState.character?.name === '英雄' &&
+    gameState.inventory['免費教學錄影帶'] &&
+    gameState.inventory['無雙']
   );
 
   // 3-second countdown logic for Step 8: 兵臨城下
@@ -64,7 +72,7 @@ export const BossBattleView: React.FC<BossBattleViewProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
         e.preventDefault();
-        onVictory('太陽之子');
+        onVictory('太陽之子', victoryModalData);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -72,7 +80,18 @@ export const BossBattleView: React.FC<BossBattleViewProps> = ({
   }, [victoryModalData, onVictory]);
 
   const handleAction = (action: 'attack' | 'cannon' | 'horse' | 'idle') => {
-    // 1. If currently in Step 8 and boss is weakened:
+    // 1. 英雄天賦：持有免費教學錄影帶啟用天賦，並持有《無雙》時，「只要第六回合攻擊就必贏」秒殺將軍！
+    if (step === 6 && canHeroInstantKill && (action === 'attack' || action === 'cannon')) {
+      onAddLog('【無雙秒殺】英雄天賦覺醒！第六回合催動《無雙》唯我獨尊之霸氣，秒殺統帥將軍！', 'milestone');
+      triggerVictoryModal(
+        '✦ 無雙破陣・秒殺將軍 ✦',
+        '「我仰望著夕陽 你低頭黯然離場 聽我說勝敗是兵家之常 你不用放在心上 是因為我只適合無雙」',
+        '你憑藉英雄傳奇天賦與《無雙》的無上霸氣，在第六回合決勝時刻一招秒殺統帥將軍，平定天下！'
+      );
+      return;
+    }
+
+    // 2. If currently in Step 8 and boss is weakened:
     if (step === 8 && bossWeakened) {
       if (action === 'attack' || action === 'cannon') {
         onAddLog('【一擊制勝】你趁將軍大招力竭虛弱之際發動終結一擊，徹底擊潰將軍！', 'milestone');
@@ -85,7 +104,7 @@ export const BossBattleView: React.FC<BossBattleViewProps> = ({
       }
     }
 
-    // 2. Step 6 Special Winning Route
+    // 3. Step 6 Special Winning Route
     if (step === 6) {
       // Winning Route 1: Idle in Step 6
       if (action === 'idle') {
@@ -99,7 +118,7 @@ export const BossBattleView: React.FC<BossBattleViewProps> = ({
       }
     }
 
-    // 3. Step 7 follow-up for Winning Route 1
+    // 4. Step 7 follow-up for Winning Route 1
     if (step === 7 && bossStunned) {
       if (action === 'attack' || action === 'cannon') {
         const nextHp = Math.max(0, bossHp - 50);
@@ -118,7 +137,7 @@ export const BossBattleView: React.FC<BossBattleViewProps> = ({
       }
     }
 
-    // 4. Regular Combat Math (Normal attack -1, Cannon -5, Horse damage halved)
+    // 5. Regular Combat Math (Normal attack -1, Cannon -5, Horse damage halved)
     let dmg = 1;
     let desc = '普通攻擊';
     if (action === 'cannon') {
@@ -304,7 +323,7 @@ export const BossBattleView: React.FC<BossBattleViewProps> = ({
 
             <button
               id="confirm-defeat-general-btn"
-              onClick={() => onVictory('太陽之子')}
+              onClick={() => onVictory('太陽之子', victoryModalData || undefined)}
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-600 text-stone-950 font-black text-sm tracking-wider shadow-[0_0_25px_rgba(245,158,11,0.4)] hover:brightness-110 active:scale-98 transition-all cursor-pointer mt-1"
             >
               確認・晉升《太陽之子》通關

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { CardDefinition } from '../types';
 import { ALBUMS } from '../data/albums';
 
@@ -17,20 +17,32 @@ export const CardShowcaseModal: React.FC<CardShowcaseModalProps> = ({
   badgeTitle,
   onClose,
 }) => {
+  useEffect(() => {
+    if (!card) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [card, onClose]);
+
   if (!card) return null;
 
   const displaySource = sourceText || card.acquisitionSource || acquisitionSource || '特殊機制獲得';
   const displayBadgeTitle =
     badgeTitle ||
+    card.badgeTitle ||
     (displaySource.includes('合成') || displaySource.includes('熬製')
       ? '✦ 恭喜合成 ✦'
+      : displaySource.includes('探勘') || displaySource.includes('淘金')
+      ? '✦ 秘寶現世 ✦'
       : '✦ 獲得卡牌 ✦');
 
-  const displayHintText =
-    card.hintText ||
-    (card.options && card.options.length > 0 && card.options[0]?.resultText
-      ? card.options[0].resultText
-      : undefined);
+  const displayHintText = card.hintText || undefined;
 
   const albumMeta = ALBUMS[card.album] || {
     name: card.album,
@@ -108,7 +120,7 @@ export const CardShowcaseModal: React.FC<CardShowcaseModalProps> = ({
           {/* Card Content Stack: Flavor Text -> Hint Text -> Acquisition Note */}
           <div className="p-6 flex flex-col gap-3.5">
             {/* 1. 經典旋律・回憶銘刻 (歌詞/背景) */}
-            <div className="bg-[#121215] p-4 sm:p-5 rounded-xl border border-stone-800/80 text-sm sm:text-base text-amber-100/90 leading-relaxed font-sans shadow-inner">
+            <div className="bg-[#121215] p-4 sm:p-5 rounded-xl border border-stone-800/80 text-sm sm:text-base text-amber-100/90 leading-relaxed font-sans shadow-inner whitespace-pre-line">
               <div className="text-xs text-stone-400 mb-1 font-mono">✦ 經典旋律・回憶銘刻 ✦</div>
               {card.flavorText}
             </div>
@@ -117,17 +129,20 @@ export const CardShowcaseModal: React.FC<CardShowcaseModalProps> = ({
             {displayHintText && (
               <div className="bg-[#16141d] p-4 sm:p-5 rounded-xl border border-amber-500/40 text-xs sm:text-sm text-stone-200 leading-relaxed font-sans shadow-inner">
                 <div className="text-lg font-bold text-amber-300 mb-1.5 flex items-center gap-1.5 font-mono">
-                  <span className="text-stone-100 font-sans leading-relaxed"> 📜 {displayHintText} </span>
-                  </div>
+                  <span className="text-stone-100 font-sans leading-relaxed whitespace-pre-line">
+                    📜 {displayHintText}
+                  </span>
+                </div>
               </div>
             )}
 
-            {/* 3. 取得說明 */}
-            <div className="bg-amber-950/20 border border-amber-600/30 rounded-xl p-3.5 sm:p-4 text-xs sm:text-sm text-stone-300 leading-relaxed font-sans">
-              💡 <span className="font-bold text-amber-200">取得說明：</span>
-              {card.specialAcquisitionNote ||
-                `此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。已成功獲得並永久記錄至你的冒險手冊與音樂圖鑑！`}
-            </div>
+            {/* 3. 取得說明（僅當卡牌有設定專屬特殊取得說明時呈現，避免常規池亦可抽到的卡牌如烏克麗麗出現矛盾描述） */}
+            {card.specialAcquisitionNote && (
+              <div className="bg-amber-950/20 border border-amber-600/30 rounded-xl p-3.5 sm:p-4 text-xs sm:text-sm text-stone-300 leading-relaxed font-sans">
+                💡 <span className="font-bold text-amber-200">取得說明：</span>
+                {card.specialAcquisitionNote}
+              </div>
+            )}
           </div>
 
           {/* Bottom Button */}

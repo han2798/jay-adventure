@@ -177,6 +177,11 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
               <span className="text-amber-300 font-bold">【全域圖鑑】</span>
               。局數消耗越少，成績越卓越！
             </p>
+            {gameState.victoryLyric && (
+              <div className="mt-3.5 max-w-lg mx-auto bg-black/60 border border-amber-900/60 rounded-xl p-3.5 sm:p-4 text-xs sm:text-sm text-amber-200 font-serif italic text-center shadow-[0_0_20px_rgba(245,158,11,0.15)] leading-relaxed">
+                {gameState.victoryLyric}
+              </div>
+            )}
           </div>
         ) : (
           <div>

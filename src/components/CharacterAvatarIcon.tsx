@@ -1,5 +1,5 @@
 import React from 'react';
-import { FlameKindling, Logs } from 'lucide-react';
+import { FlameKindling } from 'lucide-react';
 import { CharacterDefinition } from '../types';
 
 interface CharacterAvatarIconProps {

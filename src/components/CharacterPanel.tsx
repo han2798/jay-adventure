@@ -1,14 +1,23 @@
 import React from 'react';
 import { CharacterDefinition, JokerEquipment } from '../types';
 import { CharacterAvatarIcon } from './CharacterAvatarIcon';
+import { GoldCoinIcon } from './GoldCoinIcon';
 
 interface CharacterPanelProps {
   character?: CharacterDefinition | null;
-  stats?: { ap: number };
+  stats?: { ap: number; coins?: number };
   jokerSlots?: JokerEquipment;
   inventory?: Record<string, number>;
   blacksmithUnlocked?: boolean;
+  goldTownUnlocked?: boolean;
+  hasDiscoveredCoins?: boolean;
+  terraceUnlocked?: boolean;
+  terraceStatusBadge?: { text: string; isMature: boolean } | null;
+  romanticPhoneUnlocked?: boolean;
   onOpenBlacksmith?: () => void;
+  onOpenGoldTown?: () => void;
+  onOpenTerrace?: () => void;
+  onOpenRomanticPhone?: () => void;
   onEquipJokerSlot?: (slot: keyof JokerEquipment, itemName: string) => void;
   onUnequipJokerSlot?: (slot: keyof JokerEquipment) => void;
 }
@@ -89,7 +98,15 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
   jokerSlots,
   inventory = {},
   blacksmithUnlocked = false,
+  goldTownUnlocked = false,
+  hasDiscoveredCoins = false,
+  terraceUnlocked = false,
+  terraceStatusBadge = null,
+  romanticPhoneUnlocked = false,
   onOpenBlacksmith,
+  onOpenGoldTown,
+  onOpenTerrace,
+  onOpenRomanticPhone,
   onEquipJokerSlot,
   onUnequipJokerSlot,
 }) => {
@@ -118,6 +135,12 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
               ⚡ 行動力 {stats?.ap ?? '--'}
             </span>
           )}
+          {hasDiscoveredCoins && (
+            <span className="text-yellow-300 font-bold bg-yellow-950/40 px-2.5 py-1 rounded border border-yellow-700/60 flex items-center gap-1.5 shadow-sm">
+              <GoldCoinIcon className="w-3.5 h-3.5" />
+              <span>金幣 {stats?.coins ?? 0}</span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -135,58 +158,111 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
       {character ? (
         <>
           {/* Character Identity */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3.5 overflow-hidden">
-              <div
-                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${character.avatarColor} flex items-center justify-center shadow-md border border-white/10 shrink-0`}
-              >
-                <div className="filter drop-shadow select-none">
-                  <CharacterAvatarIcon character={character} size="lg" />
-                </div>
-              </div>
-              <div className="flex flex-col overflow-hidden">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-lg font-black text-stone-100 font-serif truncate">
-                    {character.name}
-                  </span>
-                  {character.isSecret && (
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded font-mono">
-                      SS傳奇
-                    </span>
-                  )}
-                </div>
-                <span className="text-xs text-[#d4af37] truncate font-sans">
-                  {character.title}
-                </span>
+          <div className="flex items-center gap-3.5 overflow-hidden">
+            <div
+              className={`w-12 h-12 rounded-xl bg-gradient-to-br ${character.avatarColor} flex items-center justify-center shadow-md border border-white/10 shrink-0`}
+            >
+              <div className="filter drop-shadow select-none">
+                <CharacterAvatarIcon character={character} size="lg" />
               </div>
             </div>
-
-            {/* 常駐小鐵鋪按鈕 (持有鄉間的路後解鎖) */}
-            {blacksmithUnlocked && (
-              <button
-                id="btn-open-blacksmith"
-                onClick={onOpenBlacksmith}
-                title="隨時拜訪小鐵鋪改造物品"
-                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-600/80 text-amber-200 text-xs font-bold transition-all shadow-[0_0_10px_rgba(217,119,6,0.25)] hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                <span>⚒️</span>
-                <span>小鐵鋪</span>
-              </button>
-            )}
+            <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-lg font-black text-stone-100 font-serif truncate">
+                  {character.name}
+                </span>
+                {character.isSecret && (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded font-mono">
+                    SS傳奇
+                  </span>
+                )}
+              </div>
+              <span className="text-xs text-[#d4af37] truncate font-sans">
+                {character.title}
+              </span>
+            </div>
           </div>
 
-          {/* Trait Description */}
-          <div className="bg-[#19191d] p-3 rounded-lg border border-stone-800/80 text-xs text-stone-400 leading-relaxed font-sans">
+          {/* Trait Description - 放大一階至 text-[15px] */}
+          <div className="bg-[#19191d] p-3 rounded-lg border border-stone-800/80 text-[15px] text-stone-300 leading-relaxed font-sans">
             {character.description}
           </div>
 
-          {/* Special Trait: Only revealed when holding 【免費教學錄影帶】 */}
+          {/* Special Trait: Only revealed when holding 【免費教學錄影帶】 - 放大一階至 text-sm */}
           {hasTutorialTape && character.specialTrait && (
-            <div className="text-[11px] text-amber-300/90 bg-amber-950/30 border border-amber-900/60 p-2.5 rounded-lg font-sans leading-relaxed shadow-sm animate-in fade-in">
+            <div className="text-sm text-amber-200/95 bg-amber-950/30 border border-amber-900/60 p-2.5 rounded-lg font-sans leading-relaxed shadow-sm animate-in fade-in">
               <div className="flex items-center gap-1.5 text-amber-400 font-bold mb-1">
-                <span>📼【免費教學錄影帶】特質揭示：</span>
+                <span>📼【免費教學錄影帶】特質揭示啟動：</span>
               </div>
               {character.specialTrait}
+            </div>
+          )}
+
+          {/* 常駐環境設施專屬按鈕列 (小鐵鋪、淘金小鎮、梯田、浪漫手機) */}
+          {(blacksmithUnlocked || goldTownUnlocked || terraceUnlocked || romanticPhoneUnlocked) && (
+            <div className="flex items-center gap-2 flex-wrap bg-[#141418] p-2 rounded-xl border border-stone-800/80 shadow-inner">
+              {romanticPhoneUnlocked && (
+                <button
+                  id="btn-open-romantic-phone"
+                  onClick={onOpenRomanticPhone}
+                  title="開啟浪漫手機通訊介面"
+                  className="flex-1 min-w-[95px] flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-pink-950/80 hover:bg-pink-900 border border-pink-500/80 text-pink-200 text-xs font-bold transition-all shadow-[0_0_10px_rgba(236,72,153,0.25)] hover:scale-102 active:scale-98 cursor-pointer"
+                >
+                  <span>📱</span>
+                  <span>浪漫手機</span>
+                </button>
+              )}
+
+              {blacksmithUnlocked && (
+                <button
+                  id="btn-open-blacksmith"
+                  onClick={onOpenBlacksmith}
+                  title="隨時拜訪小鐵鋪改造物品"
+                  className="flex-1 min-w-[90px] flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-600/80 text-amber-200 text-xs font-bold transition-all shadow-[0_0_10px_rgba(217,119,6,0.25)] hover:scale-102 active:scale-98 cursor-pointer"
+                >
+                  <span>⚒️</span>
+                  <span>小鐵鋪</span>
+                </button>
+              )}
+
+              {goldTownUnlocked && (
+                <button
+                  id="btn-open-gold-town"
+                  onClick={onOpenGoldTown}
+                  title="花費 5 點行動力前往淘金小鎮挖寶"
+                  className="flex-1 min-w-[95px] flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-yellow-950/80 hover:bg-yellow-900 border border-yellow-500/80 text-yellow-300 text-xs font-bold transition-all shadow-[0_0_10px_rgba(234,179,8,0.25)] hover:scale-102 active:scale-98 cursor-pointer"
+                >
+                  <span>⛏️</span>
+                  <span>淘金小鎮</span>
+                </button>
+              )}
+
+              {terraceUnlocked && (
+                <button
+                  id="btn-open-terrace"
+                  onClick={onOpenTerrace}
+                  title="前往高山梯田耕作與收成"
+                  className={`flex-1 min-w-[105px] flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all hover:scale-102 active:scale-98 cursor-pointer ${
+                    terraceStatusBadge?.isMature
+                      ? 'bg-emerald-900 border-emerald-400 text-emerald-200 shadow-[0_0_12px_rgba(52,211,153,0.5)] animate-pulse'
+                      : 'bg-emerald-950/80 hover:bg-emerald-900 border-emerald-600/80 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                  }`}
+                >
+                  <span>🌾</span>
+                  <span>梯田</span>
+                  {terraceStatusBadge && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                        terraceStatusBadge.isMature
+                          ? 'bg-emerald-400 text-emerald-950 font-black'
+                          : 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80'
+                      }`}
+                    >
+                      {terraceStatusBadge.text}
+                    </span>
+                  )}
+                </button>
+              )}
             </div>
           )}
 

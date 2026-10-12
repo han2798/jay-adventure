@@ -1,4 +1,4 @@
-import { CardDefinition, GameState, MetaProgress } from '../types';
+import { CardDefinition } from '../types';
 
 /**
  * 周杰倫音樂宇宙・全卡牌資料庫 (全 191 張：175 歌曲卡 + 16 專輯卡)
@@ -50,22 +50,24 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2000-03] 星晴
   // ==========================================
   {
-    id: 'C2000-03',
+    id: 'C2000-03', //已完成
     name: '星晴',
     album: 'Jay',
     year: 2000,
     track: 3,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「一步兩步三步四步望著天，看星星一顆兩顆三顆四顆連成線……」看星星一顆兩顆連成線，晴朗的夜空彷彿能指引方向。',
-    // TODO: 第二階段效果、機制、選項實裝
+    weight: 10,
+    route: '周杰倫家庭',
+    flavorText: '「看星星 一顆兩顆三顆四顆 連成線」\n遠方的星聽得見嗎？有沒有人的心願能實現？。',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '乘著風，遊盪在藍天邊',
+        resultText: '夜空中繁星閃爍，宛如銀海般的笑容。\n你將這份笑容收進行囊，行動力恢復 +4！',
+        effect: {
+          addItem: '星晴',
+          apChange: 4,
+        },
       },
     ],
   },
@@ -139,21 +141,24 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2000-07',
+    id: 'C2000-07', //已完成
     name: '伊斯坦堡',
     album: 'Jay',
     year: 2000,
     track: 7,
     type: '事件',
     maxDraws: 1,
-    weight: 5,
-    route: '通用',
-    flavorText: '「走在伊斯坦堡的市集，旋轉的土耳其進行曲帶來了異域的芬芳……」',
+    weight: 10,
+    route: '周杰倫家庭',
+    flavorText: '「走過了很多地方，我來到伊斯坦堡，就像是童話故事，有教堂有城堡」\n或許我無法造出城堡，但我能帶妳去看城堡。',
     options: [
       {
-        text: '品嚐土耳其冰淇淋，聆聽古老琴音',
-        resultText: '悠揚的異國情調讓靈魂雀躍，行動力+6！',
-        effect: { apChange: 6 },
+        text: '說穿了其實我的願望就這麼小',
+        resultText: '希望有天能帶她到伊斯坦堡，行動力+4！\n獲得【伊斯坦堡】卡牌放入行囊！',
+        effect: {
+          addItem: '伊斯坦堡',
+          apChange: 4,
+        },
       },
     ],
   },
@@ -221,7 +226,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     acquisitionSource: '從威廉二世身邊盜取',
     hintText: '獲得【反方向的鐘】，若不幸在決戰時戰敗，可藉由此鐘倒流至前一回合重整旗鼓（最多 3 次機會）！',
     specialAcquisitionNote:
-      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。已從威廉古堡寢殿成功獲得，並永久記錄至你的冒險手冊與音樂圖鑑！',
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n已從威廉古堡寢殿成功獲得，並永久記錄至你的冒險手冊與音樂圖鑑！',
     flavorText: '「穿梭時間的畫面的鐘，從反方向開始移動……」',
     options: [],
   },
@@ -256,7 +261,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 1,
     type: '事件',
     maxDraws: 2,
-    weight: 4,
+    weight: 6,
     route: '通用',
     flavorText: '「古巴比倫王頒布了漢摩拉比法典，刻在黑色的玄武岩，距今已經三千七百多年……」狂暴的時空亂流撕扯著一切物質！',
     options: [
@@ -274,6 +279,11 @@ export const CARD_DATABASE: CardDefinition[] = [
         require: { item: '時光機' },
         resultText: '你啟動了【時光機】，抵抗住時空狂瀾，選擇不進行時光逆流，平穩繼續當前的冒險。',
         effect: {},
+      },
+      {
+        text: '在黑色的玄武岩刻下誓約，拼死抵禦時空狂瀾',
+        resultText: '你立於風沙咆哮的黑色玄武岩前，以無比堅毅的信念硬生生抗拒時空撕扯！\n\n你成功守住了行囊物品與當前時空，但元氣重挫，行動力 -10！',
+        effect: { apChange: -10 },
       },
     ],
   },
@@ -449,8 +459,8 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「他們兒子我習慣....。」',
     options: [
       {
-        text: '快使用雙節棍！哼哼哈兮！',
-        resultText: '獲得武器【雙截棍】！。',
+        text: '快使用雙截棍！哼哼哈兮！',
+        resultText: '獲得武器【雙截棍】！',
         effect: { addItem: '雙截棍'},
       },
     ],
@@ -518,9 +528,9 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 2,
     type: '物品',
     maxDraws: 1,
-    weight: 3,
+    weight: 10,
     route: '最偉大的作品',
-    flavorText: '「這是可以把你的珍寶都裝進去的空間，永遠不會隨時光的流逝而丟失……」',
+    flavorText: '「回想剛買的書 一本名叫半島鐵盒。」，透過鐵盒可以把你的珍寶都裝進去，不會隨局數的變遷而丟失……',
     options: [
       {
         text: '拾起半島鐵盒放入行囊',
@@ -541,17 +551,18 @@ export const CARD_DATABASE: CardDefinition[] = [
     album: '八度空間',
     year: 2002,
     track: 3,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「周杰倫音樂宇宙・八度空間」收錄之經典名作《暗號》。',
-    // TODO: 第二階段效果、機制、選項實裝
+    weight: 10,
+    route: '周杰倫家庭',
+    flavorText: '「你停止收訊號 我開始搜尋不到……到底有誰知道 是幾點鐘方向 你才會收到暗號」',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '記下字條上的通訊暗號',
+        resultText: '你發現了字條上潦草寫著的一串號碼【0000】！\n若持有浪漫手機，打開電話簿或許能撥往前世……',
+        effect: {
+          addItem: '暗號',
+        },
       },
     ],
   },
@@ -654,24 +665,23 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2002-07] 爺爺泡的茶
   // ==========================================
   {
-    id: 'C2002-07',
+    id: 'C2002-07', //已完成
     name: '爺爺泡的茶',
     album: '八度空間',
     year: 2002,
     track: 7,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「周杰倫音樂宇宙・八度空間」收錄之經典名作《爺爺泡的茶》。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    weight: 0, // 只能透過給外婆泡茶後取得
+    route: '周杰倫家庭',
+    isSynthesizedOnly: true,
+    acquisitionSource: '外婆悉心沏泡回憶中的茶香',
+    badgeTitle: '✦ 經典茗香・親情傳承 ✦',
+    hintText: '回憶起那些年 爺爺的手繭 泡在水裡會有茶色蔓延\n行動力恢復 +5！ \n獲得關鍵卡牌【爺爺泡的茶】！',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n經由外婆悉心沏泡茶葉獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「爺爺泡的茶 有一種味道叫做家」（沒法挑剔它 口感味覺還不差）',
+    options: [],
   },
   {
     id: 'C2002-08', //已完成
@@ -681,13 +691,13 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 8,
     type: '事件',
     maxDraws: 2,
-    weight: 5,
+    weight: 15,
     route: '通用',
     flavorText: '「想回到過去，試著讓故事繼續，至少不再讓妳離我而去……」孤單的音符化為逆流的光陰。',
     options: [
       {
         text: '順著旋律逆轉光陰',
-        resultText: '想回到過去，試著讓故事繼續！你保留了目前全部的行囊道具、成就與全身狀態，重新回到第 1 回合！',
+        resultText: '想回到過去，試著讓故事繼續！\n你保留了目前全部的行囊道具、成就與全身狀態，重新回到第 1 回合！',
         effect: {
           rewindRound: 1,
         },
@@ -710,7 +720,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 3,
     weight: 6,
     route: '通用',
-    flavorText: '米蘭的小鐵匠，為了買一把吉他，每天工作辛苦奔波……，今天遇到你：「說吧，要我幫你做什麼呢？」',
+    flavorText: '米蘭的小鐵匠，為了買一把吉他，每天工作辛苦奔波……\n今天遇到你：「說吧，要我幫你做什麼呢？」',
     options: [
       {
         text: '改造武器',
@@ -741,12 +751,30 @@ export const CARD_DATABASE: CardDefinition[] = [
         effect: {},
       },
       {
+        text: '重鑄鐵鏟',
+        require: {
+          item: '雙截棍',
+          hideWhenUnavailable: true,
+        },
+        resultText: '小鐵匠在鍛爐前揮汗如雨，將 1 把【雙截棍】重鑄改造為 1 把結實耐用的【鐵鏟】！',
+        effect: {},
+      },
+      {
         text: '強化時光機',
         require: {
           items: ['時光機', '愛的飛行日記'],
           hideWhenUnavailable: true,
         },
         resultText: '透過愛的飛行日記，小鐵匠將時光機強化為能在時空中自由穿梭的【飛行時光機】！',
+        effect: {},
+      },
+      {
+        text: '擴充鐵盒',
+        require: {
+          item: '半島鐵盒',
+          hideWhenUnavailable: true,
+        },
+        resultText: '小鐵匠接過半島鐵盒與散發時光氣息的頁籤，專注地鍛造融入鐵盒之中……',
         effect: {},
       },
       {
@@ -872,21 +900,35 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2003-03',
+    id: 'C2003-03', //已完成
     name: '晴天',
     album: '葉惠美',
     year: 2003,
     track: 3,
     type: '事件',
-    maxDraws: 3,
-    weight: 12,
+    maxDraws: 1,
+    weight: 10,
     route: '通用',
-    flavorText: '「故事的小黃花，從出生那年就飄著……童年的紙飛機，現在終於飛回我手裡。」',
+    flavorText: '「還要多久，我才能夠在妳身邊，等到放晴的那天，也許我會比較好一點。」',
     options: [
       {
-        text: '在操場邊迎風仰望晴空，充沛行動力',
-        resultText: '春風拂面，心情豁然開朗，行動力獲得極大恢復！',
-        effect: { apChange: 10 },
+        text: '大雨漸散，天氣晴朗，恢復 10 點行動力',
+        require: { flag: 'rainy_weather_active', hideWhenUnavailable: true },
+        resultText: '陽光穿透烏雲，大雨驟停，天空放晴！\n\n獲得【晴天】，行動力大幅恢復！',
+        effect: {
+          addItem: '晴天',
+          apChange: 10,
+          setFlag: { rainy_weather_active: false },
+        },
+      },
+      {
+        text: '沒想到失去的勇氣我還留著，恢復行動力',
+        require: { notFlag: 'rainy_weather_active', hideWhenUnavailable: true },
+        resultText: '吹著前奏望著天空，我想起花瓣試著掉落\n\n獲得【晴天】，行動力獲得恢復！',
+        effect: {
+          addItem: '晴天',
+          apChange: 5,
+        },
       },
     ],
   },
@@ -1028,22 +1070,25 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2003-10] 梯田
   // ==========================================
   {
-    id: 'C2003-10',
+    id: 'C2003-10', //已完成
     name: '梯田',
     album: '葉惠美',
     year: 2003,
     track: 10,
-    type: '事件',
+    type: '遭遇',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「面臨著破壞的土地，梯田一步一步被水泥吞噬……」梯田上泛黃的禾苗，控訴著被破壞的大自然。',
-    // TODO: 第二階段效果、機制、選項實裝
+    weight: 15,
+    route: '周杰倫家庭',
+    hasEnvironmentEffect: true,
+    environmentEffectName: '梯田',
+    flavorText: '「說到中學時期 家鄉的一片片梯田 是我看過最美的綠地」破壞自然的生態 會不會很累！？',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '漫步走入梯田，守護這片土地',
+        resultText: '你走入層層疊疊的青翠梯田，解鎖了【梯田】環境！\n此後可隨時由角色欄進入梯田耕種！',
+        effect: {
+          setFlag: { terrace_unlocked: true },
+        },
       },
     ],
   },
@@ -1149,21 +1194,41 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2004-04',
+    id: 'C2004-04', //已完成
     name: '外婆',
     album: '七里香',
     year: 2004,
     track: 4,
     type: '遭遇',
-    maxDraws: 2,
+    maxDraws: 3,
     weight: 8,
     route: '周杰倫家庭',
-    flavorText: '「今天是外婆的生日，外婆笑得像個天真的孩子……滿桌親手做的好菜透著樸實的溫暖。」',
+    flavorText: '「今天是外婆的生日，我換上復古西裝……但外婆說她除了大稻埕碼頭哪裡都不想去……」',
     options: [
       {
-        text: '陪外婆吃頓溫馨家常便飯',
-        resultText: '外婆慈祥地撫摸著你的額頭，家庭親情進度大幅推進！',
-        effect: { addItem: '外婆' },
+        text: '她要的是陪伴 而不是六百塊',
+        require: { maxAp: 5, hideWhenUnavailable: true },
+        resultText: '外婆笑瞇瞇地張羅一整桌拿手好菜，不時叮嚀你趁熱快吃\n\n行動力大幅恢復 +5！',
+        effect: {
+          apChange: 5,
+        },
+      },
+      {
+        text: '外婆露出了笑容說她以我為榮',
+        resultText: '外婆撫摸著你的頭，眼神裡滿是慈愛與驕傲\n\n行動力恢復 +3！',
+        effect: {
+          apChange: 3,
+        },
+      },
+      {
+        text: '把所有和外公的往事靜靜回憶',
+        resultText: '', // 文本由 App.tsx 依持有材料（茶葉+熱水）動態判定結算
+        effect: {},
+      },
+      {
+        text: '我失落 是因為看到外婆失落而失落',
+        resultText: '', // 文本由 App.tsx 依行囊（是否空無一物）動態判定結算
+        effect: {},
       },
     ],
   },
@@ -1219,7 +1284,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     album: '七里香',
     year: 2004,
     track: 7,
-    type: '事件',
+    type: '遭遇',
     maxDraws: 1,
     weight: 100, // 滿足條件後必定進入抽卡池
     route: '太陽之子',
@@ -1272,21 +1337,25 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2004-09] 園遊會
   // ==========================================
   {
-    id: 'C2004-09',
+    id: 'C2004-09', //已完成
     name: '園遊會',
     album: '七里香',
     year: 2004,
     track: 9,
-    type: '事件',
-    maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「園遊會走一走，買個棉花糖……氣球在空中飄盪，微風吹過我們的歡笑。」旋轉木馬伴隨童話般的歡愉旋律轉動。',
-    // TODO: 第二階段效果、機制、選項實裝
+    type: '遭遇',
+    maxDraws: 5,
+    weight: 6,
+    route: '周杰倫家庭',
+    flavorText: '「氣球在我手上，我牽著妳瞎逛。」五彩繽紛的氣球在園遊會入口處飄盪著，充滿開心的氣息。',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
+        text: '離開園遊會',
+        resultText: '你望著遠處的摩天輪，決定暫且轉身離開園遊會。',
+        effect: {},
+      },
+      {
+        text: '繼續逛園遊會',
+        resultText: '',
         effect: {},
       },
     ],
@@ -1416,11 +1485,11 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 5,
     weight: 20,
     route: '通用',
-    flavorText: '「一件黑色毛衣，兩個人的回憶……厚實的針織給予抵禦的力量。」',
+    flavorText: '「一件黑色毛衣，兩個人的回憶……」\n厚實的針織給予抵禦的力量。',
     options: [
       {
         text: '穿上黑色毛衣',
-        resultText: '穿上【黑色毛衣】！抵禦敵意。',
+        resultText: '穿上【黑色毛衣】抵禦敵意。',
         effect: { addItem: '黑色毛衣'},
       },
     ],
@@ -1480,17 +1549,19 @@ export const CARD_DATABASE: CardDefinition[] = [
     album: '11月的蕭邦',
     year: 2005,
     track: 7,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「希望你帶著浪漫的手機，隨時隨地連線著我的心……」按鍵手機屏幕亮起的微光，傳遞著跨越距離的心動。',
-    // TODO: 第二階段效果、機制、選項實裝
+    weight: 10,
+    route: '周杰倫家庭',
+    flavorText: '「希望你帶著浪漫的手機，隨時隨地連線著我的心……」\n按鍵手機屏幕亮起的微光，傳遞著跨越距離與時空的心動。',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '拾起這部浪漫手機，隨身攜帶',
+        resultText: '你拾起了這部復古按鍵手機！\n【浪漫手機】已常駐解鎖於角色欄位，隨時點擊開啟通訊介面！',
+        effect: {
+          addItem: '浪漫手機',
+          setFlag: { romantic_phone_unlocked: true },
+        },
       },
     ],
   },
@@ -1716,7 +1787,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '收存【本草綱目】入行囊',
-        resultText: '獲得了【本草綱目】！精華融入行囊，開啟進階鑑識視窗，並能施展行囊道具的特殊功能！',
+        resultText: '獲得了【本草綱目】，精華融入行囊，開啟進階鑑識視窗，並能施展行囊道具的特殊功能！',
         effect: {
           addItem: '本草綱目',
         },
@@ -1779,44 +1850,45 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
   {
-    id: 'C2006-08',
+    id: 'C2006-08', //已完成
     name: '白色風車',
     album: '依然范特西',
     year: 2006,
     track: 8,
     type: '物品',
-    maxDraws: 3,
-    weight: 3,
-    route: '通用',
+    maxDraws: 1,
+    weight: 0,
+    route: '周杰倫家庭',
+    isSynthesizedOnly: true,
+    acquisitionSource: '園遊會玩具攤位購買',
+    badgeTitle: '✦ 園遊會奇遇 ✦',
+    hintText: '獲得安靜轉著的【白色風車】，是小男孩想要的玩具。',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n由園遊會攤位購買獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
     flavorText: '「白色的風車，安靜地轉著，真實的感覺，夢境般遙遠……」',
-    options: [
-      {
-        text: '在微風中收集隨風旋轉的風車碎片',
-        resultText: '溫暖的微風拂去疲憊，行動力恢復 5 點！',
-        effect: { addItem: '白色風車', apChange: 5 },
-      },
-    ],
+    options: [],
   },
   // ==========================================
   // [C2006-09] 迷迭香
   // ==========================================
   {
-    id: 'C2006-09',
+    id: 'C2006-09', //已完成
     name: '迷迭香',
     album: '依然范特西',
     year: 2006,
     track: 9,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 10,
     route: '通用',
-    flavorText: '「迷迭香的芬芳在空氣中漫延，如同致命的陷阱……」拉丁節奏的吉他聲中，優雅的舞步暗藏殺機。',
-    // TODO: 第二階段效果、機制、選項實裝
+    flavorText: '「你隨風飄揚的笑，有迷迭香的味道。」\n迷迭香也會開花的，愛的甜味與美麗的花。',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '拾起迷迭香放入行囊',
+        resultText: '獲得【迷迭香】，愛的甜味蔓延發酵。',
+        effect: {
+          addItem: '迷迭香',
+        },
       },
     ],
   },
@@ -1824,22 +1896,23 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2006-10] 菊花台
   // ==========================================
   {
-    id: 'C2006-10',
+    id: 'C2006-10', //已完成
     name: '菊花台',
     album: '依然范特西',
     year: 2006,
     track: 10,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 10,
     route: '通用',
-    flavorText: '「菊花殘 滿地傷 你的笑容已泛黃……」金碧輝煌的宮廷深處，黃金甲胄映照著悲涼的宿命。',
-    // TODO: 第二階段效果、機制、選項實裝
+    flavorText: '「花 已向晚 飄落了燦爛。」閣樓上冰冷的絕望，而花落人斷腸。',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '收下菊花台放入行囊',
+        resultText: '獲得【菊花台】，花落人斷腸 我心事靜靜躺。',
+        effect: {
+          addItem: '菊花台',
+        },
       },
     ],
   },
@@ -1897,47 +1970,44 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2007-02] 彩虹
   // ==========================================
   {
-    id: 'C2007-02',
+    id: 'C2007-02', //已完成
     name: '彩虹',
     album: '我很忙',
     year: 2007,
     track: 2,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 0,
     route: '通用',
-    flavorText: '「哪裡有彩虹告訴我，能不能把我的願望還給我……」雨過天晴的天空，橫跨著絢爛而短暫的七色彩虹。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    isSynthesizedOnly: true,
+    acquisitionSource: '雨後天晴・以晴天驅散漫天雨勢獲得',
+    hintText: '雨過天晴的天空，橫跨著絢爛而短暫的七色彩虹，獲得【彩虹】。',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n以晴天消散雨勢後獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「哪裡有彩虹告訴我，能不能把我的願望還給我」',
+    options: [],
   },
   // ==========================================
   // [C2007-03] 青花瓷
   // ==========================================
   {
-    id: 'C2007-03',
+    id: 'C2007-03', //已完成
     name: '青花瓷',
     album: '我很忙',
     year: 2007,
     track: 3,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「天青色等煙雨 而我在等你，炊煙裊裊升起 隔江千萬里……」如雨後青瓷般瑩潤透亮的光澤，凝結了千年的溫潤。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    weight: 0,
+    route: '周杰倫家庭',
+    isSynthesizedOnly: true,
+    acquisitionSource: '淘金小鎮探勘發掘',
+    badgeTitle: '✦ 秘寶現世 ✦',
+    hintText: '獲得【青花瓷】，那色白花青的錦鯉躍然於碗底。',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n在淘金小鎮探勘發掘出土，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「如傳世的青花瓷自顧自美麗 妳眼帶笑意。」',
+    options: [],
   },
   // ==========================================
   // [C2007-04] 陽光宅男
@@ -1950,15 +2020,19 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 4,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 5,
     route: '通用',
     flavorText: '「鑰匙別在腰帶皮夾插在屁股口袋，陽光宅男也能煥發帥氣神采……」拉開緊閉的窗簾，迎向燦爛陽光！',
-    // TODO: 第二階段效果、機制、選項實裝
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '改造帥氣造型，走出房間迎向陽光',
+        resultText: '你換上了整潔帥氣的襯衫，拉開緊閉的窗簾迎向燦爛陽光！自信心大增，行動力 +3！',
+        effect: { apChange: 3 },
+      },
+      {
+        text: '尋找真愛，追逐心目中的公主殿下',
+        resultText: '宅男上吧！去尋找真愛！你獲得了象徵浪漫誓約的【陽光宅男】卡牌入囊，行動力 +2！',
+        effect: { addItem: '陽光宅男', apChange: 2 },
       },
     ],
   },
@@ -1999,7 +2073,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '握住無雙戰意',
-        resultText: '獲得【無雙】！行動力+1，周身湧現唯我獨尊的無雙霸氣！',
+        resultText: '獲得【無雙】！行動力+1\n周身湧現唯我獨尊的無雙霸氣！',
         effect: { addItem: '無雙', apChange: 1 },
       },
     ],
@@ -2063,7 +2137,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '這香濃的誘惑，收入行囊',
-        resultText: '我輕輕的嚐一口！獲得【甜甜的】甜點信物！',
+        resultText: '我輕輕的嚐一口！獲得【甜甜的】調味料！',
         effect: {
           addItem: '甜甜的',
         },
@@ -2249,19 +2323,17 @@ export const CARD_DATABASE: CardDefinition[] = [
     album: '魔杰座',
     year: 2008,
     track: 4,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 0,
     route: '通用',
+    isSynthesizedOnly: true,
+    acquisitionSource: '梯田耕種盛開',
+    hintText: '花香撲鼻，微風拂面，靈魂受到前所未有的療癒。獲得卡牌《花海》！',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n於梯田悉心培育綻放，已永久記錄至你的冒險手冊與音樂圖鑑！',
     flavorText: '「不要這麼容易就想放棄 就像我說的……」滿山遍野的花海在風中搖曳，帶走所有的疲憊與悲傷。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    options: [],
   },
   // ==========================================
   // [C2008-05] 魔術先生
@@ -2274,15 +2346,19 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 5,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 5,
     route: '通用',
     flavorText: '「手中握著神奇的撲克牌，見證奇蹟的發生……」魔術師在聚光燈下一揮手，白鴿自禮帽中翩然飛出！',
-    // TODO: 第二階段效果、機制、選項實裝
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '見證奇蹟的時刻：禮帽變出白鴿',
+        resultText: '聚光燈聚焦在你手掌心，啪的一聲，一隻雪白信鴿撲棱飛出，博得滿堂彩！行動力 +3！',
+        effect: { apChange: 3 },
+      },
+      {
+        text: '手法俐落的撲克牌魔術，洞悉牌局',
+        resultText: '你靈活地切牌洗牌，洞悉了命運牌堆的微妙奧妙。獲得【魔術先生】卡牌，行動力 +2！',
+        effect: { addItem: '魔術先生', apChange: 2 },
       },
     ],
   },
@@ -2313,24 +2389,23 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2008-07] 蘭亭序
   // ==========================================
   {
-    id: 'C2008-07',
+    id: 'C2008-07', //已完成
     name: '蘭亭序',
     album: '魔杰座',
     year: 2008,
     track: 7,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「蘭亭臨帖 行書如行雲流水，月下門推 心事入柴扉……」硯台墨香幽遠，千古書法風骨躍然紙上。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    weight: 0,
+    route: '周杰倫家庭',
+    isSynthesizedOnly: true,
+    acquisitionSource: '淘金小鎮探勘發掘',
+    badgeTitle: '✦ 秘寶現世 ✦',
+    hintText: '獲得【蘭亭序】，千古書法風骨躍然紙上。',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n在淘金小鎮探勘發掘出土，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「蘭亭臨帖 行書如行雲流水。」',
+    options: [],
   },
   // ==========================================
   // [C2008-08] 流浪詩人
@@ -2343,15 +2418,19 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 8,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 5,
     route: '通用',
     flavorText: '「流浪的詩人在街頭彈唱，訴說著遠方的冒險……」背著吉他的浪人穿梭在石板路上，留下不羈的歌聲。',
-    // TODO: 第二階段效果、機制、選項實裝
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '背著吉他唱起海邊的歌謠',
+        resultText: '海風徐徐拂面，你撥動琴弦引來過客駐足聆聽，心情無比舒暢！行動力 +3！',
+        effect: { apChange: 3 },
+      },
+      {
+        text: '浪跡天涯，結交志同道合的音樂知音',
+        resultText: '海闊天空，你結識了多位熱愛音樂的流浪過客。獲得【流浪詩人】卡牌，行動力 +2！',
+        effect: { addItem: '流浪詩人', apChange: 2 },
       },
     ],
   },
@@ -2388,15 +2467,19 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 10,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 5,
     route: '通用',
     flavorText: '「小丑在舞台上面帶微笑，背後卻藏著落寞的淚水……」馬戲團華麗的大帳篷下，喬克叔叔表演著滑稽的把戲。',
-    // TODO: 第二階段效果、機制、選項實裝
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '小丑拋球把戲，逗樂所有圍觀群眾',
+        resultText: '三顆彩球在空中飛舞，觀眾歡呼雀躍，掌聲雷動！行動力 +3！',
+        effect: { apChange: 3 },
+      },
+      {
+        text: '卸下油彩，體會孤獨把戲大師的堅韌',
+        resultText: '即使身處孤獨的幕後，依然保持著最真摯純粹的表演初心。獲得【喬克叔叔】卡牌，行動力 +2！',
+        effect: { addItem: '喬克叔叔', apChange: 2 },
       },
     ],
   },
@@ -2413,12 +2496,12 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 3,
     weight: 15,
     route: '太陽之子',
-    flavorText: '「還記得你說家是唯一的城堡，隨著稻香河流繼續奔跑……」金黃色的稻浪在陽光下起伏，是否願意花費 5 點體力來收割稻麥？',
+    flavorText: '「還記得你說家是唯一的城堡，隨著稻香河流繼續奔跑……」金黃色的稻浪在陽光下起伏，是否願意花費 5 點行動力來收割稻麥？',
     options: [
       {
-        text: '願意（花費 5 點體力收割稻麥）',
-        require: { minAp: 6, unavailableReason: '體力不足' },
-        resultText: '「隨著稻香河流繼續奔跑……」你辛勤收割金黃的稻穗，體力 -5，獲得【稻香】卡片！',
+        text: '願意（花費 5 點行動力收割稻麥）',
+        require: { minAp: 6, unavailableReason: '行動力不足' },
+        resultText: '「隨著稻香河流繼續奔跑……」你辛勤收割金黃的稻穗\n\n行動力 -5，獲得【稻香】卡片！',
         effect: {
           apChange: -5,
           addItem: '稻香',
@@ -2472,7 +2555,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '「我謙卑安靜的於城堡下的晚禱」',
-        resultText: '迷霧漸散，巍峨肅穆的黑色城堡巍然矗立在眼前！威廉古堡大門為你敞開！',
+        resultText: '迷霧漸散，巍峨肅穆的黑色城堡巍然矗立在眼前！\n威廉古堡大門為你敞開！',
         effect: {
           setFlag: { castle_unlocked: true },
           forceNextCardId: 'C2001-08',
@@ -2535,7 +2618,7 @@ export const CARD_DATABASE: CardDefinition[] = [
       {
         text: '引洛陽舊城淒美冷雨澆滅烈火，解除【煙火燃燒】狀態',
         require: { flag: 'fireworks_burning', hideWhenUnavailable: true },
-        resultText: '「雨紛紛 舊故里草木深……」洛陽舊城的冷雨傾瀉，澆滅了四周竄起的花火！成功解除【煙火燃燒】環境狀態，不再每三回合燒毀物品！獲得道具【煙花易冷】。',
+        resultText: '「雨紛紛 舊故里草木深……」洛陽舊城的冷雨傾瀉，澆滅了四周竄起的花火！\n成功解除【煙火燃燒】環境狀態，不再每三回合燒毀物品！\n獲得道具【煙花易冷】。',
         effect: {
           addItem: '煙花易冷',
           setFlag: { fireworks_burning: false },
@@ -2544,7 +2627,7 @@ export const CARD_DATABASE: CardDefinition[] = [
       {
         text: '感受舊故里飄散的氣息，化作信物入行囊',
         require: { notFlag: 'fireworks_burning', hideWhenUnavailable: true },
-        resultText: '洛陽城外的寒雨透著微涼，石碑的苔痕宛若故人淚。獲得了【煙花易冷】信物！',
+        resultText: '洛陽城外的寒雨透著微涼，石碑的苔痕宛若故人淚。\n獲得了【煙花易冷】信物！',
         effect: {
           addItem: '煙花易冷',
         },
@@ -2561,11 +2644,11 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 1,
     weight: 50,
     route: '通用',
-    flavorText: '「你是不是 啊哈感覺到了」錄影帶在播放機中旋轉，浮現神祕技巧。',
+    flavorText: '「你是不是 啊哈感覺到了」\n錄影帶在播放機中旋轉，揭曉了些資訊。',
     options: [
       {
         text: '舉起你的單手給他個啵!',
-        resultText: 'ohoh 還沒 不急我先教你彈！角色欄位顯現當前化身的特殊能力與隱藏特質！',
+        resultText: 'ohoh 還沒 不急我先教你彈！\n角色欄位顯現特殊能力與成就名稱揭曉！',
         effect: { addItem: '免費教學錄影帶' },
       },
     ],
@@ -2600,17 +2683,13 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 6,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 0,
     route: '通用',
+    isSynthesizedOnly: true,
+    acquisitionSource: '始終下雨・維持下雨天狀態至第30回合結束獲得',
+    hintText: '夜色深沉，雨聲如箏，時光悄悄流逝。獲得卡牌《雨下一整晚》！',
     flavorText: '「雨下一整晚，街燈下斑駁的倒影……」一把古箏在細雨濛濛的屋簷下輕輕撥響，穿越百年光陰。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    options: [],
   },
   {
     id: 'C2010-07',
@@ -2658,7 +2737,7 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2010-09] 愛的飛行日記
   // ==========================================
   {
-    id: 'C2010-09',
+    id: 'C2010-09', //已完成
     name: '愛的飛行日記',
     album: '跨時代',
     year: 2010,
@@ -2695,7 +2774,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     acquisitionSource: '米蘭的小鐵匠巧手強化',
     hintText: '獲得【飛行時光機】，似乎是更多功能的時光機！',
     specialAcquisitionNote:
-      '此卡牌為專屬特殊強化道具，在常規抽卡池中無法抽卡獲得。透過小鐵匠將時光機與愛的飛行日記強化結合，已永久記錄至你的冒險手冊與音樂圖鑑！',
+      '此卡牌為專屬特殊強化道具，在常規抽卡池中無法抽卡獲得。\n透過小鐵匠將時光機與愛的飛行日記強化結合，已永久記錄至你的冒險手冊與音樂圖鑑！',
     flavorText: '「升空對抗 重力反應！」',
     options: [],
   },
@@ -2846,7 +2925,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「哎呦哥哥 嗨 你好！」',
     options: [
       {
-        text: '收藏這枚粉色任性信物',
+        text: '收藏這枚任性信物',
         resultText: '獲得【公主病】！若是純真男孩持有，血脈將受到共鳴，迎來終極進化！',
         effect: { addItem: '公主病' },
       },
@@ -2889,12 +2968,12 @@ export const CARD_DATABASE: CardDefinition[] = [
     acquisitionSource: '小鐵匠跟你交換',
     hintText: '獲得【療傷燒肉粽】，這東西還有比吃飽更重要的事！',
     specialAcquisitionNote:
-      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。透過跟小鐵匠交換獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n透過跟小鐵匠交換獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
     flavorText: '「燒~肉~粽~ 酸甜苦辣的愛情請把它忘記。」',
     options: [],
   },
   {
-    id: 'C2011-07', //已完成
+    id: 'C2011-07', 
     name: '琴傷',
     album: '驚嘆號',
     year: 2011,
@@ -2907,7 +2986,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     acquisitionSource: '安撫了豬管家的哀傷',
     hintText: '獲得日記《琴傷》！全域日記已解鎖篇章【琴傷】，局外劇情推進。',
     specialAcquisitionNote:
-      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。以【療傷燒肉粽】安撫了威廉古堡豬管家，他傾訴情傷後獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n以【療傷燒肉粽】安撫了威廉古堡豬管家，他傾訴情傷後獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
     flavorText: '「我不忍為難 問誰在等你靠岸。一圈戒痕 在你指上 目送你 越走越遠的 悲傷」豬管家憶起了過往',
     options: [],
   },
@@ -3076,22 +3155,23 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2012-03] 公公偏頭痛
   // ==========================================
   {
-    id: 'C2012-03',
+    id: 'C2012-03', //已完成
     name: '公公偏頭痛',
     album: '12新作',
     year: 2012,
     track: 3,
-    type: '事件',
+    type: '遭遇',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「公公偏頭痛，宮廷秘史暗藏玄機……」朱紅宮牆下，內侍們碎步疾行，宮廷鬧劇正悄然上演。',
-    // TODO: 第二階段效果、機制、選項實裝
+    weight: 0,
+    route: '周杰倫家庭',
+    hasEnvironmentEffect: true,
+    environmentEffectName: '偏頭痛',
+    flavorText: '「公公他偏頭痛，公公他偏頭痛...」雖然你不是公公，但也被小男孩搞得頭好痛。',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '揉揉太陽穴，無奈嘆氣',
+        resultText: '「公公他偏頭痛，公公他偏頭痛...」被小男孩一弄，變成【偏頭痛】狀態\n\n後續每回合行動力 -2！',
+        effect: { setFlag: { headache_active: true } },
       },
     ],
   },
@@ -3155,7 +3235,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     acquisitionSource: '《跨時代》樂器環繞霸氣皇朝',
     hintText: '獲得【比較大的大提琴】，話說這可以拿來表演嗎？',
     specialAcquisitionNote:
-      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。於《跨時代》中選擇獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n於《跨時代》中選擇獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
     flavorText: '「小傻瓜這不是大提琴！」',
     options: [],
   },
@@ -3251,7 +3331,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     acquisitionSource: '米蘭的小鐵匠巧手改造',
     hintText: '獲得【大笨鐘】，鐘聲響亮，是否能傳到情人耳裡？現在又是幾點鐘呢.....',
     specialAcquisitionNote:
-      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。透過跟小鐵匠改造獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n透過跟小鐵匠改造獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
     flavorText: '「你說我比大笨鐘還笨 要怎麼比……」',
     options: [],
   },
@@ -3288,14 +3368,14 @@ export const CARD_DATABASE: CardDefinition[] = [
     year: 2012,
     track: 12,
     type: '物品',
-    maxDraws: 2,
+    maxDraws: 1,
     weight: 20, // 抽卡機率 20%
     route: '通用',
-    flavorText: '「烏克麗麗在你身上就像一把放大的Guitar」一把夏威夷風情的烏克麗麗。',
+    flavorText: '「烏克麗麗在你身上就像一把放大的Guitar」\n一把夏威夷風情的烏克麗麗。',
     options: [
       {
         text: '撥動琴弦，將烏克麗麗收入行囊',
-        resultText: '獲得【烏克麗麗】！有沒有人需要這把琴呢？',
+        resultText: '獲得【烏克麗麗】，有沒有人需要這把琴呢？',
         effect: {
           addItem: '烏克麗麗',
         },
@@ -3499,19 +3579,18 @@ export const CARD_DATABASE: CardDefinition[] = [
     album: '哎呦，不錯哦',
     year: 2014,
     track: 8,
-    type: '事件',
-    maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    type: '物品',
+    maxDraws: 99,
+    weight: 0, // 抽卡機率0%，無法翻卡抽到，只能由《蘭亭序》於煙火中燃燒轉化獲得
     route: '通用',
-    flavorText: '「手寫的從前，紙頁上留下淡藍色的墨跡……」翻開中學時期的泛黃信紙，字裡行間滿是青澀的憧憬。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    isSynthesizedOnly: true,
+    acquisitionSource: '蘭亭序於煙火中燃燒轉化獲得',
+    badgeTitle: '✦ 浴火重生 ✦',
+    hintText: '獲得【手寫的從前】！這我唱的。我看著你的臉，輕刷著和弦……',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n由《蘭亭序》於煙火烈焰中燃燒轉化獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「這我唱的。我看著你的臉 輕刷著和弦……」',
+    options: [],
   },
   {
     id: 'C2014-09',
@@ -3571,14 +3650,20 @@ export const CARD_DATABASE: CardDefinition[] = [
     year: 2014,
     track: 12,
     type: '事件',
-    maxDraws: 2,
-    weight: 8,
+    maxDraws: 1,
+    weight: 0, // 抽卡機率 0%，需在下雨天持續 5 回合後觸發單卡過場獲得
     route: '周杰倫家庭',
-    flavorText: '「竹籬上停留著蜻蜓，玻璃瓶裡插著小蔥，百葉窗折射著雨滴的思念……」',
+    isSynthesizedOnly: true,
+    acquisitionSource: '下雨天持續5回合後觸發獲得',
+    badgeTitle: '✦ 雨幕低語・心境豁達 ✦',
+    hintText: '在下雨天許久，你聽見了下雨的聲音……獲得關鍵卡牌【聽見下雨的聲音】！',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n在下雨天環境下持續 5 回合後觸發單卡過場獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「竹籬上停留著蜻蜓，玻璃瓶裡插著小蔥，百葉窗折射著雨滴的思念……」\n雨滴落在青石板上，清脆綿長，洗滌著世間塵囂。',
     options: [
       {
-        text: '在雨幕中聆聽雨滴滴落青石的聲音',
-        resultText: '洗滌靈魂的雨聲，喚醒了心靈深處最純淨的記憶。',
+        text: '在雨幕中靜靜聆聽雨滴的聲音',
+        resultText: '你閉上雙眼靜靜聆聽雨聲，心中豁然開朗。獲得卡牌《聽見下雨的聲音》放入行囊！',
         effect: { addItem: '聽見下雨的聲音' },
       },
     ],
@@ -3624,7 +3709,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     options: [
       {
         text: '收下床邊故事',
-        resultText: '獲得【床邊故事】！這故事非常容易讓人入睡，尤其是會一直打呼的人。',
+        resultText: '獲得【床邊故事】！\n這故事非常容易讓人入睡，尤其是會一直打呼的人。',
         effect: { addItem: '床邊故事' },
       },
     ],
@@ -3681,24 +3766,23 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2016-04] 前世情人
   // ==========================================
   {
-    id: 'C2016-04',
+    id: 'C2016-04', //已完成
     name: '前世情人',
     album: '周杰倫的床邊故事',
     year: 2016,
     track: 4,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「前世的情人在耳邊低語，帶來最純淨的祝福……」八音盒緩緩轉動，奏出跨越前世今生的溫柔搖籃曲。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    weight: 0, // 0% 只能由魔術先生通過浪漫手機考驗獲得
+    route: '周杰倫家庭',
+    isSynthesizedOnly: true,
+    acquisitionSource: '浪漫手機連線・魔術師通過考驗',
+    badgeTitle: '✦ 親情守護・前世誓約 ✦',
+    hintText: '「什麼愛 不說 就已經存在 什麼愛 望著 就全都明白\n妳笑 一點一點一滴漾開 一字一句 形容不來 是星空上的銀海」 \n獲得關鍵卡牌',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n在通過前世情人考驗後獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「小公主 過來過來約定好 未來的城堡 將來我們一起造……\n我會 當妳晝夜騎士 烈陽的樹蔭 讓花朵為妳吟遊的魔術師」',
+    options: [],
   },
   // ==========================================
   // [C2016-05] 英雄
@@ -3711,15 +3795,19 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 5,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 5,
     route: '通用',
     flavorText: '「英雄出少年，披荊斬棘守護最後的希望……」激昂的戰歌擂響戰鼓，熱血在胸膛中奔湧！',
-    // TODO: 第二階段效果、機制、選項實裝
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '擊殺、雙殺、三殺！擂響澎湃戰鼓',
+        resultText: '「旋轉 跳躍 你閉著眼！」激昂的戰歌擂響戰鼓，熱血沸騰！行動力大幅提升 +4！',
+        effect: { apChange: 4 },
+      },
+      {
+        text: '披荊斬棘守護最後的希望',
+        resultText: '你在戰火中堅守信念，立下不朽英雄誓約！獲得【英雄】卡牌，行動力 +2！',
+        effect: { addItem: '英雄', apChange: 2 },
       },
     ],
   },
@@ -3750,24 +3838,23 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2016-07] 土耳其冰淇淋
   // ==========================================
   {
-    id: 'C2016-07',
+    id: 'C2016-07', //已完成
     name: '土耳其冰淇淋',
     album: '周杰倫的床邊故事',
     year: 2016,
     track: 7,
-    type: '事件',
+    type: '物品',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '通用',
-    flavorText: '「土耳其冰淇淋，魔術般的戲耍帶來歡笑……」伊斯坦堡街頭的小販揮舞著鐵勺，帶來驚奇與歡笑。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    weight: 0,
+    route: '周杰倫家庭',
+    isSynthesizedOnly: true,
+    acquisitionSource: '園遊會冰品攤位購買',
+    badgeTitle: '✦ 園遊會奇遇 ✦',
+    hintText: '我耍你耍的就像土耳其的冰淇淋，獲得【土耳其冰淇淋】，賣個冰還能秀雜技？',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n由園遊會攤位購買獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「你猜不透也想不到摸不著頭緒，我總是為了什麼出奇不意」到底？',
+    options: [],
   },
   {
     id: 'C2016-08',
@@ -3828,15 +3915,19 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 10,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
+    weight: 5,
     route: '通用',
     flavorText: '「愛情廢柴也能在雪地裡堆出最真的雪人……」寒冬的巴黎街頭，圍著厚厚的毛巾對著雙手哈氣。',
-    // TODO: 第二階段效果、機制、選項實裝
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '對著雙手哈氣，在雪地堆出最真的雪人',
+        resultText: '厚厚的一圈圍巾圍在雪人脖子上，雖然笨拙卻充滿真情實感。行動力 +3！',
+        effect: { apChange: 3 },
+      },
+      {
+        text: '承認自己是愛情的廢柴，淡然自嘲',
+        resultText: '「我為你哈氣，手套丟一邊……」雖然平淡無奇，卻逍遙自在。獲得【愛情廢柴】卡牌，行動力 +2！',
+        effect: { addItem: '愛情廢柴', apChange: 2 },
       },
     ],
   },
@@ -4033,7 +4124,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     album: '最偉大的作品',
     year: 2022,
     track: 8,
-    type: '事件',
+    type: '遭遇',
     maxDraws: 1,
     weight: 15, // 上限1，抽卡機率15%
     route: '最偉大的作品',
@@ -4078,24 +4169,23 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2022-10] 粉色海洋
   // ==========================================
   {
-    id: 'C2022-10',
+    id: 'C2022-10', //已完成
     name: '粉色海洋',
     album: '最偉大的作品',
     year: 2022,
     track: 10,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '最偉大的作品',
-    flavorText: '「粉色海洋上海鷗盤旋，粉色沙灘留下足跡……」陽光灑落在夢幻般的粉紅海岸線上，波光粼粼如夢似幻。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    weight: 0,
+    route: '周杰倫家庭',
+    isSynthesizedOnly: true,
+    acquisitionSource: '園遊會為小男孩拍攝MV獲得',
+    badgeTitle: '✦ 園遊會終曲・親情見證 ✦',
+    hintText: '獲得關鍵卡牌【粉色海洋】Hi～小妞！要上我車嗎？。',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n在園遊會滿足小男孩願望並為其拍攝MV後獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
+    flavorText: '「粉色海洋 你回頭望 笑得像天空裡的棉花糖」Romeo笑著。',
+    options: [],
   },
   // ==========================================
   // [C2022-11] 倒影
@@ -4220,22 +4310,25 @@ export const CARD_DATABASE: CardDefinition[] = [
   // [C2026-03] 那天下雨了
   // ==========================================
   {
-    id: 'C2026-03',
+    id: 'C2026-03', //已完成
     name: '那天下雨了',
     album: '太陽之子',
     year: 2026,
     track: 3,
-    type: '事件',
+    type: '遭遇',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '太陽之子',
-    flavorText: '「那天下雨了，泥濘的道路阻擋不了前進的腳步……」滂沱大雨淋濕了衣衫，但眼中的火焰從未熄滅。',
-    // TODO: 第二階段效果、機制、選項實裝
+    weight: 15,
+    route: '周杰倫家庭',
+    hasEnvironmentEffect: true,
+    environmentEffectName: '那天下雨了',
+    flavorText: '「消失的下雨天，我想再淋一遍，我應該對你唱著晴天。」',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
+        text: '進入下雨天環境狀態',
+        resultText: '雪白的天空等待彩虹出現，不然會雨下一整晚',
+        effect: {
+          setFlag: { rainy_weather_active: true },
+        },
       },
     ],
   },
@@ -4388,37 +4481,47 @@ export const CARD_DATABASE: CardDefinition[] = [
     track: 10,
     type: '事件',
     maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '太陽之子',
+    weight: 0, // 抽卡機率 0%，需身為女兒殿下並成功完成第 30 回合終局方可獲得
+    route: '周杰倫家庭',
+    isSynthesizedOnly: true,
+    acquisitionSource: '守護女兒殿下完成冒險終局獲得',
+    badgeTitle: '✦ 親情摯愛・真愛守護 ✦',
+    hintText: '父愛如山，你守護著女兒殿下平安度過 30 回合！獲得關鍵卡牌【女兒殿下】！',
+    specialAcquisitionNote:
+      '此卡牌為專屬特殊機制卡牌，在常規抽卡池中無法抽卡獲得。\n以【女兒殿下】身分成功完成第 30 回合終局冒險後獲得，已永久記錄至你的冒險手冊與音樂圖鑑！',
     flavorText: '「女兒殿下，父愛如山守護著你純真的夢想……」城堡花園裡盛開著玫瑰，琴鍵上跳動著父親深沈的愛意。',
-    // TODO: 第二階段效果、機制、選項實裝
-    options: [
-      {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
-        effect: {},
-      },
-    ],
+    options: [],
   },
   // ==========================================
   // [C2026-11] 淘金小鎮
   // ==========================================
   {
-    id: 'C2026-11',
+    id: 'C2026-11', //已完成
     name: '淘金小鎮',
     album: '太陽之子',
     year: 2026,
     track: 11,
-    type: '事件',
-    maxDraws: 1,
-    weight: 0, // 尚未開放抽卡 (待第二階段實裝效果與選項)
-    route: '太陽之子',
-    flavorText: '「淘金小鎮的蒸汽機車鳴響，冒險者聚集在荒野酒館……」滾滾淘金熱浪席捲而來，黃金與機關在泥沼中閃爍。',
-    // TODO: 第二階段效果、機制、選項實裝
+    type: '遭遇',
+    maxDraws: 3,
+    weight: 10,
+    route: '周杰倫家庭',
+    flavorText: '「口哨聲 誰一路跟 一雙雙貪婪的眼神，乾杯的人們 狂歡那金很沉」淘金熱浪席捲而來，沙金河始終蜿蜒著你我。',
     options: [
       {
-        text: '聆聽旋律（待第二階段實裝）',
-        resultText: '旋律在耳畔流淌，等待未來的宿命共鳴。',
+        text: '花費 5 點行動力進入淘金小鎮挖寶',
+        resultText: '你邁步踏入淘金小鎮礦區，用雙手淘洗一切想要的生活！',
+        require: { minAp: 5 },
+        effect: { apChange: -5 },
+      },
+      {
+        text: '花費 5 枚金幣獲得淘金小鎮門票',
+        resultText: '你花費 5 枚金幣購得永久通行門票，淘金小鎮自此為你常駐開放！',
+        require: { minCoins: 5 },
+        effect: { coinChange: -5, setFlag: { gold_town_unlocked: true } },
+      },
+      {
+        text: '沒錢沒力，離開淘金小鎮',
+        resultText: 'Hey!!有人篩選泥土卻篩選出孤獨。',
         effect: {},
       },
     ],
@@ -4495,3 +4598,35 @@ export const CARD_DATABASE: CardDefinition[] = [
     ],
   },
 ];
+
+/**
+ * 取得與某張卡牌關聯的所有行囊物品名稱 (包含卡名自身與選項中產出的物品)
+ */
+export function getCardItemNames(card: CardDefinition): string[] {
+  const names = new Set<string>();
+  if (card.name) {
+    names.add(card.name);
+    if (card.name.includes(' ')) {
+      names.add(card.name.replace(/\s+/g, ''));
+    }
+  }
+  card.options?.forEach((opt) => {
+    if (opt.effect?.addItem) {
+      names.add(opt.effect.addItem);
+    }
+  });
+  return Array.from(names);
+}
+
+/**
+ * 依據行囊物品名稱尋找對應的來源卡牌 ID
+ */
+export function getCardIdByItemName(itemName: string): string | null {
+  const cleanName = itemName.trim();
+  const match = CARD_DATABASE.find((c) => {
+    if (c.name === cleanName) return true;
+    if (c.name.replace(/\s+/g, '') === cleanName) return true;
+    return c.options?.some((opt) => opt.effect?.addItem === cleanName);
+  });
+  return match ? match.id : null;
+}

@@ -3,6 +3,10 @@ import { CARD_DATABASE } from '../data/cards';
 import { ALL_CHARACTERS } from '../data/characters';
 import { CardDefinition } from '../types';
 import { CharacterAvatarIcon } from './CharacterAvatarIcon';
+import { GoldCoinIcon } from './GoldCoinIcon';
+import { NinjaIcon } from './NinjaIcon';
+import { ShovelIcon } from './ShovelIcon';
+import { NunchakuIcon } from './NunchakuIcon';
 
 interface DevModalProps {
   currentRound: number;
@@ -36,6 +40,20 @@ interface DevModalProps {
   onToggleFireworks?: (active: boolean) => void;
   isBlacksmithUnlocked?: boolean;
   onToggleBlacksmith?: (active: boolean) => void;
+  isGoldTownUnlocked?: boolean;
+  onToggleGoldTown?: (active: boolean) => void;
+  isTerraceUnlocked?: boolean;
+  onToggleTerrace?: (active: boolean) => void;
+  onFastMatureTerrace?: (crop?: 'tea' | 'flower_sea') => void;
+  isRomanticPhoneUnlocked?: boolean;
+  onToggleRomanticPhone?: (active: boolean) => void;
+  isHeadacheActive?: boolean;
+  onToggleHeadache?: (active: boolean) => void;
+  isRainyWeatherActive?: boolean;
+  onToggleRainyWeather?: (active: boolean) => void;
+  onFastForwardRainRounds?: () => void;
+  currentCoins?: number;
+  onSetCoins?: (coins: number) => void;
 }
 
 export const DevModal: React.FC<DevModalProps> = ({
@@ -70,6 +88,20 @@ export const DevModal: React.FC<DevModalProps> = ({
   onToggleFireworks,
   isBlacksmithUnlocked = false,
   onToggleBlacksmith,
+  isGoldTownUnlocked = false,
+  onToggleGoldTown,
+  isTerraceUnlocked = false,
+  onToggleTerrace,
+  onFastMatureTerrace,
+  isRomanticPhoneUnlocked = false,
+  onToggleRomanticPhone,
+  isHeadacheActive = false,
+  onToggleHeadache,
+  isRainyWeatherActive = false,
+  onToggleRainyWeather,
+  onFastForwardRainRounds,
+  currentCoins = 0,
+  onSetCoins,
 }) => {
   const [filterType, setFilterType] = useState<string>('全部');
   const [search, setSearch] = useState<string>('');
@@ -166,7 +198,7 @@ export const DevModal: React.FC<DevModalProps> = ({
     }
   };
 
-  const familyList = ['外婆', '聽媽媽的話', '爸我回來了', '爺爺泡的茶', '女兒殿下'];
+  const familyList = ['以父之名', '《葉惠美》', '外婆', '爺爺泡的茶', '前世情人', '粉色海洋', '娘子', 'I Do'];
   const hasAllFamily = familyList.every((it) => isHeld(it));
   const toggleFamilySet = () => {
     if (hasAllFamily) {
@@ -182,7 +214,7 @@ export const DevModal: React.FC<DevModalProps> = ({
     }
   };
 
-  const timeList = ['半島鐵盒', '時光機', '反方向的鐘'];
+  const timeList = ['半島鐵盒', '飛行時光機', '反方向的鐘'];
   const hasAllTime = timeList.every((it) => isHeld(it));
   const toggleTimeSet = () => {
     if (hasAllTime) {
@@ -194,7 +226,7 @@ export const DevModal: React.FC<DevModalProps> = ({
       showFeedback('已關閉/卸除【時空神器三件套】');
     } else {
       onAddMultipleItems(timeList);
-      showFeedback('已開啟【時空神器三件套】');
+      showFeedback('已開啟【時空神器三件套】（半島鐵盒＋飛行時光機＋反方向的鐘）');
     }
   };
 
@@ -406,41 +438,46 @@ export const DevModal: React.FC<DevModalProps> = ({
             </div>
           </div>
 
-          {/* Section 3: 行動力調控 & 全域成就/圖鑑一鍵解鎖 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 shrink-0">
+          {/* Section 3: 冒險資源與全域進度調控（3 欄對稱排版） */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 shrink-0">
             {/* 行動力調控 */}
-            <div className="bg-black/50 border border-stone-800/90 rounded-xl p-3 flex flex-col gap-2">
-              <div className="text-xs font-bold text-rose-300 flex items-center justify-between">
-                <span>❤️ 行動力調控（當前行動力：{currentAp}）</span>
+            <div className="bg-black/50 border border-stone-800/90 rounded-xl p-3 flex flex-col justify-between gap-2.5">
+              <div className="text-xs font-bold text-rose-300 flex items-center justify-between border-b border-stone-800/60 pb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <span>⚡</span>
+                  <span>行動力調控</span>
+                </span>
+                <span className="text-[11px] text-rose-400 font-mono font-bold">
+                  當前：{currentAp} / 30
+                </span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-2 lg:grid-cols-4 gap-1.5">
                 <button
                   onClick={() => {
                     onSetAp(30);
                     showFeedback('行動力已恢復至 30');
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border border-emerald-700 text-xs font-bold cursor-pointer transition-colors"
+                  className="px-2 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border border-emerald-700 text-xs font-bold cursor-pointer transition-colors text-center"
                 >
-                  滿額 (行動力 30)
+                  滿額 (30)
                 </button>
                 <button
                   onClick={() => {
                     onSetAp(1);
-                    showFeedback('行動力已調至瀕危狀態 1');
+                    showFeedback('行動力已調至瀕危 1');
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-700 text-xs font-bold cursor-pointer transition-colors"
+                  className="px-2 py-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-700 text-xs font-bold cursor-pointer transition-colors text-center"
                 >
-                  瀕危 (行動力 1)
+                  瀕危 (1)
                 </button>
                 <button
                   onClick={() => {
                     onSetAp(0);
-                    showFeedback('行動力已調至 0（觸發力竭懲罰）');
+                    showFeedback('行動力已調至 0');
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-700 text-xs font-bold cursor-pointer transition-colors"
-                  title="觸發行動力耗盡重開局罰則"
+                  className="px-2 py-1.5 rounded-lg bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-700 text-xs font-bold cursor-pointer transition-colors text-center"
                 >
-                  力竭 (行動力 0)
+                  力竭 (0)
                 </button>
                 <button
                   onClick={() => {
@@ -448,67 +485,109 @@ export const DevModal: React.FC<DevModalProps> = ({
                     onSetAp(newAp);
                     showFeedback(`行動力 +10 (當前: ${newAp})`);
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs cursor-pointer border border-stone-700 transition-colors"
+                  className="px-2 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold cursor-pointer border border-stone-700 transition-colors text-center"
                 >
-                  +10 行動力
-                </button>
-                <button
-                  onClick={() => {
-                    const newAp = Math.max(0, currentAp - 5);
-                    onSetAp(newAp);
-                    showFeedback(`行動力 -5 (當前: ${newAp})`);
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs cursor-pointer border border-stone-700 transition-colors"
-                >
-                  -5 行動力
+                  +10 點
                 </button>
               </div>
             </div>
 
-            {/* 一鍵解鎖圖鑑與成就 */}
-            <div className="bg-black/50 border border-stone-800/90 rounded-xl p-3 flex flex-col gap-2">
-              <div className="text-xs font-bold text-amber-300 flex items-center justify-between">
-                <span>📚 全域進度輔助（點選直接解鎖）</span>
+            {/* 金幣調控 */}
+            <div className="bg-black/50 border border-stone-800/90 rounded-xl p-3 flex flex-col justify-between gap-2.5">
+              <div className="text-xs font-bold text-yellow-300 flex items-center justify-between border-b border-stone-800/60 pb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <GoldCoinIcon className="w-3.5 h-3.5" />
+                  <span>金幣調控</span>
+                </span>
+                <span className="text-[11px] text-yellow-400 font-mono font-bold">
+                  當前：{currentCoins} 枚
+                </span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
+                {onSetCoins && (
+                  <>
+                    <button
+                      onClick={() => {
+                        onSetCoins(currentCoins + 5);
+                        showFeedback(`金幣 +5 (當前: ${currentCoins + 5})`);
+                      }}
+                      className="px-2 py-1.5 rounded-lg bg-yellow-950/80 hover:bg-yellow-900 text-yellow-200 border border-yellow-700 text-xs font-bold cursor-pointer transition-colors text-center"
+                    >
+                      +5 金幣
+                    </button>
+                    <button
+                      onClick={() => {
+                        onSetCoins(currentCoins + 10);
+                        showFeedback(`金幣 +10 (當前: ${currentCoins + 10})`);
+                      }}
+                      className="px-2 py-1.5 rounded-lg bg-yellow-950/80 hover:bg-yellow-900 text-yellow-200 border border-yellow-700 text-xs font-bold cursor-pointer transition-colors text-center"
+                    >
+                      +10 金幣
+                    </button>
+                    <button
+                      onClick={() => {
+                        onSetCoins(0);
+                        showFeedback('金幣已歸零');
+                      }}
+                      className="px-2 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-700 text-xs font-bold cursor-pointer transition-colors text-center"
+                    >
+                      金幣歸零
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 一鍵解鎖圖鑑與成就 */}
+            <div className="bg-black/50 border border-stone-800/90 rounded-xl p-3 flex flex-col justify-between gap-2.5">
+              <div className="text-xs font-bold text-purple-300 flex items-center justify-between border-b border-stone-800/60 pb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <span>📚</span>
+                  <span>全域進度輔助</span>
+                </span>
+                <span className="text-[11px] text-stone-400 font-mono">點選立即生效</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
                 <button
                   onClick={() => {
                     onUnlockAllSongs();
                     showFeedback(`已全數解鎖 ${CARD_DATABASE.length} 首歌曲圖鑑！`);
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-amber-950/60 hover:bg-amber-900 text-amber-200 border border-amber-800 text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors"
+                  className="px-2 py-1.5 rounded-lg bg-amber-950/60 hover:bg-amber-900 text-amber-200 border border-amber-800 text-xs font-bold cursor-pointer flex items-center justify-center gap-1 transition-colors text-center"
+                  title={`全數解鎖 ${CARD_DATABASE.length} 首歌曲圖鑑`}
                 >
                   <span>🎵</span>
-                  <span>全解鎖 {CARD_DATABASE.length} 首歌曲圖鑑</span>
+                  <span className="truncate">解鎖圖鑑</span>
                 </button>
+
                 <button
                   onClick={() => {
                     onUnlockAllAchievements();
                     showFeedback('已全數解鎖 9 大傳奇成就！');
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-purple-950/60 hover:bg-purple-900 text-purple-200 border border-purple-800 text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors"
+                  className="px-2 py-1.5 rounded-lg bg-purple-950/60 hover:bg-purple-900 text-purple-200 border border-purple-800 text-xs font-bold cursor-pointer flex items-center justify-center gap-1 transition-colors text-center"
+                  title="全數解鎖 9 大傳奇成就"
                 >
                   <span>🏅</span>
-                  <span>全解鎖 9 大傳奇成就</span>
+                  <span className="truncate">解鎖成就</span>
                 </button>
 
                 {onClearHallOfFame &&
                   (confirmClearHall ? (
-                    <div className="flex items-center gap-1.5 bg-red-950/80 border border-red-600 px-2.5 py-1 rounded-lg">
-                      <span className="text-xs text-red-200 font-bold">確定清空殿堂？</span>
+                    <div className="flex items-center justify-center gap-1 bg-red-950/80 border border-red-600 px-1 py-1 rounded-lg">
                       <button
                         onClick={() => {
                           setConfirmClearHall(false);
                           onClearHallOfFame();
                           showFeedback('已清空傳奇殿堂戰績卡！');
                         }}
-                        className="px-2.5 py-1 rounded bg-red-600 hover:bg-red-500 text-white font-bold text-xs cursor-pointer"
+                        className="px-1.5 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white font-bold text-xs cursor-pointer"
                       >
                         確定
                       </button>
                       <button
                         onClick={() => setConfirmClearHall(false)}
-                        className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs cursor-pointer"
+                        className="px-1 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs cursor-pointer"
                       >
                         取消
                       </button>
@@ -516,120 +595,382 @@ export const DevModal: React.FC<DevModalProps> = ({
                   ) : (
                     <button
                       onClick={() => setConfirmClearHall(true)}
-                      className="px-3 py-1.5 rounded-lg bg-red-950/50 hover:bg-red-900/80 text-red-300 border border-red-800 text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors"
+                      className="px-2 py-1.5 rounded-lg bg-red-950/50 hover:bg-red-900/80 text-red-300 border border-red-800 text-xs font-bold cursor-pointer flex items-center justify-center gap-1 transition-colors text-center"
                       title="清空傳奇殿堂的所有歷史評級戰績卡"
                     >
                       <span>🏛️</span>
-                      <span>清空殿堂戰績卡</span>
+                      <span className="truncate">清空殿堂</span>
                     </button>
                   ))}
               </div>
             </div>
+          </div>
 
-            {/* Section: 環境變化狀態調控 */}
-            <div className="bg-black/50 border border-stone-800/90 rounded-xl p-3 flex flex-col gap-2 shrink-0">
-              <div className="text-xs font-bold text-red-300 flex items-center justify-between">
-                <span>⚡ 環境變化狀態調控（各種環境各自獨立作用、可共存）</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                {/* 亂舞春秋時代 */}
-                <div className="flex items-center gap-2 bg-stone-900/90 border border-stone-800 px-3 py-1.5 rounded-lg">
-                  <span className="text-xs text-stone-300">亂舞春秋時代：</span>
-                  <span
-                    className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${
-                      isChaosEraActive
-                        ? 'bg-red-950 text-red-300 border border-red-800 animate-pulse'
-                        : 'bg-stone-800 text-stone-500'
-                    }`}
-                  >
-                    {isChaosEraActive ? '作用中' : '未開啟'}
-                  </span>
+          {/* Section: 環境變化狀態與常駐設施調控 */}
+          <div className="w-full bg-black/50 border border-stone-800/90 rounded-xl p-3 flex flex-col gap-2.5 shrink-0">
+            <div className="text-xs font-bold text-red-300 flex items-center justify-between border-b border-stone-800/60 pb-1.5">
+              <span className="flex items-center gap-1.5">
+                <span>🌐</span>
+                <span>環境變化狀態開關（環境狀態類 / 常駐設施類）</span>
+              </span>
+              <span className="text-[11px] text-stone-500 font-mono">點選按鈕即時切換狀態</span>
+            </div>
+            
+            {/* 第一行：環境狀態類（亂舞春秋 / 追逐忍者 / 煙火燃燒 / 偏頭痛 / 下雨） */}
+            <div className="flex flex-col gap-1">
+              <div className="text-[11px] font-bold text-stone-400">⚡ 環境狀態類</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                {/* 1. 亂舞春秋時代 */}
+                <div className="flex flex-col justify-between bg-stone-900/90 border border-stone-800 p-2.5 rounded-lg gap-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs text-stone-200 font-bold truncate flex items-center gap-1">
+                      <span>⚔️</span>
+                      <span>亂舞春秋</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        isChaosEraActive
+                          ? 'bg-red-950 text-red-300 border border-red-800 animate-pulse'
+                          : 'bg-stone-800 text-stone-500'
+                      }`}
+                    >
+                      {isChaosEraActive ? '作用中' : '未開啟'}
+                    </span>
+                  </div>
                   {onToggleChaosEra && (
                     <button
                       onClick={() => {
                         onToggleChaosEra(!isChaosEraActive);
                         showFeedback(!isChaosEraActive ? '已開啟【亂舞春秋時代】' : '已解除【亂舞春秋時代】');
                       }}
-                      className="ml-1 text-xs px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-amber-200 border border-stone-700 cursor-pointer transition-colors"
+                      className={`w-full text-xs py-1.5 rounded-lg font-bold cursor-pointer transition-colors border ${
+                        isChaosEraActive
+                          ? 'bg-red-950/80 hover:bg-red-900 text-red-200 border-red-700'
+                          : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border-stone-700'
+                      }`}
                     >
-                      {isChaosEraActive ? '關閉' : '開啟'}
+                      {isChaosEraActive ? '關閉時代' : '開啟時代'}
                     </button>
                   )}
                 </div>
 
-                {/* 追逐忍者 */}
-                <div className="flex items-center gap-2 bg-stone-900/90 border border-stone-800 px-3 py-1.5 rounded-lg">
-                  <span className="text-xs text-stone-300">追逐忍者：</span>
-                  <span
-                    className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${
-                      isNinjaChasing
-                        ? 'bg-red-950 text-red-300 border border-red-800 animate-pulse'
-                        : 'bg-stone-800 text-stone-500'
-                    }`}
-                  >
-                    {isNinjaChasing ? '追逐中' : '未開啟'}
-                  </span>
+                {/* 2. 追逐忍者 */}
+                <div className="flex flex-col justify-between bg-stone-900/90 border border-stone-800 p-2.5 rounded-lg gap-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs text-stone-200 font-bold truncate flex items-center gap-1.5">
+                      <NinjaIcon className="w-3.5 h-3.5" />
+                      <span>追逐忍者</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        isNinjaChasing
+                          ? 'bg-red-950 text-red-300 border border-red-800 animate-pulse'
+                          : 'bg-stone-800 text-stone-500'
+                      }`}
+                    >
+                      {isNinjaChasing ? '追逐中' : '未開啟'}
+                    </span>
+                  </div>
                   {onToggleNinjaChase && (
                     <button
                       onClick={() => {
                         onToggleNinjaChase(!isNinjaChasing);
                         showFeedback(!isNinjaChasing ? '已開啟【追逐忍者】狀態' : '已解除【追逐忍者】狀態');
                       }}
-                      className="ml-1 text-xs px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-amber-200 border border-stone-700 cursor-pointer transition-colors"
+                      className={`w-full text-xs py-1.5 rounded-lg font-bold cursor-pointer transition-colors border ${
+                        isNinjaChasing
+                          ? 'bg-red-950/80 hover:bg-red-900 text-red-200 border-red-700'
+                          : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border-stone-700'
+                      }`}
                     >
-                      {isNinjaChasing ? '解除' : '開啟追逐'}
+                      {isNinjaChasing ? '解除追逐' : '開啟追逐'}
                     </button>
                   )}
                 </div>
 
-                {/* 煙火燃燒 */}
-                <div className="flex items-center gap-2 bg-stone-900/90 border border-stone-800 px-3 py-1.5 rounded-lg">
-                  <span className="text-xs text-stone-300">煙火燃燒：</span>
-                  <span
-                    className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${
-                      isFireworksBurning
-                        ? 'bg-red-950 text-red-300 border border-red-800 animate-pulse'
-                        : 'bg-stone-800 text-stone-500'
-                    }`}
-                  >
-                    {isFireworksBurning ? '燃燒中' : '未開啟'}
-                  </span>
+                {/* 3. 煙火燃燒 */}
+                <div className="flex flex-col justify-between bg-stone-900/90 border border-stone-800 p-2.5 rounded-lg gap-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs text-stone-200 font-bold truncate flex items-center gap-1">
+                      <span>🎆</span>
+                      <span>煙火燃燒</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        isFireworksBurning
+                          ? 'bg-red-950 text-red-300 border border-red-800 animate-pulse'
+                          : 'bg-stone-800 text-stone-500'
+                      }`}
+                    >
+                      {isFireworksBurning ? '燃燒中' : '未開啟'}
+                    </span>
+                  </div>
                   {onToggleFireworks && (
                     <button
                       onClick={() => {
                         onToggleFireworks(!isFireworksBurning);
                         showFeedback(!isFireworksBurning ? '已開啟【煙火燃燒】狀態' : '已解除【煙火燃燒】狀態');
                       }}
-                      className="ml-1 text-xs px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-amber-200 border border-stone-700 cursor-pointer transition-colors"
+                      className={`w-full text-xs py-1.5 rounded-lg font-bold cursor-pointer transition-colors border ${
+                        isFireworksBurning
+                          ? 'bg-red-950/80 hover:bg-red-900 text-red-200 border-red-700'
+                          : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border-stone-700'
+                      }`}
                     >
-                      {isFireworksBurning ? '熄滅' : '點燃'}
+                      {isFireworksBurning ? '熄滅火勢' : '點燃煙火'}
                     </button>
                   )}
                 </div>
 
-                {/* 米蘭小鐵鋪常駐 (持有鄉間的路指引後或手動開啟) */}
-                <div className="flex items-center gap-2 bg-stone-900/90 border border-stone-800 px-3 py-1.5 rounded-lg">
-                  <span className="text-xs text-stone-300">米蘭小鐵鋪常駐：</span>
-                  <span
-                    className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${
-                      isBlacksmithUnlocked
-                        ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
-                        : 'bg-stone-800 text-stone-500'
-                    }`}
-                  >
-                    {isBlacksmithUnlocked ? '常駐中' : '未開啟'}
-                  </span>
+                {/* 4. 偏頭痛環境狀態 */}
+                <div className="flex flex-col justify-between bg-stone-900/90 border border-stone-800 p-2.5 rounded-lg gap-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs text-stone-200 font-bold truncate flex items-center gap-1">
+                      <span>🤕</span>
+                      <span>偏頭痛</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        isHeadacheActive
+                          ? 'bg-red-950 text-red-300 border border-red-800 animate-pulse'
+                          : 'bg-stone-800 text-stone-500'
+                      }`}
+                    >
+                      {isHeadacheActive ? '發作中' : '未發作'}
+                    </span>
+                  </div>
+                  {onToggleHeadache && (
+                    <button
+                      onClick={() => {
+                        onToggleHeadache(!isHeadacheActive);
+                        showFeedback(!isHeadacheActive ? '已開啟【偏頭痛】狀態（每回合行動力 -2）' : '已解除【偏頭痛】狀態');
+                      }}
+                      className={`w-full text-xs py-1.5 rounded-lg font-bold cursor-pointer transition-colors border ${
+                        isHeadacheActive
+                          ? 'bg-red-950/80 hover:bg-red-900 text-red-200 border-red-700'
+                          : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border-stone-700'
+                      }`}
+                    >
+                      {isHeadacheActive ? '解除頭痛' : '引起偏頭痛'}
+                    </button>
+                  )}
+                </div>
+
+                {/* 5. 下雨環境狀態 */}
+                <div className="flex flex-col justify-between bg-stone-900/90 border border-stone-800 p-2.5 rounded-lg gap-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs text-stone-200 font-bold truncate flex items-center gap-1">
+                      <span>🌧️</span>
+                      <span>下雨</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        isRainyWeatherActive
+                          ? 'bg-sky-950 text-sky-300 border border-sky-700 animate-pulse'
+                          : 'bg-stone-800 text-stone-500'
+                      }`}
+                    >
+                      {isRainyWeatherActive ? '下雨中' : '放晴'}
+                    </span>
+                  </div>
+                  {onToggleRainyWeather && (
+                    <button
+                      onClick={() => {
+                        onToggleRainyWeather(!isRainyWeatherActive);
+                        showFeedback(!isRainyWeatherActive ? '已開啟【那天下雨了】下雨天狀態！' : '已解除【下雨天】狀態，天空放晴！');
+                      }}
+                      className={`w-full text-xs py-1.5 rounded-lg font-bold cursor-pointer transition-colors border ${
+                        isRainyWeatherActive
+                          ? 'bg-sky-950/80 hover:bg-sky-900 text-sky-200 border-sky-700'
+                          : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border-stone-700'
+                      }`}
+                      title="切換【那天下雨了】下雨天環境狀態"
+                    >
+                      {isRainyWeatherActive ? '解除下雨' : '降下豪雨'}
+                    </button>
+                  )}
+                  {onFastForwardRainRounds && isRainyWeatherActive && (
+                    <button
+                      onClick={() => {
+                        onFastForwardRainRounds();
+                        showFeedback('已設定下雨天歷經滿 5 回合！下一回合將觸發居中《聽見下雨的聲音》！');
+                      }}
+                      className="w-full text-[10px] py-1 rounded bg-sky-900/60 hover:bg-sky-800 text-sky-200 border border-sky-600 font-bold cursor-pointer transition-colors"
+                      title="快進下雨經歷滿 5 回合以觸發聽見下雨的聲音連動"
+                    >
+                      ⚡ 歷經滿5回合 (觸發聽雨)
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 第二行：常駐設施類（米蘭小鐵鋪 / 淘金小鎮 / 梯田 / 浪漫手機） */}
+            <div className="flex flex-col gap-1 pt-1.5 border-t border-stone-800/60">
+              <div className="text-[11px] font-bold text-stone-400">🏛️ 常駐設施與功能類</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                {/* 1. 米蘭小鐵鋪常駐 */}
+                <div className="flex flex-col justify-between bg-stone-900/90 border border-stone-800 p-2.5 rounded-lg gap-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs text-stone-200 font-bold truncate flex items-center gap-1">
+                      <span>🔨</span>
+                      <span>米蘭小鐵鋪</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        isBlacksmithUnlocked
+                          ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
+                          : 'bg-stone-800 text-stone-500'
+                      }`}
+                    >
+                      {isBlacksmithUnlocked ? '常駐中' : '未開啟'}
+                    </span>
+                  </div>
                   {onToggleBlacksmith && (
                     <button
                       onClick={() => {
                         onToggleBlacksmith(!isBlacksmithUnlocked);
                         showFeedback(!isBlacksmithUnlocked ? '已開啟【米蘭小鐵鋪常駐】' : '已關閉【米蘭小鐵鋪常駐】');
                       }}
-                      className="ml-1 text-xs px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-amber-200 border border-stone-700 cursor-pointer transition-colors"
+                      className={`w-full text-xs py-1.5 rounded-lg font-bold cursor-pointer transition-colors border ${
+                        isBlacksmithUnlocked
+                          ? 'bg-amber-950/80 hover:bg-amber-900 text-amber-200 border-amber-700'
+                          : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border-stone-700'
+                      }`}
                     >
-                      {isBlacksmithUnlocked ? '關閉' : '開啟常駐'}
+                      {isBlacksmithUnlocked ? '關閉常駐' : '開啟常駐'}
                     </button>
                   )}
+                </div>
+
+                {/* 2. 淘金小鎮常駐 */}
+                <div className="flex flex-col justify-between bg-stone-900/90 border border-stone-800 p-2.5 rounded-lg gap-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs text-stone-200 font-bold truncate flex items-center gap-1">
+                      <span>⛏️</span>
+                      <span>淘金小鎮</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        isGoldTownUnlocked
+                          ? 'bg-yellow-950 text-yellow-300 border border-yellow-800 animate-pulse'
+                          : 'bg-stone-800 text-stone-500'
+                      }`}
+                    >
+                      {isGoldTownUnlocked ? '常駐中' : '未開啟'}
+                    </span>
+                  </div>
+                  {onToggleGoldTown && (
+                    <button
+                      onClick={() => {
+                        onToggleGoldTown(!isGoldTownUnlocked);
+                        showFeedback(!isGoldTownUnlocked ? '已開啟【淘金小鎮常駐】' : '已關閉【淘金小鎮常駐】');
+                      }}
+                      className={`w-full text-xs py-1.5 rounded-lg font-bold cursor-pointer transition-colors border ${
+                        isGoldTownUnlocked
+                          ? 'bg-yellow-950/80 hover:bg-yellow-900 text-yellow-200 border-yellow-700'
+                          : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border-stone-700'
+                      }`}
+                    >
+                      {isGoldTownUnlocked ? '關閉常駐' : '開啟常駐'}
+                    </button>
+                  )}
+                </div>
+
+                {/* 3. 梯田常駐 */}
+                <div className="flex flex-col justify-between bg-stone-900/90 border border-stone-800 p-2.5 rounded-lg gap-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs text-stone-200 font-bold truncate flex items-center gap-1">
+                      <span>🌾</span>
+                      <span>梯田</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        isTerraceUnlocked
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-700 animate-pulse'
+                          : 'bg-stone-800 text-stone-500'
+                      }`}
+                    >
+                      {isTerraceUnlocked ? '常駐中' : '未開啟'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {onToggleTerrace && (
+                      <button
+                        onClick={() => {
+                          onToggleTerrace(!isTerraceUnlocked);
+                          showFeedback(!isTerraceUnlocked ? '已開啟【梯田常駐】' : '已關閉【梯田常駐】');
+                        }}
+                        className={`w-full text-xs py-1.5 rounded-lg font-bold cursor-pointer transition-colors border ${
+                          isTerraceUnlocked
+                            ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border-emerald-700'
+                            : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border-stone-700'
+                        }`}
+                      >
+                        {isTerraceUnlocked ? '關閉常駐' : '開啟常駐'}
+                      </button>
+                    )}
+                    {onFastMatureTerrace && isTerraceUnlocked && (
+                      <div className="grid grid-cols-2 gap-1">
+                        <button
+                          onClick={() => {
+                            onFastMatureTerrace('tea');
+                            showFeedback('已使梯田【茶葉】直接進入可收成成熟狀態！');
+                          }}
+                          className="text-[10px] py-1 rounded font-bold cursor-pointer transition-colors border bg-emerald-900/50 hover:bg-emerald-800/70 text-emerald-300 border-emerald-600/60 truncate"
+                          title="使梯田直接熟成茶葉（可收成茶葉1份）"
+                        >
+                          ⚡ 茶葉成熟
+                        </button>
+                        <button
+                          onClick={() => {
+                            onFastMatureTerrace('flower_sea');
+                            showFeedback('已使梯田【花海】直接進入可收成盛放狀態！');
+                          }}
+                          className="text-[10px] py-1 rounded font-bold cursor-pointer transition-colors border bg-purple-900/50 hover:bg-purple-800/70 text-purple-300 border-purple-600/60 truncate"
+                          title="使梯田直接熟成花海（可收成《花海》卡牌）"
+                        >
+                          🌸 花海成熟
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. 浪漫手機常駐 */}
+                <div className="flex flex-col justify-between bg-stone-900/90 border border-stone-800 p-2.5 rounded-lg gap-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs text-stone-200 font-bold truncate flex items-center gap-1">
+                      <span>📱</span>
+                      <span>浪漫手機</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        isRomanticPhoneUnlocked
+                          ? 'bg-rose-950 text-rose-300 border border-rose-700 animate-pulse'
+                          : 'bg-stone-800 text-stone-500'
+                      }`}
+                    >
+                      {isRomanticPhoneUnlocked ? '常駐中' : '未開啟'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {onToggleRomanticPhone && (
+                      <button
+                        onClick={() => {
+                          onToggleRomanticPhone(!isRomanticPhoneUnlocked);
+                          showFeedback(!isRomanticPhoneUnlocked ? '已開啟【浪漫手機常駐】' : '已關閉【浪漫手機常駐】');
+                        }}
+                        className={`w-full text-xs py-1.5 rounded-lg font-bold cursor-pointer transition-colors border ${
+                          isRomanticPhoneUnlocked
+                            ? 'bg-rose-950/80 hover:bg-rose-900 text-rose-200 border-rose-700'
+                            : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border-stone-700'
+                        }`}
+                      >
+                        {isRomanticPhoneUnlocked ? '關閉常駐' : '開啟常駐'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -699,7 +1040,7 @@ export const DevModal: React.FC<DevModalProps> = ({
                       ? 'bg-purple-950/80 hover:bg-purple-900 text-purple-200 border-purple-600 shadow-[0_0_10px_rgba(168,85,247,0.25)]'
                       : 'bg-stone-900 hover:bg-stone-800 text-stone-400 border-stone-700 hover:text-stone-200'
                   }`}
-                  title="時光機、反方向的鐘、半島鐵盒"
+                  title="半島鐵盒、飛行時光機、反方向的鐘"
                 >
                   <span>{hasAllTime ? '✓' : '+'}</span>
                   <span>時空神器三件套</span>
@@ -731,6 +1072,7 @@ export const DevModal: React.FC<DevModalProps> = ({
                     title="點擊切換開關（開啟時預設給予 2 支，滿足半獸人消耗需求）"
                   >
                     <span>{isHeld('雙截棍') ? '✓' : '○'}</span>
+                    <NunchakuIcon className="w-3.5 h-3.5 shrink-0" />
                     <span>雙截棍</span>
                     {isHeld('雙截棍') && (
                       <span className="text-[11px] text-emerald-300 font-mono">x{getCount('雙截棍')}</span>
@@ -851,6 +1193,23 @@ export const DevModal: React.FC<DevModalProps> = ({
                     {isHeld('免費教學錄影帶') ? '(英雄天賦生效中)' : '(點擊開啟)'}
                   </span>
                 </button>
+
+                {/* 黑色毛衣：抵禦強敵攻擊 */}
+                <button
+                  onClick={() => toggleItem('黑色毛衣')}
+                  className={`px-2.5 py-1 rounded-lg border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                    isHeld('黑色毛衣')
+                      ? 'bg-emerald-950/70 border-emerald-500/80 text-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+                      : 'bg-stone-900/80 border-stone-800 text-stone-400 hover:text-stone-200'
+                  }`}
+                  title="抵禦強敵攻擊（如半獸人反擊、龍戰騎士猛攻，消耗1件免受傷害）"
+                >
+                  <span>{isHeld('黑色毛衣') ? '✓' : '○'}</span>
+                  <span>🧥 黑色毛衣</span>
+                  <span className="text-[10px] text-stone-400 font-normal">
+                    {isHeld('黑色毛衣') ? '(抵禦生效中)' : '(點擊開啟)'}
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -858,16 +1217,16 @@ export const DevModal: React.FC<DevModalProps> = ({
             <div className="flex flex-col gap-1.5">
               <div className="text-[11px] font-bold text-cyan-300/90 flex items-center gap-1">
                 <span>📜</span>
-                <span>遭遇信物與終局戰役連動（四對手信物集齊啟動【亂舞春秋】；最後的戰役導引決戰將軍）</span>
+                <span>《太陽之子》遭遇信物與終局戰役連動（四對手信物集齊啟動【亂舞春秋】；最後的戰役導引決戰將軍）</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {[
-                  { name: '超跑女神指引的賽道', label: '🏎️ 超跑女神指引的賽道' },
-                  { name: '印地安老斑鳩', label: '🐦 印地安老斑鳩' },
-                  { name: '忍者', label: '🥷 忍者' },
-                  { name: '半獸人', label: '👹 半獸人' },
-                  { name: '龍戰騎士的遺言', label: '📜 龍戰騎士的遺言' },
-                  { name: '最後的戰役', label: '🎖️ 最後的戰役' },
+                  { name: '超跑女神指引的賽道', label: '超跑女神指引的賽道', emoji: '🏎️' },
+                  { name: '印地安老斑鳩', label: '印地安老斑鳩', emoji: '🐦' },
+                  { name: '忍者', label: '忍者', isNinja: true },
+                  { name: '半獸人', label: '半獸人', emoji: '👹' },
+                  { name: '龍戰騎士的遺言', label: '龍戰騎士的遺言', emoji: '📜' },
+                  { name: '最後的戰役', label: '最後的戰役', emoji: '🎖️' },
                 ].map((item) => (
                   <button
                     key={item.name}
@@ -879,7 +1238,10 @@ export const DevModal: React.FC<DevModalProps> = ({
                     }`}
                   >
                     <span>{isHeld(item.name) ? '✓' : '○'}</span>
-                    <span>{item.label}</span>
+                    <span className="flex items-center gap-1">
+                      {item.isNinja ? <NinjaIcon className="w-3.5 h-3.5" /> : <span>{item.emoji}</span>}
+                      <span>{item.label}</span>
+                    </span>
                     <span className="text-[10px] font-normal opacity-70">
                       {isHeld(item.name) ? '持有' : '開啟'}
                     </span>
@@ -888,30 +1250,137 @@ export const DevModal: React.FC<DevModalProps> = ({
               </div>
             </div>
 
-            {/* 4. 古堡任務與小鐵匠合成連動 */}
-            <div className="flex flex-col gap-1.5">
+            {/* 4. 基礎素材區 */}
+            <div className="flex flex-col gap-2">
               <div className="text-[11px] font-bold text-emerald-300/90 flex items-center gap-1">
-                <span>🏰</span>
-                <span>古堡任務與小鐵匠合成連動（鄉間的路引導小鐵鋪、甜甜的+稻香熬製麥芽糖、烏克麗麗換燒肉粽感化豬管家）</span>
+                <span>🌱</span>
+                <span>基礎素材區（點擊切換開啟 / 關閉持有狀態）</span>
+              </div>
+
+              {/* 第一行：卡牌但可以做出別的東西 */}
+              <div className="flex flex-col gap-1">
+                <div className="text-[10px] text-stone-400 font-mono">卡牌但可轉化其他物品（甜甜的 / 稻香 / 青花瓷 / 蘭亭序 / 菊花台 / 迷迭香）</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { name: '甜甜的', label: '🍯 甜甜的', desc: '麥芽糖原料' },
+                    { name: '稻香', label: '🌾 稻香', desc: '麥芽糖原料' },
+                    { name: '青花瓷', label: '🏺 青花瓷', desc: '淘金小鎮出土文物（可焚燒成泥土）' },
+                    { name: '蘭亭序', label: '📜 蘭亭序', desc: '淘金小鎮出土墨寶（可焚燒得手寫的從前）' },
+                    { name: '菊花台', label: '👑 菊花台', desc: '抽卡翻出（可焚燒得菊花）' },
+                    { name: '迷迭香', label: '🌿 迷迭香', desc: '抽卡翻出（梯田培育花海原料）' },
+                  ].map((item) => (
+                    <button
+                      key={item.name}
+                      onClick={() => toggleItem(item.name)}
+                      className={`px-2.5 py-1 rounded-lg border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                        isHeld(item.name)
+                          ? 'bg-emerald-950/70 border-emerald-500/80 text-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+                          : 'bg-stone-900/80 border-stone-800 text-stone-400 hover:text-stone-200'
+                      }`}
+                      title={item.desc}
+                    >
+                      <span>{isHeld(item.name) ? '✓' : '○'}</span>
+                      <span>{item.label}</span>
+                      <span className="text-[10px] font-normal opacity-70">
+                        {isHeld(item.name) ? '持有' : '開啟'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 第二行：遊戲道具 */}
+              <div className="flex flex-col gap-1 pt-1 border-t border-stone-800/40">
+                <div className="text-[10px] text-stone-400 font-mono">遊戲道具（泥土 / 鐵鏟 / 水 / 空瓶 / 菊花 / 茶葉 / 熱水 / 廢紙）</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { name: '泥土', label: '🌱 泥土', desc: '茶苗播種原料（青花瓷焚燒獲得）' },
+                    { name: '鐵鏟', label: '鐵鏟', desc: '雙截棍小鐵匠重鑄改造（梯田翻土農具）', isShovel: true },
+                    { name: '水', label: '💧 水', desc: '可灌溉梯田' },
+                    { name: '空瓶', label: '🍾 空瓶', desc: '淘金小鎮發掘（用於裝水）' },
+                    { name: '菊花', label: '🌼 菊花', desc: '菊花台烈焰焚歌化菊（植於梯田培育花海）' },
+                    { name: '茶葉', label: '🍵 茶葉', desc: '梯田耕種收成（爺爺泡的茶關鍵名物）' },
+                    { name: '熱水', label: '♨️ 熱水', desc: '水經煙火煮沸（爺爺泡的茶沖泡必備）' },
+                    { name: '廢紙', label: '📄 廢紙', desc: '淘金小鎮發掘（下雨天損毀替死消耗）' },
+                  ].map((item) => (
+                    <button
+                      key={item.name}
+                      onClick={() => toggleItem(item.name)}
+                      className={`px-2.5 py-1 rounded-lg border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                        isHeld(item.name)
+                          ? 'bg-emerald-950/70 border-emerald-500/80 text-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+                          : 'bg-stone-900/80 border-stone-800 text-stone-400 hover:text-stone-200'
+                      }`}
+                      title={item.desc}
+                    >
+                      <span>{isHeld(item.name) ? '✓' : '○'}</span>
+                      {item.isShovel ? <ShovelIcon className="w-3.5 h-3.5 shrink-0" /> : null}
+                      <span>{item.label}</span>
+                      <span className="text-[10px] font-normal opacity-70">
+                        {isHeld(item.name) ? '持有' : '開啟'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 第三行：其他系統排在一起，交換類 */}
+              <div className="flex flex-col gap-1 pt-1 border-t border-stone-800/40">
+                <div className="text-[10px] text-stone-400 font-mono">其他系統交換與信物類（星晴 / 伊斯坦堡 / 鄉間的路 / 土耳其冰淇淋 / 白色風車 / 烏克麗麗 / 療傷燒肉粽 / 床邊故事）</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { name: '鄉間的路', label: '🌾 鄉間的路', desc: '上限1/持有此卡抽到小鐵匠可指引常駐' },
+                    { name: '土耳其冰淇淋', label: '🍦 土耳其冰淇淋', desc: '園遊會購買：滿足小男孩心願' },
+                    { name: '白色風車', label: '🎡 白色風車', desc: '園遊會購買：給予小男孩的玩具' },
+                    { name: '烏克麗麗', label: '🎸 烏克麗麗', desc: '給小男孩後獲得粉色海洋/取得療傷燒肉粽' },
+                    { name: '療傷燒肉粽', label: '🍙 療傷燒肉粽', desc: '以烏克麗麗向小鐵匠交換（感化豬管家）' },
+                    { name: '床邊故事', label: '📖 床邊故事', desc: '古堡任務道具' },
+                    { name: '星晴', label: '✨ 星晴', desc: '前世情人考驗：第一欄「星空上的銀海」' },
+                    { name: '伊斯坦堡', label: '🏰 伊斯坦堡', desc: '前世情人考驗：第二欄「約定造城堡」' },
+                    { name: '暗號', label: '🔢 暗號', desc: '撥往前世情人的號碼' },
+                  ].map((item) => (
+                    <button
+                      key={item.name}
+                      onClick={() => toggleItem(item.name)}
+                      className={`px-2.5 py-1 rounded-lg border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                        isHeld(item.name)
+                          ? 'bg-emerald-950/70 border-emerald-500/80 text-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+                          : 'bg-stone-900/80 border-stone-800 text-stone-400 hover:text-stone-200'
+                      }`}
+                      title={item.desc}
+                    >
+                      <span>{isHeld(item.name) ? '✓' : '○'}</span>
+                      <span>{item.label}</span>
+                      <span className="text-[10px] font-normal opacity-70">
+                        {isHeld(item.name) ? '持有' : '開啟'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 5. 轉化產物區（麥芽糖 / 手寫的從前 / 花海 / 琴傷 / 彩虹 / 雨下一整晚） */}
+            <div className="flex flex-col gap-1.5">
+              <div className="text-[11px] font-bold text-amber-300/90 flex items-center gap-1">
+                <span>✨</span>
+                <span>轉化產物區（麥芽糖 / 手寫的從前 / 花海 / 琴傷 / 彩虹 / 雨下一整晚）</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {[
-                  { name: '鄉間的路', label: '🌾 鄉間的路 (引導小鐵鋪)', desc: '上限1/持有此卡抽到小鐵匠可指引常駐' },
-                  { name: '甜甜的', label: '🍯 甜甜的', desc: '麥芽糖原料' },
-                  { name: '稻香', label: '🌾 稻香', desc: '麥芽糖原料' },
-                  { name: '麥芽糖', label: '🍬 麥芽糖', desc: '安撫老斑鳩關鍵卡' },
-                  { name: '烏克麗麗', label: '🎸 烏克麗麗', desc: '小鐵匠處換取燒肉粽' },
-                  { name: '療傷燒肉粽', label: '🍙 療傷燒肉粽', desc: '感化威廉古堡豬管家' },
-                  { name: '琴傷', label: '🎻 琴傷', desc: '古堡任務道具' },
-                  { name: '床邊故事', label: '📖 床邊故事', desc: '古堡任務道具' },
-                  { name: '公主病', label: '👑 公主病', desc: '古堡任務道具' },
+                  { name: '麥芽糖', label: '🍬 麥芽糖', desc: '甜甜的+稻香熬製（餵食老斑鳩）' },
+                  { name: '手寫的從前', label: '💌 手寫的從前', desc: '蘭亭序烈焰焚燒轉化（C2014-08）' },
+                  { name: '花海', label: '💐 花海', desc: '梯田培育（C2008-04）' },
+                  { name: '琴傷', label: '🎻 琴傷', desc: '古堡透過豬管家取得' },
+                  { name: '彩虹', label: '🌈 彩虹', desc: '透過晴天放晴獲得（C2007-02）' },
+                  { name: '雨下一整晚', label: '🌧️ 雨下一整晚', desc: '下雨天維持至第30回合終局獲得（C2010-06）' },
                 ].map((item) => (
                   <button
                     key={item.name}
                     onClick={() => toggleItem(item.name)}
                     className={`px-2.5 py-1 rounded-lg border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
                       isHeld(item.name)
-                        ? 'bg-emerald-950/70 border-emerald-500/80 text-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+                        ? 'bg-amber-950/70 border-amber-500/80 text-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.2)]'
                         : 'bg-stone-900/80 border-stone-800 text-stone-400 hover:text-stone-200'
                     }`}
                     title={item.desc}
@@ -926,11 +1395,11 @@ export const DevModal: React.FC<DevModalProps> = ({
               </div>
             </div>
 
-            {/* 5. 時空神器與環境輔助道具 */}
+            {/* 6. 時空神器、環境輔助與強化道具 */}
             <div className="flex flex-col gap-1.5">
               <div className="text-[11px] font-bold text-purple-300/90 flex items-center gap-1">
                 <span>⏳</span>
-                <span>時空神器與環境輔助道具（本草綱目鑑賞行囊、煙花易冷引動燃燒、時光機回到過去）</span>
+                <span>時空神器、環境輔助與強化道具（本草綱目鑑賞行囊、煙花易冷撲熄燃燒、晴天放晴雨天、時光機調整時空）</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {[
@@ -940,10 +1409,13 @@ export const DevModal: React.FC<DevModalProps> = ({
                   { name: '愛的飛行日記', label: '📖 愛的飛行日記' },
                   { name: '飛行時光機', label: '🚀 飛行時光機' },
                   { name: '半島鐵盒', label: '🗝️ 半島鐵盒' },
+                  { name: '第一頁', label: '📑 第一頁', desc: '鐵盒擴充容量 +1' },
+                  { name: '第六頁', label: '📑 第六頁', desc: '鐵盒擴充容量 +6' },
+                  { name: '第七頁', label: '📑 第七頁', desc: '鐵盒擴充容量 +7' },
+                  { name: '序', label: '📖 序', desc: '鐵盒解鎖跨局繼承角色' },
                   { name: '煙花易冷', label: '🎆 煙花易冷' },
-                  { name: '黑色毛衣', label: '🧥 黑色毛衣' },
-                  { name: '鞋子特大號', label: '👞 鞋子特大號' },
-                  { name: '紅模仿', label: '🎭 紅模仿' },
+                  { name: '晴天', label: '☀️ 晴天', desc: '持本草綱目拖曳驅散下雨天獲彩虹' },
+                  { name: '公主病', label: '👑 公主病', desc: '古堡任務道具' },
                 ].map((item) => (
                   <button
                     key={item.name}

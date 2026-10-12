@@ -16,6 +16,11 @@ export const SPECIAL_ITEMS: Record<string, SpecialItemInfo> = {
     category: '舊故里的氣息',
     description: '「煙花易冷雨紛紛，行囊遇火不再焚」',
   },
+  晴天: {
+    name: '晴天',
+    category: '天氣清爽',
+    description: '「等到放晴的那天，也許會好一點」',
+  },
   雙截棍: {
     name: '雙截棍',
     category: '習武之人切記',
@@ -56,20 +61,57 @@ export const SPECIAL_ITEMS: Record<string, SpecialItemInfo> = {
     category: '治癒用',
     description: '「到底誰需要療傷呢？」',
   },
-    床邊故事: {
+  床邊故事: {
     name: '床邊故事',
     category: 'zzz',
     description: '「傳說中聽了這故事就會睡著」',
   },
-    免費教學錄影帶: {
+  免費教學錄影帶: {
     name: '免費教學錄影帶',
     category: '哎喲不錯',
-    description: '「你是不是感覺到了角色能力甦醒」',
+    description: '「你是不是感覺到了某些東西都揭曉了」',
   },
-    飛行時光機: {
+  飛行時光機: {
     name: '飛行時光機',
     category: '控制時間機器',
     description: '「點擊使用」',
+  },
+  稻香: {
+    name: '稻香',
+    category: '原物料',
+    description: '「金黃稻穗散發濃郁香氣」',
+  },
+  甜甜的: {
+    name: '甜點必備',
+    category: '調味品',
+    description: '「加上去任何東西都是甜的」',
+  },
+  青花瓷: {
+    name: '青花瓷',
+    category: '出土文物',
+    description: '「瓷器的原料是...？」',
+  },
+  蘭亭序: {
+    name: '天下第一行書',
+    category: '出土文物',
+    description: '「晉朝時就寫下的東西」',
+  },
+  泥土: {
+    name: '泥土',
+    category: '原物料',
+    description: '「青花瓷經烈焰焚燒去釉後化成的肥沃泥土，或許能種些什麼？」',
+  },
+  爺爺泡的茶: {
+    name: '爺爺',
+    category: '通關關鍵卡牌',
+  },
+  粉色海洋: {
+    name: 'Romeo',
+    category: '通關關鍵卡牌',
+  },
+  前世情人: {
+    name: 'Hathaway',
+    category: '通關關鍵卡牌',
   },
 };
 

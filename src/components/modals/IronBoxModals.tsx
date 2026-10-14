@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CharacterDefinition } from '../../types';
+import { isItemPeninsulaRestricted } from '../../utils/gameHelpers';
 
 export interface IronBoxInheritModalProps {
   isOpen: boolean;
@@ -7,9 +8,13 @@ export interface IronBoxInheritModalProps {
   inventory: Record<string, number>;
   character: CharacterDefinition | null;
   hasPreface: boolean;
-  isItemRestricted: (itemName: string) => boolean;
+  selectedItems?: string[];
+  setSelectedItems?: React.Dispatch<React.SetStateAction<string[]>>;
+  retainCharacterInNextGame?: boolean;
+  setRetainCharacterInNextGame?: React.Dispatch<React.SetStateAction<boolean>>;
+  isItemRestricted?: (itemName: string) => boolean;
   onConfirm: (itemsToInherit: string[], retainCharacter: boolean) => void;
-  onWarning: (message: string) => void;
+  onWarning?: (message: string) => void;
 }
 
 export const IronBoxInheritModal: React.FC<IronBoxInheritModalProps> = ({
@@ -18,17 +23,44 @@ export const IronBoxInheritModal: React.FC<IronBoxInheritModalProps> = ({
   inventory,
   character,
   hasPreface,
-  isItemRestricted,
+  selectedItems: propSelectedItems,
+  setSelectedItems: propSetSelectedItems,
+  retainCharacterInNextGame: propRetainChar,
+  setRetainCharacterInNextGame: propSetRetainChar,
+  isItemRestricted = isItemPeninsulaRestricted,
   onConfirm,
   onWarning,
 }) => {
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [retainCharacter, setRetainCharacter] = useState<boolean>(true);
+  const [internalSelectedItems, setInternalSelectedItems] = useState<string[]>([]);
+  const [internalRetainCharacter, setInternalRetainCharacter] = useState<boolean>(true);
+
+  const selectedItems = propSelectedItems ?? internalSelectedItems;
+  const setSelectedItems = propSetSelectedItems ?? setInternalSelectedItems;
+  const retainCharacter = propRetainChar ?? internalRetainCharacter;
+  const setRetainCharacter = propSetRetainChar ?? setInternalRetainCharacter;
 
   if (!isOpen) return null;
 
+  const checkRestricted = (itemName: string): boolean => {
+    if (typeof isItemRestricted === 'function') {
+      try {
+        return isItemRestricted(itemName);
+      } catch (e) {
+        return false;
+      }
+    }
+    if (typeof isItemPeninsulaRestricted === 'function') {
+      try {
+        return isItemPeninsulaRestricted(itemName);
+      } catch (e) {
+        return false;
+      }
+    }
+    return false;
+  };
+
   const validItems = Object.keys(inventory).filter(
-    (name) => (inventory[name] || 0) > 0 && !isItemRestricted(name)
+    (name) => (inventory[name] || 0) > 0 && !checkRestricted(name)
   );
 
   return (
@@ -108,7 +140,7 @@ export const IronBoxInheritModal: React.FC<IronBoxInheritModalProps> = ({
                     setSelectedItems((prev) => prev.filter((it) => it !== itemName));
                   } else {
                     if (selectedItems.length >= capacity) {
-                      onWarning(`【半島鐵盒】最多只能挑選 ${capacity} 樣卡牌繼承至下一局！`);
+                      onWarning?.(`【半島鐵盒】最多只能挑選 ${capacity} 樣卡牌繼承至下一局！`);
                       return;
                     }
                     setSelectedItems((prev) => [...prev, itemName]);

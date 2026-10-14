@@ -9,3 +9,16 @@ html {
     font-size: 18px;
   }
 }
+
+@keyframes rainShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-rain-shimmer {
+  animation: rainShimmer 2.5s infinite linear;
+}

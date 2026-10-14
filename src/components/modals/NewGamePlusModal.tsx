@@ -3,61 +3,69 @@ import React from 'react';
 interface NewGamePlusModalProps {
   onClose: () => void;
   onConfirm: () => void;
-  gameNumber: number;
-  unlockedIronBoxSlot: boolean;
 }
 
-export function NewGamePlusModal({ onClose, onConfirm, gameNumber, unlockedIronBoxSlot }: NewGamePlusModalProps) {
+export function NewGamePlusModal({ onClose, onConfirm }: NewGamePlusModalProps) {
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg sm:max-w-xl bg-gradient-to-b from-[#1c1414] via-[#141418] to-[#0d0d10] border-2 border-red-900/60 rounded-2xl p-6 sm:p-8 text-stone-200 shadow-2xl relative overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="flex flex-col items-center text-center gap-4 relative z-10">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-950/60 border border-red-800/80 flex items-center justify-center text-3xl sm:text-4xl shadow-inner text-red-400 animate-pulse">
-            ⏳
-          </div>
-          <div>
-            <h3 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-amber-200 to-red-400 tracking-wide">
-              開啟全新周目 (NG+{gameNumber})
-            </h3>
-            <p className="text-xs sm:text-sm text-stone-400 mt-1">
-              準備好重置冒險並帶著鐵盒傳承物品開啟下一輪輪迴了嗎？
-            </p>
-          </div>
+      <div className="w-full max-w-lg sm:max-w-xl bg-gradient-to-b from-[#1c1414] via-[#140e0e] to-[#0a0707] border-2 border-red-700/80 rounded-2xl p-7 sm:p-9 shadow-[0_0_40px_rgba(220,38,38,0.3)] flex flex-col gap-5 text-center">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-950/60 border border-red-600 flex items-center justify-center mx-auto text-3xl sm:text-4xl text-red-400 shadow-inner">
+          🔄
+        </div>
 
-          <div className="bg-black/60 border border-stone-800 rounded-xl p-4 sm:p-5 text-left w-full flex flex-col gap-2.5 text-xs sm:text-sm my-1">
-            <div className="flex items-center gap-2 text-amber-300 font-bold bg-amber-950/40 px-3 py-1.5 rounded-lg border border-amber-800/40 mb-1">
-              ✨ 本次繼承說明：
-            </div>
-            <div className="flex items-center gap-2 text-stone-300">
-              <span className="text-amber-400 font-bold">•</span>
-              已解鎖之「角色的化身」、「歌曲圖鑑」與「成就」將永久保留。
-            </div>
-            <div className="flex items-center gap-2 text-stone-300">
-              <span className="text-amber-400 font-bold">•</span>
-              冒險天數 (Round)、當前手牌、目前能力數值將重新重置。
-            </div>
-            {unlockedIronBoxSlot && (
-              <div className="flex items-center gap-2 text-emerald-300 font-semibold bg-emerald-950/30 px-2.5 py-1 rounded border border-emerald-800/30">
-                <span>📦</span> 已升級鐵盒容量，可勾選更多攜帶道具進入下一周目！
-              </div>
-            )}
-          </div>
+        <div>
+          <h3 className="text-2xl sm:text-3xl font-black text-red-300 font-serif">
+            開啟新周目・重新挑戰
+          </h3>
+          <p className="text-sm sm:text-base text-stone-300 mt-2.5 font-sans leading-relaxed">
+            確定要開啟新周目重新挑戰嗎？
+            <br />
+            <span className="text-amber-300 font-bold">
+              為確保挑戰的純粹性與成績的公平真實，開啟新周目將會【全數清空】所有紀錄！
+            </span>
+          </p>
+        </div>
 
-          <div className="flex gap-3.5 mt-2 w-full">
-            <button
-              onClick={onClose}
-              className="flex-1 bg-stone-800 hover:bg-stone-700 text-stone-300 font-medium py-3 rounded-xl transition-colors text-sm border border-stone-700"
-            >
-              稍後再說
-            </button>
-            <button
-              onClick={onConfirm}
-              className="flex-1 bg-gradient-to-r from-red-700 via-amber-600 to-red-700 hover:from-red-600 hover:to-red-600 text-stone-100 font-bold py-3 rounded-xl transition-all shadow-lg text-sm border border-red-500/40 animate-pulse"
-            >
-              確認開啟 NG+{gameNumber}
-            </button>
+        <div className="bg-black/60 border border-stone-800 rounded-xl p-4 sm:p-5 text-left text-xs sm:text-sm text-stone-300 space-y-2.5 font-sans">
+          <div className="flex items-center gap-2 text-amber-300 font-bold bg-amber-950/40 p-2.5 rounded-lg border border-amber-700/60">
+            <span className="text-lg text-amber-400">🛡️</span>
+            <span>【傳奇殿堂戰績卡永久保存】已獲得的全通關結算評級將完整珍藏，不會丟失！</span>
           </div>
+          <div className="flex items-center gap-2 text-stone-300">
+            <span className="text-red-400 font-bold">✕</span>
+            <span>全域圖鑑中已解鎖歌曲圖鑑、成就技能、冒險日誌全數清除</span>
+          </div>
+          <div className="flex items-center gap-2 text-stone-300">
+            <span className="text-red-400 font-bold">✕</span>
+            <span>各通關路線進度重新開始</span>
+          </div>
+          <div className="flex items-center gap-2 text-stone-300">
+            <span className="text-red-400 font-bold">✕</span>
+            <span>局數與回合數歸零重新挑戰</span>
+          </div>
+          <div className="flex items-center gap-2 text-stone-300">
+            <span className="text-red-400 font-bold">✕</span>
+            <span>當前行囊道具與跨局攜帶物品清空</span>
+          </div>
+          <div className="flex items-center gap-2 pt-2 border-t border-stone-800 text-amber-300/90 font-sans">
+            <span>✦</span>
+            <span>重返第 1 局最初起點，以更少局數衝刺更高的綜合評級！</span>
+          </div>
+        </div>
+
+        <div className="flex gap-3.5 mt-2">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-sm sm:text-base font-bold transition-all cursor-pointer"
+          >
+            取消保留
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-3.5 rounded-xl bg-red-900/90 hover:bg-red-700 text-white text-sm sm:text-base font-black border border-red-600 transition-all cursor-pointer shadow-md active:scale-98"
+          >
+            確認開啟新周目
+          </button>
         </div>
       </div>
     </div>

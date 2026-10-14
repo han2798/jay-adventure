@@ -40,6 +40,7 @@ import {
   restoreCardQuotaOnItemLost,
   isPaperItem,
   exchangeInventoryItems,
+  isItemPeninsulaRestricted,
 } from './utils/gameHelpers';
 import { SimpleActionModal } from './components/modals/SimpleActionModal';
 import { OutcomeModal, OutcomeModalData } from './components/modals/OutcomeModal';
@@ -247,20 +248,9 @@ export default function App() {
   // 周董經典口頭禪彩蛋狀態
   const [jayQuote, setJayQuote] = useState<string | null>(null);
 
-  const triggerJayQuote = useCallback((customQuote?: string) => {
-    const defaultQuotes = [
-      '「哎呦，不錯喔！」',
-      '「這個超屌！」',
-      '「有點屌喔！」',
-      '「聽媽媽的話，不錯喔！」',
-      '「屌爆了！」',
-      '「哎呦，可以喔！」',
-    ];
-    const q = customQuote || defaultQuotes[Math.floor(Math.random() * defaultQuotes.length)];
-    setJayQuote(q);
-    setTimeout(() => {
-      setJayQuote(null);
-    }, 3500);
+  const triggerJayQuote = useCallback((_customQuote?: string) => {
+    // 依作者指示：周杰倫評語系統暫時關閉不呈現於畫面，列入後續優化待辦
+    return;
   }, []);
 
   // 判定玩家是否已全通關取得過評級戰績卡（解鎖「傳奇殿堂」與「開啟新周目」）
@@ -980,12 +970,13 @@ export default function App() {
 
   // 1. 梯田高山茶嶺農作系統
   const {
-    handleTerraceTill: handleTerraceTillHook,
-    handleTerracePlant: handleTerracePlantHook,
-    handleTerraceWater: handleTerraceWaterHook,
+    handleTerraceTill,
+    handleTerracePlant,
+    handleTerraceWater,
     handleTerraceHarvest,
     handleTerraceClear,
   } = useTerraceSystem({
+    gameState,
     setGameState,
     setMeta,
     addLog,
@@ -993,11 +984,6 @@ export default function App() {
     triggerCardShowcase,
     setShowTerraceModal,
   });
-
-  // 梯田相容性調用包裝 (傳入全域狀態參數)
-  const handleTerraceTill = () => handleTerraceTillHook(gameState.inventory);
-  const handleTerracePlant = (crop: 'tea' | 'flower_sea') => handleTerracePlantHook(crop, gameState.inventory);
-  const handleTerraceWater = () => handleTerraceWaterHook(gameState.inventory, gameState.round);
 
   // 2. 淘金小鎮挖寶系統
   const {
@@ -1016,6 +1002,8 @@ export default function App() {
     setMeta,
     addLog,
     setOutcomeModal,
+    startNewRound,
+    triggerCardShowcase,
   });
 
   // 3. 喬克叔叔心願裝備系統
@@ -1176,43 +1164,66 @@ export default function App() {
     }).length;
     const isStep1Done = defeatedCount === 4;
 
+    // 2. 時代轉換：進入亂舞春秋時代之後
+    const isStep2Done = Boolean(
+      gameState.flags['chaos_era_active'] ||
+      gameState.flags['chaos_era_obtained']
+    );
+
+    // 3. 最終決戰：獲得最後的戰役，確定第30回合對決將軍之後
+    const isStep3Done = Boolean(
+      (gameState.inventory['最後的戰役'] || 0) > 0 ||
+      gameState.flags['ready_for_general'] ||
+      gameState.flags['in_boss_battle']
+    );
+
     return {
       hasSunGuide,
       defeatedCount,
       isStep1Done,
+      isStep2Done,
+      isStep3Done,
     };
   }, [gameState.inventory, gameState.flags]);
 
-  const getNextGoldTownPageTarget = () => {
+  const getNextGoldTownPageTarget = (): 'first_page' | 'sixth_page' | 'seventh_page' | 'preface' | null => {
     const p = meta.ironBoxPages || {};
-    const inv = gameState.inventory;
-    if (!p.page1) {
-      if ((inv['第一頁'] || 0) > 0) return 'page1';
-      return null;
+    const inv = gameState.inventory || {};
+    const hasFirst = Boolean(p.firstPage || (p as any).page1 || (p as any).first_page);
+    const hasSixth = Boolean(p.sixthPage || (p as any).page6 || (p as any).sixth_page);
+    const hasSeventh = Boolean(p.seventhPage || (p as any).page7 || (p as any).seventh_page);
+    const hasPreface = Boolean(p.preface);
+
+    if (!hasFirst) {
+      if ((inv['第一頁'] || 0) > 0) return null; // 背包已有，先去改造擴充
+      return 'first_page';
     }
-    if (!p.page6) {
-      if ((inv['第六頁'] || 0) > 0) return 'page6';
-      return null;
+    if (!hasSixth) {
+      if ((inv['第六頁'] || 0) > 0) return null;
+      return 'sixth_page';
     }
-    if (!p.page7) {
-      if ((inv['第七頁'] || 0) > 0) return 'page7';
-      return null;
+    if (!hasSeventh) {
+      if ((inv['第七頁'] || 0) > 0) return null;
+      return 'seventh_page';
     }
-    if (!p.preface) {
-      if ((inv['序'] || 0) > 0) return 'preface';
-      return null;
+    if (!hasPreface) {
+      if ((inv['序'] || 0) > 0) return null;
+      return 'preface';
     }
     return null;
   };
 
-  const triggerNextGameWithIronBoxCheck = (callback?: () => void) => {
+  const triggerNextGameWithIronBoxCheck = (
+    callback?: (inherited?: string[], retainChar?: boolean) => void
+  ) => {
+    const hasIronBox = Boolean((gameState.inventory['半島鐵盒'] || 0) > 0);
     const pages = meta.ironBoxPages || {};
-    const pageCount = Object.values(pages).filter(Boolean).length;
-    const isUnlocked = Boolean(meta.ironBoxCapacity && meta.ironBoxCapacity > 0) || pageCount > 0;
-    if (isUnlocked) {
+
+    if (hasIronBox) {
       if (callback) setPendingNextGameCallback(() => callback);
       else setPendingNextGameCallback(null);
       setSelectedIronBoxItems(meta.ironBoxItems || []);
+      setRetainCharacterInNextGame(Boolean(pages.preface));
       setShowIronBoxInheritModal(true);
     } else {
       if (callback) callback();
@@ -1246,6 +1257,7 @@ export default function App() {
     setShowExpandIronBoxModal,
     setShowIronBoxInheritModal,
     setShowGoldTownConfirmModal,
+    setShowGoldTownDigModal,
     setIsGoldTownFromRevealedCard,
     setShowApExhaustedModal,
     setSelectedIronBoxItems,
@@ -1401,9 +1413,14 @@ export default function App() {
       {/* Top Universal App Header */}
       <header className="w-full bg-[#121215] border-b border-stone-800 px-6 py-3 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md">
         <div>
-          <h1 className="text-sm font-black text-amber-100 tracking-wider font-serif">
-            周杰倫歌曲卡牌冒險
-          </h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-sm font-black text-amber-100 tracking-wider font-serif">
+              周杰倫歌曲卡牌冒險
+            </h1>
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-400 border border-amber-800/50">
+              v1.0
+            </span>
+          </div>
           <p className="text-[10px] text-stone-500 font-mono tracking-tight">
             JAY CHOU SONG CARD ADVENTURE
           </p>
@@ -1606,27 +1623,66 @@ export default function App() {
                   </span>
                 )}
 
-                {Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']) && (
-                  <span
-                    id="env-rainy-badge"
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = 'copy';
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const itemName = e.dataTransfer.getData('text/plain');
-                      if (itemName) {
-                        handleDropOnRain(itemName);
-                      }
-                    }}
-                    title="環境狀態：下雨天！每回合行囊中的紙類物品會被淋濕損毀，真希望能趕快放晴！"
-                    className="text-[11px] sm:text-xs bg-sky-950 text-sky-300 border border-sky-600 hover:border-cyan-300 hover:text-cyan-100 px-2.5 py-0.5 rounded font-mono font-bold animate-pulse shadow-[0_0_10px_rgba(56,189,248,0.25)] transition-all cursor-pointer select-none flex items-center gap-1"
-                  >
-                    <span>🌧️</span>
-                    <span>下雨天</span>
-                  </span>
-                )}
+                {Boolean(gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']) && (() => {
+                  const rainExperienced = Number(gameState.flags['rain_experienced_total_rounds']) || 0;
+                  const timeScore = 0.5 * (Math.min(30, Math.max(1, gameState.round)) / 30);
+                  const rainScore = 0.5 * Math.min(1, rainExperienced / 8);
+                  const rainNightProgress = Math.min(100, Math.max(0, Math.round((timeScore + rainScore) * 100)));
+                  const isRainNightFull = rainNightProgress >= 100;
+
+                  return (
+                    <div
+                      id="env-rainy-badge"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'copy';
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const itemName = e.dataTransfer.getData('text/plain');
+                        if (itemName) {
+                          handleDropOnRain(itemName);
+                        }
+                      }}
+                      title="環境狀態：下雨天！每回合行囊中的紙類物品會被淋濕損毀，真希望能趕快放晴！"
+                      className={`text-[11px] sm:text-xs bg-sky-950/90 text-sky-300 border ${
+                        isRainNightFull
+                          ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.4)]'
+                          : 'border-sky-600 hover:border-cyan-300 hover:text-cyan-100 shadow-[0_0_10px_rgba(56,189,248,0.25)]'
+                      } px-2.5 py-1 rounded font-mono transition-all cursor-pointer select-none flex flex-col gap-1 items-start min-w-[170px] sm:min-w-[190px]`}
+                    >
+                      <div className="flex items-center justify-between w-full font-bold">
+                        <div className="flex items-center gap-1">
+                          <span>🌧️</span>
+                          <span>下雨天</span>
+                        </div>
+                      </div>
+
+                      {/* 晝夜雨夜計量條 */}
+                      <div className="w-full flex items-center gap-1.5 text-[10px] text-sky-300/80 font-sans">
+                        <span className="text-[10px] text-sky-400/90 tracking-tighter shrink-0">[白天]</span>
+                        <div className="relative flex-1 h-1.5 bg-sky-950 border border-sky-800/80 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-500 rounded-full ${
+                              isRainNightFull
+                                ? 'bg-gradient-to-r from-sky-400 via-amber-300 to-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]'
+                                : 'bg-gradient-to-r from-sky-500 via-indigo-400 to-amber-300/80'
+                            }`}
+                            style={{ width: `${rainNightProgress}%` }}
+                          />
+                          <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.3)_50%,transparent_100%)] animate-rain-shimmer pointer-events-none" />
+                        </div>
+                        <span
+                          className={`text-[10px] tracking-tighter shrink-0 ${
+                            isRainNightFull ? 'text-amber-300 font-bold' : 'text-indigo-300/90'
+                          }`}
+                        >
+                          [黑夜]
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -1881,12 +1937,15 @@ export default function App() {
                   const isRainy = Boolean(
                     gameState.rainyWeatherActive || gameState.flags['rainy_weather_active']
                   );
+                  const rainExperienced = Number(gameState.flags['rain_experienced_total_rounds']) || 0;
                   const reachedEnd = gameState.round >= 30;
                   const isDaughter = gameState.character?.name === '女兒殿下';
+                  // 晝夜雨夜深沉度滿額判定：必須在第 30 回合終局維持雨天，且累計歷經雨天滿 8 回合（計量條達到 100%）
+                  const isRainNightEligible = isRainy && reachedEnd && rainExperienced >= 8;
 
                   const proceedNext = () => {
-                    triggerNextGameWithIronBoxCheck(() => {
-                      handleStartNextGame();
+                    triggerNextGameWithIronBoxCheck((inherited, retainChar) => {
+                      handleStartNextGame(inherited, retainChar);
                     });
                   };
 
@@ -1911,10 +1970,10 @@ export default function App() {
                       };
                     });
                     addLog(
-                      '🌧️🎻【雨下一整晚】「雨下一整晚，街燈下斑駁的倒影……」下雨天維持至第 30 回合終局，獲得卡牌《雨下一整晚》（C2010-06）！',
+                      '🌧️🎻【雨下一整晚】「雨下一整晚，街燈下斑駁的倒影……」夜幕降臨雨勢深沉，你在第 30 回合終局獲得卡牌《雨下一整晚》（C2010-06）！',
                       'milestone'
                     );
-                    triggerCardShowcase('C2010-06', '始終下雨・維持下雨天狀態至第30回合結束獲得', () => {
+                    triggerCardShowcase('C2010-06', '雨夜漫漫・在雨天維持足量歷程並迎來第30回合終局獲得', () => {
                       onDone();
                     });
                   };
@@ -1942,7 +2001,7 @@ export default function App() {
                       'milestone'
                     );
                     triggerCardShowcase('C2026-10', '以【女兒殿下】身分成功完成第 30 回合終局冒險後獲得', () => {
-                      if (isRainy && reachedEnd) {
+                      if (isRainNightEligible) {
                         awardRainyEndCard(proceedNext);
                       } else {
                         proceedNext();
@@ -1951,7 +2010,7 @@ export default function App() {
                     return;
                   }
 
-                  if (isRainy && reachedEnd) {
+                  if (isRainNightEligible) {
                     awardRainyEndCard(proceedNext);
                     return;
                   }
@@ -2072,6 +2131,10 @@ export default function App() {
           onClose={() => setShowDevPasswordModal(false)}
           onSuccess={() => {
             setShowDevPasswordModal(false);
+            setIsDevAuthenticated(true);
+            try {
+              sessionStorage.setItem('jay_dev_auth_session', 'true');
+            } catch (e) {}
             setShowDevModal(true);
           }}
         />
@@ -2519,6 +2582,18 @@ export default function App() {
             setShowHeardRainNoticeModal(true);
             addLog('⚡【開發測試】設定下雨天歷經滿 5 回合！已連動觸發居中《聽見下雨的聲音》！', 'milestone');
           }}
+          onFastForwardRainNight={() => {
+            setGameState((prev) => ({
+              ...prev,
+              rainyWeatherActive: true,
+              flags: {
+                ...prev.flags,
+                rainy_weather_active: true,
+                rain_experienced_total_rounds: 8,
+              },
+            }));
+            addLog('🌙【開發測試】快進經歷雨天滿 8 回合，晝夜雨夜計量條達到滿額！', 'milestone');
+          }}
           isRomanticPhoneUnlocked={Boolean(gameState.romanticPhoneUnlocked || gameState.flags['romantic_phone_unlocked'] || (gameState.inventory['浪漫手機'] || 0) > 0)}
           onToggleRomanticPhone={(active) => {
             setGameState((prev) => {
@@ -2551,16 +2626,11 @@ export default function App() {
         gameState={gameState}
       />
 
-      {/* 開啟新周目 / Universal Memory Wipe Modal - 等比放大 */}
+      {/* 開啟新周目對話框 */}
       {showNewGamePlusModal && (
         <NewGamePlusModal
           onClose={() => setShowNewGamePlusModal(false)}
-          onConfirm={() => {
-            setShowNewGamePlusModal(false);
-            handleStartNextGame();
-          }}
-          gameNumber={gameState.gameNumber}
-          unlockedIronBoxSlot={Boolean(meta.ironBoxCapacity && meta.ironBoxCapacity > 0)}
+          onConfirm={handleFullMemoryWipe}
         />
       )}
 
@@ -2685,6 +2755,7 @@ export default function App() {
         setSelectedItems={setSelectedIronBoxItems}
         retainCharacterInNextGame={retainCharacterInNextGame}
         setRetainCharacterInNextGame={setRetainCharacterInNextGame}
+        isItemRestricted={isItemPeninsulaRestricted}
         onConfirm={(itemsToInherit, retainChar) => {
           setMeta((prev) => ({
             ...prev,
@@ -2704,7 +2775,11 @@ export default function App() {
             );
           }
           setShowIronBoxInheritModal(false);
-          pendingNextGameCallback?.(itemsToInherit, retainChar);
+          if (pendingNextGameCallback) {
+            pendingNextGameCallback(itemsToInherit, retainChar);
+          } else {
+            handleStartNextGame(itemsToInherit, retainChar);
+          }
         }}
       />
 
@@ -2769,7 +2844,7 @@ export default function App() {
           onPlant={handleTerracePlant}
           onTill={handleTerraceTill}
           onWater={handleTerraceWater}
-          onHarvest={handleTerraceHarvest}
+          onHarvest={() => handleTerraceHarvest()}
           onClearPlot={handleTerraceClear}
         />
       )}

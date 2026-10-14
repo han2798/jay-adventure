@@ -334,8 +334,17 @@ export const CARD_DATABASE: CardDefinition[] = [
     flavorText: '「隱身要徹底 要忘記 什麼是自己！」你正想攻擊忍者，他身法詭譎迅捷避開！',
     options: [
       {
+        text: '英雄身手矯健，赤手空拳突圍攔截忍者！',
+        require: { character: '英雄', flag: 'ninja_confrontation', hideWhenUnavailable: true },
+        resultText: '英雄身手矯健，不需兵刃就空手制伏忍者！忍者心悅誠服奉上忍道信物，獲得【忍者】卡牌，解除【追逐忍者】狀態！',
+        effect: {
+          addItem: '忍者',
+          setFlag: { defeated_ninja: true, defeat_忍者: true, ninja_confrontation: false, ninja_chasing: false },
+        },
+      },
+      {
         text: '使用雙截棍攻擊，攔截飛躍的忍者',
-        require: { item: '雙截棍', flag: 'ninja_confrontation', hideWhenUnavailable: true },
+        require: { notCharacter: '英雄', item: '雙截棍', flag: 'ninja_confrontation', hideWhenUnavailable: true },
         resultText: '快使用雙截棍！呼呼哈兮！乾淨俐落地擊中空中的黑影！忍者心悅誠服奉上忍道信物，獲得【忍者】卡牌，解除【追逐忍者】狀態！',
         effect: {
           removeItem: '雙截棍',
@@ -345,7 +354,7 @@ export const CARD_DATABASE: CardDefinition[] = [
       },
       {
         text: '未持有雙截棍，眼看忍者施展遁術逃離',
-        require: { notItem: '雙截棍', flag: 'ninja_confrontation', hideWhenUnavailable: true },
+        require: { notCharacter: '英雄', notItem: '雙截棍', flag: 'ninja_confrontation', hideWhenUnavailable: true },
         resultText: '未能在第一時間以雙截棍制伏，忍者冷笑一聲投擲煙霧彈遁入暗夜！日後若再次抽到將重新展開追逐。',
         effect: {
           setFlag: { ninja_confrontation: false, ninja_chasing: false },
@@ -2686,7 +2695,7 @@ export const CARD_DATABASE: CardDefinition[] = [
     weight: 0,
     route: '通用',
     isSynthesizedOnly: true,
-    acquisitionSource: '始終下雨・維持下雨天狀態至第30回合結束獲得',
+    acquisitionSource: '雨夜漫漫・在雨天維持足量歷程並迎來第30回合終局獲得',
     hintText: '夜色深沉，雨聲如箏，時光悄悄流逝。獲得卡牌《雨下一整晚》！',
     flavorText: '「雨下一整晚，街燈下斑駁的倒影……」一把古箏在細雨濛濛的屋簷下輕輕撥響，穿越百年光陰。',
     options: [],
@@ -2822,7 +2831,7 @@ export const CARD_DATABASE: CardDefinition[] = [
   },
   {
     id: 'C2010-SS',
-    name: '《超時代》',
+    name: '《跨時代》',
     album: '跨時代',
     year: 2010,
     track: 'SS',
@@ -2830,12 +2839,12 @@ export const CARD_DATABASE: CardDefinition[] = [
     maxDraws: 1,
     weight: 1,
     route: '最偉大的作品',
-    flavorText: '【傳奇演唱會・超時代】十週年巡迴的輝煌紀錄，象徵跨越時代的王者霸氣。',
+    flavorText: '【傳奇神專・跨時代】西元 2010 年橫掃金曲獎的第十張神作！象徵跨越時代的王者霸氣。',
     options: [
       {
-        text: '登臨超時代舞台之巔',
-        resultText: '萬人歡呼聲中，你領悟了跨時代的真諦！',
-        effect: { addItem: '《超時代》', apChange: 15 },
+        text: '登臨跨時代舞台之巔',
+        resultText: '萬人歡呼聲中，你領悟了跨時代的真諦！獲得神專【《跨時代》】！',
+        effect: { addItem: '《跨時代》', apChange: 15 },
       },
     ],
   },

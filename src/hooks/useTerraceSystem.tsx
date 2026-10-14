@@ -5,6 +5,8 @@ import { GameState, MetaProgress } from '../types';
  * 梯田農場系統專用介面與參數定義
  */
 export interface UseTerraceSystemParams {
+  // 全域遊戲狀態
+  gameState: GameState;
   // 全域遊戲狀態 setter
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
   // 全域存檔/解鎖紀錄 setter
@@ -22,8 +24,10 @@ export interface UseTerraceSystemParams {
 /**
  * 梯田高山茶嶺農作系統 Custom Hook
  * 負責處理：翻土、播種 (茶樹/花海)、灌溉、收成與田畦重置等邏輯
+ * 內部直接讀取傳入之 gameState，防止 React onClick MouseEvent 事件污染參數
  */
 export function useTerraceSystem({
+  gameState,
   setGameState,
   setMeta,
   addLog,
@@ -35,12 +39,11 @@ export function useTerraceSystem({
   // =========================================================================
   // 1. 梯田翻土 (需持有【鐵鏟】，農具不消耗；將 idle 狀態翻整為 tilled)
   // =========================================================================
-  const handleTerraceTill = (inventory: Record<string, number>) => {
-    // 檢查玩家行囊中是否擁有鐵鏟
+  const handleTerraceTill = () => {
+    const inventory = gameState.inventory || {};
     const shovel = inventory['鐵鏟'] || 0;
     if (shovel < 1) return;
 
-    // 更新梯田狀態為已翻土
     setGameState((prev) => ({
       ...prev,
       terracePlot: {
@@ -49,16 +52,15 @@ export function useTerraceSystem({
       },
     }));
 
-    // 紀錄冒險日誌
     addLog('⚒️【梯田翻土】手持【鐵鏟】深耕翻動梯田土壤，土質鬆軟透氣！下一步可進行播種作物！', 'action');
   };
 
   // =========================================================================
   // 2. 梯田播種 (土壤已深耕翻整：投入泥土 ➔ 茶葉；菊花＋迷迭香 ➔ 花海)
   // =========================================================================
-  const handleTerracePlant = (crop: 'tea' | 'flower_sea', inventory: Record<string, number>) => {
+  const handleTerracePlant = (crop: 'tea' | 'flower_sea') => {
+    const inventory = gameState.inventory || {};
     if (crop === 'tea') {
-      // 播種茶樹：檢查並扣除 1 份【泥土】
       const soil = inventory['泥土'] || 0;
       if (soil < 1) return;
 
@@ -81,7 +83,6 @@ export function useTerraceSystem({
 
       addLog('🌱【梯田播種】在鬆軟土壤中播撒【泥土】茶苗種子，茶苗已妥善入土！下一步需以【水】引水灌溉！', 'action');
     } else if (crop === 'flower_sea') {
-      // 播種花海：檢查並扣除 1 份【菊花】與 1 份【迷迭香】
       const chrysanthemum = inventory['菊花'] || 0;
       const rosemary = inventory['迷迭香'] || 0;
       if (chrysanthemum < 1 || rosemary < 1) return;
@@ -111,8 +112,8 @@ export function useTerraceSystem({
   // =========================================================================
   // 3. 梯田灌溉 (消耗【水】*1，掛載 5 回合計時)
   // =========================================================================
-  const handleTerraceWater = (inventory: Record<string, number>, currentRound: number) => {
-    // 檢查並扣除【水】
+  const handleTerraceWater = () => {
+    const inventory = gameState.inventory || {};
     const waterCount = inventory['水'] || 0;
     if (waterCount < 1) return;
 
@@ -130,7 +131,7 @@ export function useTerraceSystem({
         terracePlot: {
           ...prev.terracePlot,
           step: 'watered',
-          completedRound: currentRound,
+          completedRound: prev.round,
           growthRounds: 0,
           requiredRounds: 5,
         },
@@ -142,18 +143,24 @@ export function useTerraceSystem({
 
   // =========================================================================
   // 4. 梯田收成 (茶葉 ➔ 獲得【茶葉】道具；花海 ➔ 獲得《花海》卡牌與圖鑑解鎖)
+  // 直接閉包讀取頂層傳入之 gameState，防呆防範 React onClick MouseEvent 事件污染參數
   // =========================================================================
-  const handleTerraceHarvest = (gameState: GameState) => {
-    if (!gameState.terracePlot || gameState.terracePlot.step !== 'watered') return;
+  const handleTerraceHarvest = () => {
+    const activeState = gameState;
+
+    if (!activeState || !activeState.terracePlot || activeState.terracePlot.step !== 'watered') return;
 
     // 計算作物生長回合數是否已達標 (>= 5 回合)
     const growth = Number(
-      gameState.terracePlot.growthRounds ??
-      (gameState.round >= (gameState.terracePlot.matureRound || 999) ? 5 : 0)
+      activeState.terracePlot.growthRounds ??
+      (activeState.round >= (activeState.terracePlot.matureRound || 999) ? 5 : 0)
     );
     if (growth < 5) return;
 
-    const targetCrop = gameState.terracePlot.targetCrop;
+    const targetCrop = activeState.terracePlot.targetCrop;
+
+    // 先關閉梯田彈窗，避免遮擋收成結果彈窗或大卡展示
+    setShowTerraceModal(false);
 
     if (targetCrop === 'tea') {
       // 情況 A：收成茶葉
@@ -230,7 +237,7 @@ export function useTerraceSystem({
 
       // 觸發大卡展示
       triggerCardShowcase('C2008-04', '高山梯田培育盛開出土', () => {
-        setShowTerraceModal(true);
+        // 展示關閉後直接返回主畫面
       });
     }
   };

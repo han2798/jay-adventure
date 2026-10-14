@@ -30,12 +30,13 @@ export interface UseCardOptionHandlerParams {
   setShowExpandIronBoxModal: (show: boolean) => void;
   setShowIronBoxInheritModal: (show: boolean) => void;
   setShowGoldTownConfirmModal: (show: boolean) => void;
+  setShowGoldTownDigModal?: (show: boolean) => void;
   setIsGoldTownFromRevealedCard: (val: boolean) => void;
   setShowApExhaustedModal: (show: boolean) => void;
   setSelectedIronBoxItems: React.Dispatch<React.SetStateAction<string[]>>;
   setOutcomeModal: React.Dispatch<React.SetStateAction<OutcomeModalData | null>>;
   setPendingEventTransition: React.Dispatch<React.SetStateAction<any>>;
-  setPendingNextGameCallback: React.Dispatch<React.SetStateAction<((() => void) | null)>>;
+  setPendingNextGameCallback: React.Dispatch<React.SetStateAction<(((inherited?: string[], retainChar?: boolean) => void) | null)>>;
   setRetainCharacterInNextGame: (val: boolean) => void;
 }
 
@@ -64,6 +65,7 @@ export function useCardOptionHandler(params: UseCardOptionHandlerParams) {
     setShowExpandIronBoxModal,
     setShowIronBoxInheritModal,
     setShowGoldTownConfirmModal,
+    setShowGoldTownDigModal,
     setIsGoldTownFromRevealedCard,
     setShowApExhaustedModal,
     setSelectedIronBoxItems,
@@ -306,7 +308,19 @@ export function useCardOptionHandler(params: UseCardOptionHandlerParams) {
         return;
       }
       setIsGoldTownFromRevealedCard(true);
-      setShowGoldTownConfirmModal(true);
+      setGameState((prev) => ({
+        ...prev,
+        stats: {
+          ...prev.stats,
+          ap: Math.max(0, prev.stats.ap - 5),
+        },
+      }));
+      addLog('【淘金小鎮】花費 5 點行動力踏入荒野礦區，開始探勘挖寶！', 'milestone');
+      if (setShowGoldTownDigModal) {
+        setShowGoldTownDigModal(true);
+      } else {
+        setShowGoldTownConfirmModal(true);
+      }
       return;
     }
 
@@ -1079,6 +1093,10 @@ export function useCardOptionHandler(params: UseCardOptionHandlerParams) {
         nextFlags['rain_completed_rounds'] = completedRounds;
         nextFlags['rainy_rounds_count'] = completedRounds;
 
+        // 累計全局經歷下雨天回合數（用於晝夜雨夜深沉度計量，換晴不重置）
+        const experiencedTotal = (Number(nextFlags['rain_experienced_total_rounds']) || 0) + 1;
+        nextFlags['rain_experienced_total_rounds'] = experiencedTotal;
+
         const alreadyHasHeardRain = Boolean(
           (nextInventory && nextInventory['聽見下雨的聲音']) ||
           (nextDrawnCount && (nextDrawnCount['C2014-12'] || 0) > 0) ||
@@ -1771,17 +1789,18 @@ export function useCardOptionHandler(params: UseCardOptionHandlerParams) {
   const triggerNextGameWithIronBoxCheck = (
     proceedFn: (inherited?: string[], retainChar?: boolean) => void
   ) => {
-    const hasIronBox = Boolean(gameState.inventory['半島鐵盒']);
+    const hasIronBox = Boolean((gameState.inventory['半島鐵盒'] || 0) > 0);
+    const pages = meta.ironBoxPages || {};
     const availableItems = Object.keys(gameState.inventory).filter(
       (k) => (gameState.inventory[k] || 0) > 0 && !isItemPeninsulaRestricted(k)
     );
-    if (hasIronBox && availableItems.length > 0) {
+    if (hasIronBox) {
       const capacity = getIronBoxCapacity();
       const initialSelected = (meta.ironBoxItems || [])
         .filter((it) => availableItems.includes(it))
         .slice(0, capacity);
       setSelectedIronBoxItems(initialSelected);
-      setRetainCharacterInNextGame(false);
+      setRetainCharacterInNextGame(Boolean(pages.preface));
       setPendingNextGameCallback(() => proceedFn);
       setShowIronBoxInheritModal(true);
     } else {

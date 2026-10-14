@@ -67,8 +67,8 @@ export const AdventureLog: React.FC<AdventureLogProps> = ({ logs, jayQuote }) =>
         </div>
       </div>
 
-      {/* 周杰倫專屬評語欄位 (僅在抽中稀有卡觸發評語時顯現，平時不佔位存在) */}
-      {jayQuote && (
+      {/* 周杰倫專屬評語欄位 (暫時關閉隱藏，列入後續優化待辦) */}
+      {/* jayQuote && (
         <div className="w-full bg-gradient-to-r from-[#171412] via-[#141210] to-[#0f0e0d] border border-amber-600/70 rounded-xl p-3 shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="w-9 h-9 rounded-xl bg-amber-950/80 border border-amber-500/80 flex items-center justify-center text-lg shrink-0 shadow-[0_0_12px_rgba(245,158,11,0.3)]">
             🕶️
@@ -88,7 +88,7 @@ export const AdventureLog: React.FC<AdventureLogProps> = ({ logs, jayQuote }) =>
             </p>
           </div>
         </div>
-      )}
+      ) */}
     </div>
   );
 };

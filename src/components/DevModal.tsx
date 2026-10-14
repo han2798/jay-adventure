@@ -52,6 +52,7 @@ interface DevModalProps {
   isRainyWeatherActive?: boolean;
   onToggleRainyWeather?: (active: boolean) => void;
   onFastForwardRainRounds?: () => void;
+  onFastForwardRainNight?: () => void;
   currentCoins?: number;
   onSetCoins?: (coins: number) => void;
 }
@@ -100,6 +101,7 @@ export const DevModal: React.FC<DevModalProps> = ({
   isRainyWeatherActive = false,
   onToggleRainyWeather,
   onFastForwardRainRounds,
+  onFastForwardRainNight,
   currentCoins = 0,
   onSetCoins,
 }) => {
@@ -790,16 +792,30 @@ export const DevModal: React.FC<DevModalProps> = ({
                     </button>
                   )}
                   {onFastForwardRainRounds && isRainyWeatherActive && (
-                    <button
-                      onClick={() => {
-                        onFastForwardRainRounds();
-                        showFeedback('已連動觸發下雨天滿 5 回合！立即觸發居中《聽見下雨的聲音》！');
-                      }}
-                      className="w-full text-[10px] py-1 rounded bg-sky-900/60 hover:bg-sky-800 text-sky-200 border border-sky-600 font-bold cursor-pointer transition-colors"
-                      title="快進下雨經歷滿 5 回合以觸發聽見下雨的聲音連動（支援重複使用測試）"
-                    >
-                      ⚡ 歷經滿5回合 (觸發聽雨)
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => {
+                          onFastForwardRainRounds();
+                          showFeedback('已連動觸發下雨天滿 5 回合！立即觸發居中《聽見下雨的聲音》！');
+                        }}
+                        className="flex-1 text-[10px] py-1 rounded bg-sky-900/60 hover:bg-sky-800 text-sky-200 border border-sky-600 font-bold cursor-pointer transition-colors"
+                        title="快進下雨經歷滿 5 回合以觸發聽見下雨的聲音連動（支援重複使用測試）"
+                      >
+                        ⚡ 滿5回 (聽雨)
+                      </button>
+                      {onFastForwardRainNight && (
+                        <button
+                          onClick={() => {
+                            onFastForwardRainNight();
+                            showFeedback('已快進經歷雨天滿 8 回合！晝夜雨夜計量條達到滿額！');
+                          }}
+                          className="flex-1 text-[10px] py-1 rounded bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 border border-indigo-600 font-bold cursor-pointer transition-colors"
+                          title="快進下雨經歷滿 8 回合以測試晝夜雨夜計量條蓄滿效果"
+                        >
+                          🌙 滿8回 (夜雨)
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

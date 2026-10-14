@@ -108,11 +108,11 @@ export const GoldTownDigModal: React.FC<GoldTownDigModalProps> = ({
     });
   };
 
-  // 監聽 ESC 鍵：隨時按下 ESC 均安全結算當前收穫，不漏掉任何寶物或金幣
+  // 監聽 ESC 鍵：當 10 次挖掘耗盡或全圖揭曉時，按下 ESC 安全結算
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && (digsRemaining === 0 || isMapRevealed)) {
         e.preventDefault();
         e.stopPropagation();
         handleFinish();
@@ -120,7 +120,7 @@ export const GoldTownDigModal: React.FC<GoldTownDigModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, foundItems, foundCoins]);
+  }, [isOpen, foundItems, foundCoins, digsRemaining, isMapRevealed]);
 
   if (!isOpen) return null;
 
@@ -264,13 +264,20 @@ export const GoldTownDigModal: React.FC<GoldTownDigModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={handleFinish}
-            className="text-stone-400 hover:text-stone-200 text-sm px-2 py-1 rounded bg-stone-800/50 hover:bg-stone-700/50 cursor-pointer"
-            title="關閉並結算當前收穫"
-          >
-            ✕
-          </button>
+
+          {(digsRemaining === 0 || isMapRevealed) ? (
+            <button
+              onClick={handleFinish}
+              className="text-stone-400 hover:text-stone-200 text-sm px-2.5 py-1 rounded-lg bg-stone-800/70 hover:bg-stone-700 cursor-pointer border border-stone-700/60"
+              title="完成探勘並結算"
+            >
+              ✕
+            </button>
+          ) : (
+            <span className="text-[11px] text-amber-400/80 bg-amber-950/40 border border-amber-800/40 px-2.5 py-1 rounded-lg font-mono">
+              探勘中 (需挖滿 10 次)
+            </span>
+          )}
         </div>
 
         {/* Status Bar */}
@@ -571,9 +578,9 @@ export const GoldTownDigModal: React.FC<GoldTownDigModalProps> = ({
             {isMapRevealed ? (
               <span className="text-amber-300 font-bold">全圖已揭曉，請點擊右側確認結算</span>
             ) : digsRemaining === 0 ? (
-              <span className="text-amber-300 font-bold">挖掘次數已用盡，請點擊結算</span>
+              <span className="text-amber-300 font-bold">10 次挖掘已完成，請點擊右側進行結算</span>
             ) : (
-              <span>點擊上方礦坑方格探勘</span>
+              <span>請點擊上方礦坑方格探勘（剩餘 <span className="text-amber-400 font-mono font-bold">{digsRemaining}</span> 次）</span>
             )}
           </span>
 
@@ -587,12 +594,9 @@ export const GoldTownDigModal: React.FC<GoldTownDigModalProps> = ({
               </button>
             ) : digsRemaining > 0 ? (
               <div className="flex items-center gap-2">
-                  <button
-                  onClick={handleFinish}
-                  className="px-4 py-2 rounded-xl bg-amber-950/60 hover:bg-amber-900 border border-amber-700/60 text-amber-200 text-xs font-bold transition-all cursor-pointer"
-                >
-                  收工結算（保留當前）
-                </button>
+                <span className="text-[11px] text-stone-500 bg-stone-900 px-3 py-1.5 rounded-lg border border-stone-800">
+                  尚有 {digsRemaining} 次挖掘未用
+                </span>
               </div>
             ) : (
               <button

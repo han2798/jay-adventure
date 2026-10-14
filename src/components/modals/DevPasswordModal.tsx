@@ -1,3 +1,4 @@
+// 開發者密碼驗證對話框組件
 import React, { useState } from 'react';
 
 interface DevPasswordModalProps {
@@ -11,7 +12,8 @@ export function DevPasswordModal({ onClose, onSuccess }: DevPasswordModalProps) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === '816132') {
+    // 開發者管理密碼：1028
+    if (password.trim() === '1028') {
       onSuccess();
     } else {
       setError(true);
@@ -35,7 +37,7 @@ export function DevPasswordModal({ onClose, onSuccess }: DevPasswordModalProps) 
                 setPassword(e.target.value);
                 setError(false);
               }}
-              placeholder="請輸入 6 位數開發密碼..."
+              placeholder="請輸入開發管理密碼..."
               className="w-full bg-stone-900/90 border border-stone-700 rounded-xl px-4 py-3 text-center text-stone-100 placeholder-stone-600 focus:outline-none focus:border-amber-500/80 transition-colors tracking-widest text-lg font-mono"
               autoFocus
             />
@@ -65,3 +67,5 @@ export function DevPasswordModal({ onClose, onSuccess }: DevPasswordModalProps) 
     </div>
   );
 }
+
+

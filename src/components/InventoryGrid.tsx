@@ -115,25 +115,27 @@ export const InventoryGrid: React.FC<InventoryGridProps> = ({
             top: Math.max(16, hoveredItem.y - (hoveredItem.info.description ? 120 : 50)),
           }}
         >
-          {hoveredItem.info.description ? (
+          {(hoveredItem.info.description || hoveredItem.info.category || (hoveredItem.info.name && hoveredItem.info.name !== hoveredItem.name)) ? (
             /* 指定的特殊物品：顯示完整詳細介紹視窗 */
             <div className="bg-[#121215] border border-emerald-500/70 rounded-xl p-3.5 shadow-[0_10px_25px_rgba(0,0,0,0.85)] backdrop-blur-md flex flex-col gap-2">
-              <div className="flex items-center justify-between border-b border-stone-800 pb-1.5">
-                <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-between border-b border-stone-800 pb-1.5 gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
                   <span className="text-emerald-400 text-sm">🌿</span>
-                  <span className="font-bold text-stone-100 text-sm font-serif">
-                    {hoveredItem.info.name}
+                  <span className="font-bold text-stone-100 text-sm font-serif truncate">
+                    {hoveredItem.info.name || hoveredItem.name}
                   </span>
                 </div>
                 {hoveredItem.info.category && (
-                  <span className="text-[11px] text-emerald-300/90 bg-emerald-950/90 px-2 py-0.5 rounded border border-emerald-800/50 font-mono font-medium">
+                  <span className="text-[11px] text-emerald-300/90 bg-emerald-950/90 px-2 py-0.5 rounded border border-emerald-800/50 font-mono font-medium shrink-0">
                     {hoveredItem.info.category}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-stone-300 leading-relaxed font-sans">
-                {hoveredItem.info.description}
-              </p>
+              {hoveredItem.info.description && (
+                <p className="text-xs text-stone-300 leading-relaxed font-sans">
+                  {hoveredItem.info.description}
+                </p>
+              )}
             </div>
           ) : (
             /* 未指定之一般物品：視窗只顯示卡牌名稱 */

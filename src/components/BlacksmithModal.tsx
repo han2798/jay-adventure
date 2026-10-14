@@ -55,19 +55,24 @@ export const BlacksmithModal: React.FC<BlacksmithModalProps> = ({
   let hasRequiredNextPage = false;
   let isFullyUpgraded = false;
 
-  if (!pages.firstPage) {
+  const hasFirstPage = Boolean(pages.firstPage || (pages as any).page1 || (pages as any).first_page);
+  const hasSixthPage = Boolean(pages.sixthPage || (pages as any).page6 || (pages as any).sixth_page);
+  const hasSeventhPage = Boolean(pages.seventhPage || (pages as any).page7 || (pages as any).seventh_page);
+  const hasPreface = Boolean(pages.preface);
+
+  if (!hasFirstPage) {
     nextStageName = '第一頁';
     nextStageBonus = '+1 格容量';
     hasRequiredNextPage = firstPageCount >= 1;
-  } else if (!pages.sixthPage) {
+  } else if (!hasSixthPage) {
     nextStageName = '第六頁';
     nextStageBonus = '+6 格容量';
     hasRequiredNextPage = sixthPageCount >= 1;
-  } else if (!pages.seventhPage) {
+  } else if (!hasSeventhPage) {
     nextStageName = '第七頁';
     nextStageBonus = '+7 格容量';
     hasRequiredNextPage = seventhPageCount >= 1;
-  } else if (!pages.preface) {
+  } else if (!hasPreface) {
     nextStageName = '序';
     nextStageBonus = '啟動跨局繼承角色';
     hasRequiredNextPage = prefaceCount >= 1;
@@ -75,7 +80,8 @@ export const BlacksmithModal: React.FC<BlacksmithModalProps> = ({
     isFullyUpgraded = true;
   }
 
-  const canExpandIronBox = ironBoxCount >= 1 && hasRequiredNextPage && !isFullyUpgraded;
+  const hasIronBox = ironBoxCount >= 1 || hasFirstPage || hasSixthPage || hasSeventhPage || hasPreface;
+  const canExpandIronBox = hasIronBox && hasRequiredNextPage && !isFullyUpgraded;
 
   const handleAction = (
     type:

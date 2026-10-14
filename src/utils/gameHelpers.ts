@@ -103,11 +103,15 @@ export function exchangeInventoryItems(
   };
 }
 
+import { CARD_DATABASE } from '../data/cards';
+
 /**
- * 判定物品是否受到半島鐵盒限制
+ * 判定物品是否受到半島鐵盒限制（不可透過半島鐵盒跨局繼承，如《最後的戰役》）
  */
 export function isItemPeninsulaRestricted(itemName: string): boolean {
-  return false;
+  if (itemName === '最後的戰役') return true;
+  const cardDef = CARD_DATABASE.find((c) => c.name === itemName);
+  return Boolean(cardDef?.isPeninsulaRestricted);
 }
 
 /**
